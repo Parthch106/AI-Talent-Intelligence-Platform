@@ -1,0 +1,90 @@
+backend/
+│
+├── manage.py
+├── requirements.txt
+├── .env
+│
+├── config/                     # Project-level configuration
+│   ├── __init__.py
+│   ├── settings/
+│   │   ├── __init__.py
+│   │   ├── base.py              # Common settings
+│   │   ├── dev.py               # Development config
+│   │   └── prod.py              # Production config
+│   │
+│   ├── urls.py                  # Root URL routing
+│   ├── asgi.py
+│   └── wsgi.py
+│
+├── apps/                        # All domain modules live here
+│   │
+│   ├── accounts/                # Auth & user management
+│   │   ├── migrations/
+│   │   ├── __init__.py
+│   │   ├── models.py            # Custom User model
+│   │   ├── serializers.py
+│   │   ├── views.py
+│   │   ├── urls.py
+│   │   └── permissions.py
+│   │
+│   ├── interns/                 # Intern core data
+│   │   ├── migrations/
+│   │   ├── __init__.py
+│   │   ├── models.py            # Intern profile
+│   │   ├── serializers.py
+│   │   ├── views.py
+│   │   └── urls.py
+│   │
+│   ├── documents/               # Resume & file uploads
+│   │   ├── migrations/
+│   │   ├── __init__.py
+│   │   ├── models.py            # Resume / documents
+│   │   ├── serializers.py
+│   │   ├── views.py
+│   │   └── urls.py
+│   │
+│   ├── assessments/             # Tests, evaluations
+│   │   ├── migrations/
+│   │   ├── __init__.py
+│   │   ├── models.py            # Scores & attempts
+│   │   ├── serializers.py
+│   │   ├── views.py
+│   │   └── urls.py
+│   │
+│   ├── feedback/                # Mentor/manager feedback
+│   │   ├── migrations/
+│   │   ├── __init__.py
+│   │   ├── models.py            # Text + ratings
+│   │   ├── serializers.py
+│   │   ├── views.py
+│   │   └── urls.py
+│   │
+│   ├── analytics/               # Rule-based analytics (Phase 1)
+│   │   ├── __init__.py
+│   │   ├── services.py          # Aggregation logic
+│   │   ├── views.py
+│   │   └── urls.py
+│   │
+│   ├── roles/                   # RBAC & permissions
+│   │   ├── __init__.py
+│   │   ├── models.py
+│   │   ├── services.py
+│   │   └── views.py
+│   │
+│   └── system/                  # Health & system APIs
+│       ├── __init__.py
+│       ├── views.py
+│       └── urls.py
+│
+├── core/                        # Shared utilities
+│   ├── __init__.py
+│   ├── permissions.py           # Global permissions
+│   ├── pagination.py
+│   ├── responses.py             # Standard API responses
+│   └── exceptions.py
+│
+├── media/                       # Uploaded resumes/files
+│
+├── logs/                        # App logs
+│
+└── scripts/                     # Management / seed scripts

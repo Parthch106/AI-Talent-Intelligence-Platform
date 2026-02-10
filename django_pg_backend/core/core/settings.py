@@ -41,11 +41,31 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'api',
+    "apps.accounts",
+    "apps.interns",
+    "apps.documents",
+    "apps.assessments",
+    "apps.feedback",
+    "apps.analytics",
+    "apps.roles",
+    "apps.system",
+    "apps.projects",
+    "corsheaders",
+    'rest_framework',
 ]
+
+AUTH_USER_MODEL = "accounts.User"
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -77,16 +97,21 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv("DB_NAME"),
-        'USER': os.getenv("DB_USER"),
-        'PASSWORD': os.getenv("DB_PASSWORD"),
-        'HOST': os.getenv("DB_HOST"),
-        'PORT': os.getenv("DB_PORT"),
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB"),
+        "USER": os.getenv("POSTGRES_USER"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
+        "HOST": os.getenv("POSTGRES_HOST"),
+        "PORT": os.getenv("POSTGRES_PORT"),
     }
 }
+
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+DEBUG = os.getenv("DJANGO_DEBUG") == "True"
+AUTH_USER_MODEL = "accounts.User"
 
 
 # Password validation
@@ -124,3 +149,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+

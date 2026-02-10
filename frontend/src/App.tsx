@@ -1,12 +1,15 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate, Outlet } from 'react-router-dom';
 import { LayoutDashboard, Users, FolderKanban, BarChart3, Settings, Bell } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import InternList from './pages/InternList';
 import ProjectList from './pages/ProjectList';
+import ManagerDashboard from './pages/ManagerDashboard';
+import Login from './pages/Login';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
 const Sidebar = () => {
-  // ... (Sidebar content)
   const location = useLocation();
 
   const navItems = [
@@ -43,37 +46,58 @@ const Sidebar = () => {
   );
 };
 
-const Header = () => (
-  <header className="header">
-    <div>
-      <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Overview</h1>
-      <p style={{ color: 'var(--text-dim)', margin: 0 }}>Welcome back, Intern Manager</p>
+const Header = () => {
+  const { user, logout } = useAuth();
+  return (
+    <header className="header">
+      <div>
+        <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Overview</h1>
+        <p style={{ color: 'var(--text-dim)', margin: 0 }}>Welcome back, {user?.email}</p>
+      </div>
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <button style={{ background: 'transparent', border: '1px solid var(--border-color)', padding: '0.5rem' }}>
+          <Bell size={20} color="var(--text-dim)" />
+        </button>
+        <button onClick={logout} style={{ background: 'transparent', border: '1px solid var(--border-color)', padding: '0.5rem', color: 'var(--text-dim)', cursor: 'pointer' }}>
+          Logout
+        </button>
+        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary-color)' }}></div>
+      </div>
+    </header>
+  );
+};
+
+const AppLayout = () => {
+  return (
+    <div className="app-container">
+      <Sidebar />
+      <main className="main-content">
+        <Header />
+        <Outlet />
+      </main>
     </div>
-    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-      <button style={{ background: 'transparent', border: '1px solid var(--border-color)', padding: '0.5rem' }}>
-        <Bell size={20} color="var(--text-dim)" />
-      </button>
-      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary-color)' }}></div>
-    </div>
-  </header>
-);
+  )
+}
 
 const App: React.FC = () => {
   return (
-    <Router>
-      <div className="app-container">
-        <Sidebar />
-        <main className="main-content">
-          <Header />
-          <Routes>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+
+          <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/interns" element={<InternList />} />
             <Route path="/projects" element={<ProjectList />} />
+            <Route path="/manager" element={<ManagerDashboard />} />
             <Route path="/reports" element={<div>Reports Coming Soon</div>} />
-          </Routes>
-        </main>
-      </div>
-    </Router>
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 };
 
