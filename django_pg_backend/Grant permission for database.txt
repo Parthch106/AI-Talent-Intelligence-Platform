@@ -1,0 +1,17 @@
+🔹 Step 2: Grant Schema Permissions (IMPORTANT)
+
+Run exactly this:
+
+GRANT ALL ON SCHEMA public TO django_user;
+ALTER SCHEMA public OWNER TO django_user;
+
+
+💥 This is the missing piece.
+
+🔹 Step 3: Grant DB Permissions (Safe to run again)
+GRANT ALL PRIVILEGES ON DATABASE django_db TO django_user;
+
+
+(Optional but recommended)
+
+ALTER DATABASE django_db OWNER TO django_user;
