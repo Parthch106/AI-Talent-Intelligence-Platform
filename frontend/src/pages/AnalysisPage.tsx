@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, User, TrendingUp, Brain, Award, AlertTriangle, CheckCircle, ChevronDown, RefreshCw, FileText, Target, Shield, Zap } from 'lucide-react';
+import { Search, User, TrendingUp, Brain, Award, AlertTriangle, CheckCircle, ChevronDown, RefreshCw, FileText, Target, Shield, Zap, Mail, Building } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import Card from '../components/common/Card';
+import Badge from '../components/common/Badge';
+import Button from '../components/common/Button';
 
 interface Intern {
     id: number;
@@ -29,7 +32,6 @@ interface IntelligenceData {
         severity: string;
         message: string;
     }>;
-    // Phase 2 - Part 1: Resume Analysis Fields
     resume_analysis?: {
         applied_role?: string;
         years_of_education?: number;
@@ -69,15 +71,10 @@ const AnalysisPage: React.FC = () => {
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
 
-    // Fetch interns based on role
     useEffect(() => {
         const fetchInterns = async () => {
-            // Only fetch interns for admins and managers
-            if (user?.role !== 'ADMIN' && user?.role !== 'MANAGER') {
-                return;
-            }
+            if (user?.role !== 'ADMIN' && user?.role !== 'MANAGER') return;
             try {
-                // For now, fetch all interns - backend will filter by department for managers
                 const response = await api.get('/accounts/users/?role=INTERN');
                 setInterns(response.data.results || response.data);
             } catch (err) {
@@ -87,7 +84,6 @@ const AnalysisPage: React.FC = () => {
         fetchInterns();
     }, [user]);
 
-    // Fetch intelligence data when intern is selected
     useEffect(() => {
         if (selectedInternId) {
             fetchIntelligence(selectedInternId);
@@ -115,9 +111,8 @@ const AnalysisPage: React.FC = () => {
         setError('');
         setSuccessMessage('');
         try {
-            const response = await api.post(`/analytics/intelligence/compute/${internId}/`);
+            await api.post(`/analytics/intelligence/compute/${internId}/`);
             setSuccessMessage('Intelligence computed successfully!');
-            // Fetch the updated intelligence data
             await fetchIntelligence(internId);
         } catch (err: any) {
             setError(err.response?.data?.error || 'Failed to compute intelligence');
@@ -126,7 +121,6 @@ const AnalysisPage: React.FC = () => {
         }
     };
 
-    // Filter interns based on search
     const filteredInterns = useMemo(() => {
         return interns.filter(intern =>
             intern.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -135,14 +129,18 @@ const AnalysisPage: React.FC = () => {
         );
     }, [interns, searchTerm]);
 
-    // Get selected intern details
     const selectedIntern = interns.find(i => i.id === selectedInternId);
 
-    // Score color helper
     const getScoreColor = (score: number) => {
-        if (score >= 0.7) return '#10b981'; // Green
-        if (score >= 0.5) return '#f59e0b'; // Orange
-        return '#ef4444'; // Red
+        if (score >= 0.7) return 'text-emerald-400';
+        if (score >= 0.5) return 'text-amber-400';
+        return 'text-red-400';
+    };
+
+    const getScoreBgColor = (score: number) => {
+        if (score >= 0.7) return 'bg-emerald-500';
+        if (score >= 0.5) return 'bg-amber-500';
+        return 'bg-red-500';
     };
 
     const getScoreLabel = (score: number) => {
@@ -151,104 +149,48 @@ const AnalysisPage: React.FC = () => {
         return 'Low';
     };
 
-    // Phase 2 - Part 1: Helper functions for resume analysis
     const getSuitabilityColor = (score: number) => {
-        if (score >= 80) return '#10b981'; // Green
-        if (score >= 60) return '#f59e0b'; // Orange
-        return '#ef4444'; // Red
+        if (score >= 80) return 'text-emerald-400';
+        if (score >= 60) return 'text-amber-400';
+        return 'text-red-400';
     };
 
-    const getDecisionBackground = (decision?: string) => {
+    const getDecisionBadge = (decision?: string) => {
         switch (decision) {
-            case 'INTERVIEW_SHORTLIST':
-                return 'rgba(16, 185, 129, 0.1)';
-            case 'MANUAL_REVIEW':
-                return 'rgba(245, 158, 11, 0.1)';
-            case 'REJECT':
-                return 'rgba(239, 68, 68, 0.1)';
-            case 'NEEDS_IMPROVEMENT':
-                return 'rgba(139, 92, 246, 0.1)';
-            default:
-                return 'var(--bg)';
+            case 'INTERVIEW_SHORTLIST': return <Badge variant="success" withDot>Interview Shortlist</Badge>;
+            case 'MANUAL_REVIEW': return <Badge variant="warning" withDot>Manual Review</Badge>;
+            case 'REJECT': return <Badge variant="danger" withDot>Not Suitable</Badge>;
+            case 'NEEDS_IMPROVEMENT': return <Badge variant="purple" withDot>Needs Improvement</Badge>;
+            default: return <Badge variant="default">Pending</Badge>;
         }
     };
 
-    const getDecisionBorderColor = (decision?: string) => {
-        switch (decision) {
-            case 'INTERVIEW_SHORTLIST':
-                return '#10b981';
-            case 'MANUAL_REVIEW':
-                return '#f59e0b';
-            case 'REJECT':
-                return '#ef4444';
-            case 'NEEDS_IMPROVEMENT':
-                return '#8b5cf6';
-            default:
-                return 'var(--border-color)';
-        }
+    const getInitials = (name: string) => {
+        return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'NA';
     };
 
-    const getDecisionIcon = (decision?: string) => {
-        switch (decision) {
-            case 'INTERVIEW_SHORTLIST':
-                return <CheckCircle size={24} color="#10b981" />;
-            case 'MANUAL_REVIEW':
-                return <AlertTriangle size={24} color="#f59e0b" />;
-            case 'REJECT':
-                return <AlertTriangle size={24} color="#ef4444" />;
-            case 'NEEDS_IMPROVEMENT':
-                return <Zap size={24} color="#8b5cf6" />;
-            default:
-                return null;
-        }
-    };
-
-    const getDecisionLabel = (decision?: string) => {
-        switch (decision) {
-            case 'INTERVIEW_SHORTLIST':
-                return 'Interview Shortlist';
-            case 'MANUAL_REVIEW':
-                return 'Manual Review';
-            case 'REJECT':
-                return 'Not Suitable';
-            case 'NEEDS_IMPROVEMENT':
-                return 'Needs Improvement';
-            default:
-                return 'Pending';
-        }
-    };
-
-    const getDecisionDescription = (decision?: string) => {
-        switch (decision) {
-            case 'INTERVIEW_SHORTLIST':
-                return 'Candidate meets requirements for interview';
-            case 'MANUAL_REVIEW':
-                return 'Consider after manual review';
-            case 'REJECT':
-                return 'Does not meet minimum requirements';
-            case 'NEEDS_IMPROVEMENT':
-                return 'Needs skill improvement before consideration';
-            default:
-                return 'Analysis pending';
-        }
-    };
-
-    // Don't show page for interns
     if (user?.role === 'INTERN') {
         return (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>
-                <AlertTriangle size={48} style={{ marginBottom: '1rem' }} />
-                <h2>Access Denied</h2>
-                <p>You don't have permission to view this page.</p>
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <Card className="text-center py-12 max-w-md">
+                    <div className="w-20 h-20 mx-auto mb-4 bg-red-500/10 rounded-2xl flex items-center justify-center">
+                        <AlertTriangle size={32} className="text-red-400" />
+                    </div>
+                    <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
+                    <p className="text-slate-400">You don't have permission to view this page.</p>
+                </Card>
             </div>
         );
     }
 
     return (
-        <div style={{ padding: '1.5rem' }}>
-            <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ marginBottom: '0.5rem' }}>Intern Analysis</h1>
-                <p style={{ color: 'var(--text-dim)' }}>
+        <div className="space-y-6 animate-fade-in">
+            {/* Page Header */}
+            <div>
+                <h1 className="text-3xl font-bold text-white mb-2">
+                    Intern <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Analysis</span>
+                </h1>
+                <p className="text-slate-400">
                     {user?.role === 'ADMIN'
                         ? 'View analytics for all interns across the organization'
                         : `View analytics for interns in your department (${user?.department})`}
@@ -256,92 +198,53 @@ const AnalysisPage: React.FC = () => {
             </div>
 
             {/* Intern Selection */}
-            <div style={{ marginBottom: '2rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-                    Select Intern
-                </label>
-                <div style={{ position: 'relative', maxWidth: '400px' }}>
-                    <div
+            <div className="relative max-w-md">
+                <label className="block text-sm font-medium text-slate-300 mb-2">Select Intern</label>
+                <div className="relative">
+                    <button
                         onClick={() => setShowDropdown(!showDropdown)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            padding: '0.75rem 1rem',
-                            background: 'var(--card-bg)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '0.5rem',
-                            cursor: 'pointer',
-                            color: selectedIntern ? 'white' : 'var(--text-dim)'
-                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-left hover:border-purple-500/50 transition-all"
                     >
-                        <User size={20} />
-                        <span style={{ flex: 1 }}>
+                        <User size={20} className="text-purple-400" />
+                        <span className={`flex-1 ${selectedIntern ? 'text-white' : 'text-slate-400'}`}>
                             {selectedIntern
                                 ? `${selectedIntern.full_name} (${selectedIntern.department})`
                                 : 'Search or select an intern...'}
                         </span>
-                        <ChevronDown size={20} style={{ transform: showDropdown ? 'rotate(180deg)' : 'none' }} />
-                    </div>
+                        <ChevronDown size={20} className={`text-slate-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+                    </button>
 
-                    {/* Search Input */}
                     {showDropdown && (
-                        <div style={{
-                            position: 'absolute',
-                            top: '100%',
-                            left: 0,
-                            right: 0,
-                            marginTop: '0.5rem',
-                            background: 'var(--card-bg)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '0.5rem',
-                            zIndex: 100,
-                            overflow: 'hidden'
-                        }}>
-                            <div style={{ padding: '0.75rem', borderBottom: '1px solid var(--border-color)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <Search size={18} style={{ color: 'var(--text-dim)' }} />
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl shadow-purple-500/20 z-50 overflow-hidden animate-scale-in">
+                            <div className="p-3 border-b border-slate-700">
+                                <div className="flex items-center gap-2">
+                                    <Search size={18} className="text-slate-500" />
                                     <input
                                         type="text"
                                         placeholder="Search by name, email, or department..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        style={{
-                                            flex: 1,
-                                            background: 'transparent',
-                                            border: 'none',
-                                            outline: 'none',
-                                            color: 'white'
-                                        }}
+                                        className="flex-1 bg-transparent border-none outline-none text-white placeholder-slate-500"
                                     />
                                 </div>
                             </div>
-                            <div style={{ maxHeight: '300px', overflow: 'auto' }}>
+                            <div className="max-h-64 overflow-y-auto">
                                 {filteredInterns.length === 0 ? (
-                                    <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-dim)' }}>
-                                        No interns found
-                                    </div>
+                                    <div className="p-4 text-center text-slate-400">No interns found</div>
                                 ) : (
                                     filteredInterns.map(intern => (
-                                        <div
+                                        <button
                                             key={intern.id}
                                             onClick={() => {
                                                 setSelectedInternId(intern.id);
                                                 setShowDropdown(false);
                                                 setSearchTerm('');
                                             }}
-                                            style={{
-                                                padding: '0.75rem 1rem',
-                                                cursor: 'pointer',
-                                                borderBottom: '1px solid var(--border-color)',
-                                                background: selectedInternId === intern.id ? 'var(--primary-color)' : 'transparent'
-                                            }}
+                                            className={`w-full p-3 text-left hover:bg-purple-500/10 transition-colors ${selectedInternId === intern.id ? 'bg-purple-500/20' : ''}`}
                                         >
-                                            <div style={{ fontWeight: 500 }}>{intern.full_name}</div>
-                                            <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)' }}>
-                                                {intern.email} • {intern.department}
-                                            </div>
-                                        </div>
+                                            <div className="font-medium text-white">{intern.full_name}</div>
+                                            <div className="text-sm text-slate-400">{intern.email} • {intern.department}</div>
+                                        </button>
                                     ))
                                 )}
                             </div>
@@ -350,629 +253,271 @@ const AnalysisPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Error Message */}
+            {/* Messages */}
             {error && (
-                <div style={{
-                    padding: '1rem',
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid #ef4444',
-                    borderRadius: '0.5rem',
-                    marginBottom: '1rem',
-                    color: '#ef4444'
-                }}>
+                <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 flex items-center gap-2 animate-shake">
+                    <AlertTriangle size={18} />
                     {error}
                 </div>
             )}
-
-            {/* Success Message */}
             {successMessage && (
-                <div style={{
-                    padding: '1rem',
-                    background: 'rgba(16, 185, 129, 0.1)',
-                    border: '1px solid #10b981',
-                    borderRadius: '0.5rem',
-                    marginBottom: '1rem',
-                    color: '#10b981'
-                }}>
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 flex items-center gap-2">
+                    <CheckCircle size={18} />
                     {successMessage}
                 </div>
             )}
 
             {/* Analysis Content */}
             {loading ? (
-                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-dim)' }}>
-                    <div style={{ animation: 'pulse 1.5s infinite' }}>Loading analysis...</div>
+                <div className="flex items-center justify-center py-12">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+                        <p className="text-slate-400">Loading analysis...</p>
+                    </div>
                 </div>
             ) : intelligence && intelligence.scores ? (
-                <>
+                <div className="space-y-6">
                     {/* Selected Intern Header */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '1rem',
-                        padding: '1.5rem',
-                        background: 'var(--card-bg)',
-                        borderRadius: '0.75rem',
-                        marginBottom: '2rem'
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <div style={{
-                                width: '60px',
-                                height: '60px',
-                                borderRadius: '50%',
-                                background: 'var(--primary-color)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '1.5rem',
-                                fontWeight: 'bold'
-                            }}>
-                                {selectedIntern?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    <Card className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="relative">
+                                <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl blur opacity-40"></div>
+                                <div className="relative w-16 h-16 bg-gradient-to-br from-purple-500 via-pink-500 to-indigo-500 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                                    {getInitials(selectedIntern?.full_name || '')}
+                                </div>
                             </div>
                             <div>
-                                <h2 style={{ margin: 0 }}>{selectedIntern?.full_name}</h2>
-                                <p style={{ margin: '0.25rem 0 0', color: 'var(--text-dim)' }}>
-                                    {selectedIntern?.email} • {selectedIntern?.department}
-                                </p>
+                                <h2 className="text-xl font-bold text-white">{selectedIntern?.full_name}</h2>
+                                <div className="flex items-center gap-4 text-sm text-slate-400 mt-1">
+                                    <span className="flex items-center gap-1"><Mail size={14} className="text-purple-400" />{selectedIntern?.email}</span>
+                                    <span className="flex items-center gap-1"><Building size={14} className="text-purple-400" />{selectedIntern?.department}</span>
+                                </div>
                             </div>
                         </div>
-                        <button
+                        <Button
                             onClick={() => selectedInternId && computeIntelligence(selectedInternId as number)}
                             disabled={computing}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                padding: '0.75rem 1.5rem',
-                                background: computing ? 'var(--border-color)' : 'var(--primary-color)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '0.5rem',
-                                cursor: computing ? 'not-allowed' : 'pointer',
-                                fontSize: '0.875rem',
-                                fontWeight: 500
-                            }}
+                            gradient="purple"
+                            icon={<RefreshCw size={16} className={computing ? 'animate-spin' : ''} />}
                         >
-                            <RefreshCw size={16} style={{ animation: computing ? 'spin 1s linear infinite' : 'none' }} />
-                            {computing ? 'Computing...' : 'Recompute Intelligence'}
-                        </button>
-                    </div>
+                            {computing ? 'Computing...' : 'Recompute'}
+                        </Button>
+                    </Card>
 
                     {/* Score Cards */}
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                        gap: '1rem',
-                        marginBottom: '2rem'
-                    }}>
-                        {/* Technical Score */}
-                        <div className="card" style={{ padding: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                                <TrendingUp size={20} color="var(--primary-color)" />
-                                <h3 style={{ margin: 0, fontSize: '1rem' }}>Technical</h3>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                                <span style={{ fontSize: '2.5rem', fontWeight: 'bold', color: getScoreColor(intelligence.scores.technical) }}>
-                                    {(intelligence.scores.technical * 100).toFixed(0)}%
-                                </span>
-                                <span style={{ color: 'var(--text-dim)', fontSize: '0.875rem' }}>
-                                    {getScoreLabel(intelligence.scores.technical)}
-                                </span>
-                            </div>
-                            <div style={{ marginTop: '0.5rem' }}>
-                                <div style={{
-                                    height: '6px',
-                                    background: 'var(--bg)',
-                                    borderRadius: '3px',
-                                    overflow: 'hidden'
-                                }}>
-                                    <div style={{
-                                        width: `${intelligence.scores.technical * 100}%`,
-                                        height: '100%',
-                                        background: getScoreColor(intelligence.scores.technical),
-                                        transition: 'width 0.3s'
-                                    }} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {[
+                            { label: 'Technical', score: intelligence.scores.technical, icon: TrendingUp, color: 'from-purple-500 to-indigo-500' },
+                            { label: 'AI Readiness', score: intelligence.scores.ai_readiness, icon: Brain, color: 'from-violet-500 to-purple-500' },
+                            { label: 'Growth Potential', score: intelligence.scores.predicted_growth, icon: Award, color: 'from-amber-500 to-orange-500' },
+                            { label: 'Leadership', score: intelligence.scores.leadership, icon: User, color: 'from-cyan-500 to-blue-500' },
+                        ].map((item) => (
+                            <Card key={item.label} hover className="group">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className={`p-2 rounded-lg bg-gradient-to-br ${item.color}`}>
+                                        <item.icon size={16} className="text-white" />
+                                    </div>
+                                    <span className="text-sm text-slate-400">{item.label}</span>
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* AI Readiness Score */}
-                        <div className="card" style={{ padding: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                                <Brain size={20} color="#8b5cf6" />
-                                <h3 style={{ margin: 0, fontSize: '1rem' }}>AI Readiness</h3>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                                <span style={{ fontSize: '2.5rem', fontWeight: 'bold', color: getScoreColor(intelligence.scores.ai_readiness) }}>
-                                    {(intelligence.scores.ai_readiness * 100).toFixed(0)}%
-                                </span>
-                                <span style={{ color: 'var(--text-dim)', fontSize: '0.875rem' }}>
-                                    {getScoreLabel(intelligence.scores.ai_readiness)}
-                                </span>
-                            </div>
-                            <div style={{ marginTop: '0.5rem' }}>
-                                <div style={{
-                                    height: '6px',
-                                    background: 'var(--bg)',
-                                    borderRadius: '3px',
-                                    overflow: 'hidden'
-                                }}>
-                                    <div style={{
-                                        width: `${intelligence.scores.ai_readiness * 100}%`,
-                                        height: '100%',
-                                        background: '#8b5cf6',
-                                        transition: 'width 0.3s'
-                                    }} />
+                                <div className="flex items-baseline gap-2">
+                                    <span className={`text-3xl font-bold ${getScoreColor(item.score)}`}>
+                                        {(item.score * 100).toFixed(0)}%
+                                    </span>
+                                    <span className="text-sm text-slate-500">{getScoreLabel(item.score)}</span>
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* Growth Score */}
-                        <div className="card" style={{ padding: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                                <Award size={20} color="#f59e0b" />
-                                <h3 style={{ margin: 0, fontSize: '1rem' }}>Growth Potential</h3>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                                <span style={{ fontSize: '2.5rem', fontWeight: 'bold', color: getScoreColor(intelligence.scores.predicted_growth) }}>
-                                    {(intelligence.scores.predicted_growth * 100).toFixed(0)}%
-                                </span>
-                                <span style={{ color: 'var(--text-dim)', fontSize: '0.875rem' }}>
-                                    {getScoreLabel(intelligence.scores.predicted_growth)}
-                                </span>
-                            </div>
-                            <div style={{ marginTop: '0.5rem' }}>
-                                <div style={{
-                                    height: '6px',
-                                    background: 'var(--bg)',
-                                    borderRadius: '3px',
-                                    overflow: 'hidden'
-                                }}>
-                                    <div style={{
-                                        width: `${intelligence.scores.predicted_growth * 100}%`,
-                                        height: '100%',
-                                        background: '#f59e0b',
-                                        transition: 'width 0.3s'
-                                    }} />
+                                <div className="mt-3 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full ${getScoreBgColor(item.score)} transition-all duration-500`}
+                                        style={{ width: `${item.score * 100}%` }}
+                                    />
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* Leadership Score */}
-                        <div className="card" style={{ padding: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                                <User size={20} color="#06b6d4" />
-                                <h3 style={{ margin: 0, fontSize: '1rem' }}>Leadership</h3>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                                <span style={{ fontSize: '2.5rem', fontWeight: 'bold', color: getScoreColor(intelligence.scores.leadership) }}>
-                                    {(intelligence.scores.leadership * 100).toFixed(0)}%
-                                </span>
-                                <span style={{ color: 'var(--text-dim)', fontSize: '0.875rem' }}>
-                                    {getScoreLabel(intelligence.scores.leadership)}
-                                </span>
-                            </div>
-                            <div style={{ marginTop: '0.5rem' }}>
-                                <div style={{
-                                    height: '6px',
-                                    background: 'var(--bg)',
-                                    borderRadius: '3px',
-                                    overflow: 'hidden'
-                                }}>
-                                    <div style={{
-                                        width: `${intelligence.scores.leadership * 100}%`,
-                                        height: '100%',
-                                        background: '#06b6d4',
-                                        transition: 'width 0.3s'
-                                    }} />
-                                </div>
-                            </div>
-                        </div>
+                            </Card>
+                        ))}
                     </div>
 
-                    {/* Additional Scores Grid */}
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                        gap: '1rem',
-                        marginBottom: '2rem'
-                    }}>
-                        {/* Communication */}
-                        <div className="card" style={{ padding: '1rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>Communication</span>
-                                <span style={{ fontWeight: 'bold', color: getScoreColor(intelligence.scores.communication) }}>
-                                    {(intelligence.scores.communication * 100).toFixed(0)}%
-                                </span>
-                            </div>
-                            <div style={{ marginTop: '0.5rem' }}>
-                                <div style={{ height: '4px', background: 'var(--bg)', borderRadius: '2px', overflow: 'hidden' }}>
-                                    <div style={{
-                                        width: `${intelligence.scores.communication * 100}%`,
-                                        height: '100%',
-                                        background: getScoreColor(intelligence.scores.communication)
-                                    }} />
+                    {/* Additional Scores */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[
+                            { label: 'Communication', score: intelligence.scores.communication },
+                            { label: 'Culture Fit', score: intelligence.scores.culture_fit },
+                        ].map((item) => (
+                            <Card key={item.label} className="flex items-center justify-between">
+                                <span className="text-slate-300">{item.label}</span>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full ${getScoreBgColor(item.score)} transition-all`}
+                                            style={{ width: `${item.score * 100}%` }}
+                                        />
+                                    </div>
+                                    <span className={`font-bold ${getScoreColor(item.score)}`}>
+                                        {(item.score * 100).toFixed(0)}%
+                                    </span>
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* Culture Fit */}
-                        <div className="card" style={{ padding: '1rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>Culture Fit</span>
-                                <span style={{ fontWeight: 'bold', color: getScoreColor(intelligence.scores.culture_fit) }}>
-                                    {(intelligence.scores.culture_fit * 100).toFixed(0)}%
-                                </span>
-                            </div>
-                            <div style={{ marginTop: '0.5rem' }}>
-                                <div style={{ height: '4px', background: 'var(--bg)', borderRadius: '2px', overflow: 'hidden' }}>
-                                    <div style={{
-                                        width: `${intelligence.scores.culture_fit * 100}%`,
-                                        height: '100%',
-                                        background: getScoreColor(intelligence.scores.culture_fit)
-                                    }} />
-                                </div>
-                            </div>
-                        </div>
+                            </Card>
+                        ))}
                     </div>
 
-                    {/* Phase 2 - Part 1: Resume Analysis Section */}
+                    {/* Resume Analysis */}
                     {intelligence.resume_analysis && (
-                        <>
-                            {/* Suitability Score & Decision */}
-                            <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem', borderLeft: '4px solid var(--primary-color)' }}>
-                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                                    <FileText size={20} color="var(--primary-color)" />
-                                    Resume Suitability Analysis
-                                </h3>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                                    {/* Suitability Score */}
+                        <div className="space-y-6">
+                            {/* Suitability Score */}
+                            <Card className="border-l-4 border-l-purple-500">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <FileText size={20} className="text-purple-400" />
+                                    <h3 className="text-lg font-semibold text-white">Resume Suitability Analysis</h3>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>
-                                            Suitability Score
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                                            <span style={{ fontSize: '3rem', fontWeight: 'bold', color: getSuitabilityColor(intelligence.resume_analysis.suitability_score || 0) }}>
+                                        <p className="text-sm text-slate-400 mb-2">Suitability Score</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className={`text-4xl font-bold ${getSuitabilityColor(intelligence.resume_analysis.suitability_score || 0)}`}>
                                                 {intelligence.resume_analysis.suitability_score?.toFixed(0) || 0}
                                             </span>
-                                            <span style={{ fontSize: '1.5rem', color: 'var(--text-dim)' }}>/100</span>
+                                            <span className="text-xl text-slate-500">/100</span>
                                         </div>
-                                        <div style={{ marginTop: '0.5rem' }}>
-                                            <div style={{
-                                                height: '8px',
-                                                background: 'var(--bg)',
-                                                borderRadius: '4px',
-                                                overflow: 'hidden'
-                                            }}>
-                                                <div style={{
-                                                    width: `${intelligence.resume_analysis.suitability_score || 0}%`,
-                                                    height: '100%',
-                                                    background: getSuitabilityColor(intelligence.resume_analysis.suitability_score || 0),
-                                                    transition: 'width 0.3s'
-                                                }} />
-                                            </div>
+                                        <div className="mt-3 h-3 bg-slate-700 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full ${getScoreBgColor((intelligence.resume_analysis.suitability_score || 0) / 100)} transition-all`}
+                                                style={{ width: `${intelligence.resume_analysis.suitability_score || 0}%` }}
+                                            />
                                         </div>
                                     </div>
-
-                                    {/* Decision */}
                                     <div>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>
-                                            Suitability Decision
-                                        </div>
-                                        <div style={{
-                                            padding: '1rem',
-                                            background: getDecisionBackground(intelligence.resume_analysis.decision),
-                                            border: `1px solid ${getDecisionBorderColor(intelligence.resume_analysis.decision)}`,
-                                            borderRadius: '0.5rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.75rem'
-                                        }}>
-                                            {getDecisionIcon(intelligence.resume_analysis.decision)}
-                                            <div>
-                                                <div style={{ fontWeight: 'bold', fontSize: '1.125rem' }}>
-                                                    {getDecisionLabel(intelligence.resume_analysis.decision)}
-                                                </div>
-                                                <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)' }}>
-                                                    {getDecisionDescription(intelligence.resume_analysis.decision)}
-                                                </div>
-                                            </div>
+                                        <p className="text-sm text-slate-400 mb-2">Decision</p>
+                                        <div className="flex items-center gap-3">
+                                            {getDecisionBadge(intelligence.resume_analysis.decision)}
                                         </div>
                                     </div>
                                 </div>
+                            </Card>
 
-                                {/* Decision Flags */}
-                                {intelligence.resume_analysis.decision_flags && intelligence.resume_analysis.decision_flags.length > 0 && (
-                                    <div style={{ marginTop: '1.5rem' }}>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>
-                                            Decision Flags
+                            {/* Skill Matching */}
+                            <Card icon={<Target size={20} />} title="Skill-to-Role Matching">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {[
+                                        { label: 'Skill Match', value: `${intelligence.resume_analysis.skill_match_percentage?.toFixed(0) || 0}%` },
+                                        { label: 'Core Skills', value: `${((intelligence.resume_analysis.core_skill_match_score || 0) * 100).toFixed(0)}%` },
+                                        { label: 'Critical Gaps', value: intelligence.resume_analysis.critical_skill_gap_count || 0, highlight: true },
+                                        { label: 'Domain Relevance', value: `${((intelligence.resume_analysis.domain_relevance_score || 0) * 100).toFixed(0)}%` },
+                                    ].map((item) => (
+                                        <div key={item.label} className="p-3 bg-slate-800/30 rounded-xl">
+                                            <p className="text-xs text-slate-400 mb-1">{item.label}</p>
+                                            <p className={`text-xl font-bold ${item.highlight ? 'text-red-400' : 'text-white'}`}>{item.value}</p>
                                         </div>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                            {intelligence.resume_analysis.decision_flags.map((flag, index) => (
-                                                <span
-                                                    key={index}
-                                                    style={{
-                                                        padding: '0.5rem 1rem',
-                                                        background: 'var(--bg)',
-                                                        borderRadius: '2rem',
-                                                        fontSize: '0.875rem',
-                                                        border: '1px solid var(--border-color)',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '0.5rem'
-                                                    }}
-                                                >
-                                                    <Target size={14} />
-                                                    {flag}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Skill-to-Role Matching */}
-                            <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
-                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                                    <Target size={20} color="#8b5cf6" />
-                                    Skill-to-Role Matching
-                                </h3>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                                    <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '0.5rem' }}>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>
-                                            Skill Match %
-                                        </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                                            {intelligence.resume_analysis.skill_match_percentage?.toFixed(0) || 0}%
-                                        </div>
-                                    </div>
-                                    <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '0.5rem' }}>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>
-                                            Core Skill Match
-                                        </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                                            {((intelligence.resume_analysis.core_skill_match_score || 0) * 100).toFixed(0)}%
-                                        </div>
-                                    </div>
-                                    <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '0.5rem' }}>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>
-                                            Critical Skill Gaps
-                                        </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: intelligence.resume_analysis.critical_skill_gap_count && intelligence.resume_analysis.critical_skill_gap_count > 0 ? '#ef4444' : '#10b981' }}>
-                                            {intelligence.resume_analysis.critical_skill_gap_count || 0}
-                                        </div>
-                                    </div>
-                                    <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '0.5rem' }}>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>
-                                            Domain Relevance
-                                        </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                                            {((intelligence.resume_analysis.domain_relevance_score || 0) * 100).toFixed(0)}%
-                                        </div>
-                                    </div>
+                                    ))}
                                 </div>
-                            </div>
+                            </Card>
 
-                            {/* Project & Experience Depth */}
-                            <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
-                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                                    <Zap size={20} color="#f59e0b" />
-                                    Project & Experience Depth
-                                </h3>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                                    <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '0.5rem' }}>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>
-                                            Practical Exposure
+                            {/* Project & Experience */}
+                            <Card icon={<Zap size={20} />} title="Project & Experience Depth">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {[
+                                        { label: 'Practical Exposure', value: intelligence.resume_analysis.practical_exposure_score },
+                                        { label: 'Problem Solving', value: intelligence.resume_analysis.problem_solving_depth_score },
+                                        { label: 'Project Complexity', value: intelligence.resume_analysis.project_complexity_score },
+                                        { label: 'Production Tools', value: intelligence.resume_analysis.production_tools_usage_score },
+                                    ].map((item) => (
+                                        <div key={item.label} className="p-3 bg-slate-800/30 rounded-xl">
+                                            <p className="text-xs text-slate-400 mb-1">{item.label}</p>
+                                            <p className="text-xl font-bold text-white">{((item.value || 0) * 100).toFixed(0)}%</p>
                                         </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                                            {((intelligence.resume_analysis.practical_exposure_score || 0) * 100).toFixed(0)}%
-                                        </div>
-                                    </div>
-                                    <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '0.5rem' }}>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>
-                                            Problem Solving
-                                        </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                                            {((intelligence.resume_analysis.problem_solving_depth_score || 0) * 100).toFixed(0)}%
-                                        </div>
-                                    </div>
-                                    <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '0.5rem' }}>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>
-                                            Project Complexity
-                                        </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                                            {((intelligence.resume_analysis.project_complexity_score || 0) * 100).toFixed(0)}%
-                                        </div>
-                                    </div>
-                                    <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '0.5rem' }}>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>
-                                            Production Tools
-                                        </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                                            {((intelligence.resume_analysis.production_tools_usage_score || 0) * 100).toFixed(0)}%
-                                        </div>
-                                    </div>
+                                    ))}
                                 </div>
-                            </div>
+                            </Card>
 
-                            {/* Resume Quality Indicators */}
-                            <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
-                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                                    <Shield size={20} color="#10b981" />
-                                    Resume Quality Indicators
-                                </h3>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                                    <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '0.5rem' }}>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>
-                                            Authenticity
+                            {/* Quality Indicators */}
+                            <Card icon={<Shield size={20} />} title="Resume Quality Indicators">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {[
+                                        { label: 'Authenticity', value: intelligence.resume_analysis.resume_authenticity_score },
+                                        { label: 'Clarity', value: intelligence.resume_analysis.clarity_structure_score },
+                                        { label: 'Role Alignment', value: intelligence.resume_analysis.role_alignment_score },
+                                        { label: 'Achievement Oriented', value: intelligence.resume_analysis.achievement_orientation_score },
+                                    ].map((item) => (
+                                        <div key={item.label} className="p-3 bg-slate-800/30 rounded-xl">
+                                            <p className="text-xs text-slate-400 mb-1">{item.label}</p>
+                                            <p className="text-xl font-bold text-white">{((item.value || 0) * 100).toFixed(0)}%</p>
                                         </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                                            {((intelligence.resume_analysis.resume_authenticity_score || 0) * 100).toFixed(0)}%
-                                        </div>
-                                    </div>
-                                    <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '0.5rem' }}>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>
-                                            Clarity & Structure
-                                        </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                                            {((intelligence.resume_analysis.clarity_structure_score || 0) * 100).toFixed(0)}%
-                                        </div>
-                                    </div>
-                                    <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '0.5rem' }}>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>
-                                            Role Alignment
-                                        </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                                            {((intelligence.resume_analysis.role_alignment_score || 0) * 100).toFixed(0)}%
-                                        </div>
-                                    </div>
-                                    <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '0.5rem' }}>
-                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>
-                                            Achievement Oriented
-                                        </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                                            {((intelligence.resume_analysis.achievement_orientation_score || 0) * 100).toFixed(0)}%
-                                        </div>
-                                    </div>
+                                    ))}
                                 </div>
-
-                                {/* Keyword Stuffing Warning */}
                                 {intelligence.resume_analysis.keyword_stuffing_flag && (
-                                    <div style={{
-                                        marginTop: '1rem',
-                                        padding: '0.75rem',
-                                        background: 'rgba(239, 68, 68, 0.1)',
-                                        border: '1px solid #ef4444',
-                                        borderRadius: '0.5rem',
-                                        color: '#ef4444',
-                                        fontSize: '0.875rem',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem'
-                                    }}>
+                                    <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 flex items-center gap-2">
                                         <AlertTriangle size={16} />
-                                        Warning: Potential keyword stuffing detected in resume
+                                        Warning: Potential keyword stuffing detected
                                     </div>
                                 )}
-                            </div>
-                        </>
+                            </Card>
+                        </div>
                     )}
 
                     {/* Risk Flags */}
                     {intelligence.risk_flags && intelligence.risk_flags.length > 0 && (
-                        <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem', borderLeft: '4px solid #ef4444' }}>
-                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: '#ef4444' }}>
-                                <AlertTriangle size={20} />
-                                Risk Flags
-                            </h3>
-                            {intelligence.risk_flags.map((flag, index) => (
-                                <div key={index} style={{
-                                    padding: '0.75rem',
-                                    background: 'rgba(239, 68, 68, 0.1)',
-                                    borderRadius: '0.5rem',
-                                    marginBottom: '0.5rem'
-                                }}>
-                                    <div style={{ fontWeight: 500, textTransform: 'capitalize' }}>
-                                        {flag.type.replace(/_/g, ' ')}
+                        <Card className="border-l-4 border-l-red-500">
+                            <div className="flex items-center gap-2 mb-4">
+                                <AlertTriangle size={20} className="text-red-400" />
+                                <h3 className="text-lg font-semibold text-red-400">Risk Flags</h3>
+                            </div>
+                            <div className="space-y-2">
+                                {intelligence.risk_flags.map((flag, index) => (
+                                    <div key={index} className="p-3 bg-red-500/10 rounded-xl">
+                                        <p className="font-medium text-white capitalize">{flag.type.replace(/_/g, ' ')}</p>
+                                        <p className="text-sm text-slate-400">{flag.message}</p>
                                     </div>
-                                    <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)' }}>
-                                        {flag.message}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        </Card>
                     )}
 
                     {/* Skill Gaps */}
                     {intelligence.skill_gaps && intelligence.skill_gaps.length > 0 && (
-                        <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
-                            <h3 style={{ marginBottom: '1rem' }}>Skill Gaps</h3>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <Card title="Skill Gaps">
+                            <div className="flex flex-wrap gap-2">
                                 {intelligence.skill_gaps.map((gap, index) => (
-                                    <span
-                                        key={index}
-                                        style={{
-                                            padding: '0.5rem 1rem',
-                                            background: 'var(--bg)',
-                                            borderRadius: '2rem',
-                                            fontSize: '0.875rem',
-                                            border: '1px solid var(--border-color)'
-                                        }}
-                                    >
-                                        {gap}
-                                    </span>
+                                    <Badge key={index} variant="warning">{gap}</Badge>
                                 ))}
                             </div>
-                        </div>
+                        </Card>
                     )}
 
                     {/* Recommendations */}
                     {intelligence.recommendations && intelligence.recommendations.length > 0 && (
-                        <div className="card" style={{ padding: '1.5rem' }}>
-                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                                <CheckCircle size={20} color="#10b981" />
-                                Recommendations
-                            </h3>
-                            <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
+                        <Card icon={<CheckCircle size={20} className="text-emerald-400" />} title="Recommendations">
+                            <ul className="space-y-2">
                                 {intelligence.recommendations.map((rec, index) => (
-                                    <li key={index} style={{ marginBottom: '0.5rem', color: 'var(--text-dim)' }}>
+                                    <li key={index} className="flex items-start gap-2 text-slate-300">
+                                        <CheckCircle size={16} className="text-emerald-400 mt-0.5 flex-shrink-0" />
                                         {rec}
                                     </li>
                                 ))}
                             </ul>
-                        </div>
+                        </Card>
                     )}
-                </>
+                </div>
             ) : intelligence ? (
-                <div style={{
-                    textAlign: 'center',
-                    padding: '4rem',
-                    color: 'var(--text-dim)',
-                    background: 'var(--card-bg)',
-                    borderRadius: '0.75rem'
-                }}>
-                    <AlertTriangle size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-                    <h3>No Analysis Data Available</h3>
-                    <p>Intelligence data is not available for this intern yet.</p>
-                    <button
+                <Card className="text-center py-12">
+                    <div className="w-20 h-20 mx-auto mb-4 bg-amber-500/10 rounded-2xl flex items-center justify-center">
+                        <AlertTriangle size={32} className="text-amber-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-white mb-2">No Analysis Data Available</h3>
+                    <p className="text-slate-400 mb-6">Intelligence data is not available for this intern yet.</p>
+                    <Button
                         onClick={() => selectedInternId && computeIntelligence(selectedInternId as number)}
                         disabled={computing}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            margin: '1.5rem auto 0',
-                            padding: '0.75rem 1.5rem',
-                            background: computing ? 'var(--border-color)' : 'var(--primary-color)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '0.5rem',
-                            cursor: computing ? 'not-allowed' : 'pointer',
-                            fontSize: '0.875rem',
-                            fontWeight: 500
-                        }}
+                        gradient="purple"
+                        icon={<RefreshCw size={16} className={computing ? 'animate-spin' : ''} />}
                     >
-                        <RefreshCw size={16} style={{ animation: computing ? 'spin 1s linear infinite' : 'none' }} />
                         {computing ? 'Computing...' : 'Compute Intelligence'}
-                    </button>
-                </div>
+                    </Button>
+                </Card>
             ) : (
-                <div style={{
-                    textAlign: 'center',
-                    padding: '4rem',
-                    color: 'var(--text-dim)',
-                    background: 'var(--card-bg)',
-                    borderRadius: '0.75rem'
-                }}>
-                    <User size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-                    <h3>Select an Intern</h3>
-                    <p>Choose an intern from the dropdown above to view their analysis</p>
-                </div>
+                <Card className="text-center py-12">
+                    <div className="w-20 h-20 mx-auto mb-4 bg-slate-800/50 rounded-2xl flex items-center justify-center">
+                        <User size={32} className="text-slate-500" />
+                    </div>
+                    <h3 className="text-lg font-medium text-white mb-2">Select an Intern</h3>
+                    <p className="text-slate-400">Choose an intern from the dropdown above to view their analysis</p>
+                </Card>
             )}
         </div>
     );

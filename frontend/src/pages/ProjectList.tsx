@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, LayoutGrid, List as ListIcon, Users, X, Edit, UserPlus } from 'lucide-react';
+import { Plus, LayoutGrid, List as ListIcon, Users, X, Edit, UserPlus, Calendar, ExternalLink, ArrowRight, FolderKanban, Clock } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import Card from '../components/common/Card';
+import Badge from '../components/common/Badge';
+import Button from '../components/common/Button';
 
 interface User {
     id: number;
@@ -60,6 +63,7 @@ const ProjectList: React.FC = () => {
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
     const [newProject, setNewProject] = useState<NewProject>({
         name: '',
@@ -226,187 +230,248 @@ const ProjectList: React.FC = () => {
         setShowAssignModal(true);
     };
 
-    const getStatusColor = (status: string) => {
+    const getStatusBadge = (status: string) => {
         switch (status) {
-            case 'COMPLETED': return '#10b981';
-            case 'IN_PROGRESS': return '#6366f1';
-            case 'ON_HOLD': return '#f59e0b';
-            default: return '#6b7280';
+            case 'COMPLETED': return <Badge variant="success" withDot>Completed</Badge>;
+            case 'IN_PROGRESS': return <Badge variant="purple" withDot pulse>In Progress</Badge>;
+            case 'ON_HOLD': return <Badge variant="warning" withDot>On Hold</Badge>;
+            default: return <Badge variant="info" withDot>Planned</Badge>;
         }
     };
 
-    if (loading) return <div>Loading projects...</div>;
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+                    <p className="text-slate-400 animate-pulse">Loading projects...</p>
+                </div>
+            </div>
+        );
+    }
 
     const showAddButton = user?.role === 'ADMIN' || user?.role === 'MANAGER';
 
     return (
-        <div>
-            <div className="header">
-                <h2 style={{ margin: 0 }}>Projects</h2>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button style={{ background: 'var(--card-bg)', padding: '0.5rem' }}><LayoutGrid size={18} /></button>
-                    <button style={{ background: 'var(--card-bg)', padding: '0.5rem' }}><ListIcon size={18} /></button>
-                    {showAddButton && (
+        <div className="space-y-6 animate-fade-in">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-white mb-2">
+                        Project <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Management</span>
+                    </h1>
+                    <p className="text-slate-400">Track and manage all projects</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    {/* View Toggle */}
+                    <div className="flex items-center bg-slate-800/50 rounded-xl p-1 border border-slate-700">
                         <button
-                            onClick={() => setShowAddModal(true)}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            onClick={() => setViewMode('grid')}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-white'}`}
                         >
-                            <Plus size={18} /> New Project
+                            <LayoutGrid size={18} />
                         </button>
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-white'}`}
+                        >
+                            <ListIcon size={18} />
+                        </button>
+                    </div>
+                    {showAddButton && (
+                        <Button
+                            onClick={() => setShowAddModal(true)}
+                            gradient="purple"
+                            icon={<Plus size={18} />}
+                        >
+                            New Project
+                        </Button>
                     )}
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
-                {projects.length === 0 ? (
-                    <div>No projects found.</div>
-                ) : (
-                    projects.map((project) => (
-                        <div key={project.id} className="card">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
-                                <h4 style={{ margin: 0, color: 'var(--primary-color)' }}>{project.name}</h4>
-                                <span style={{
-                                    fontSize: '0.75rem',
-                                    padding: '0.2rem 0.5rem',
-                                    borderRadius: '1rem',
-                                    background: `${getStatusColor(project.status)}20`,
-                                    color: getStatusColor(project.status)
-                                }}>
-                                    {project.status.replace('_', ' ')}
-                                </span>
+            {/* Projects Grid */}
+            {projects.length === 0 ? (
+                <Card className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-slate-800/50 rounded-full flex items-center justify-center">
+                        <FolderKanban size={24} className="text-slate-500" />
+                    </div>
+                    <h3 className="text-lg font-medium text-white mb-2">No projects found</h3>
+                    <p className="text-slate-400">Create your first project to get started</p>
+                </Card>
+            ) : (
+                <div className={viewMode === 'grid'
+                    ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                    : "space-y-4"
+                }>
+                    {projects.map((project) => (
+                        <Card key={project.id} hover className="group">
+                            {/* Header */}
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-500/20">
+                                        <FolderKanban size={20} className="text-purple-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-white group-hover:text-purple-200 transition-colors">
+                                            {project.name}
+                                        </h3>
+                                        <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
+                                            <Clock size={12} />
+                                            {project.start_date ? new Date(project.start_date).toLocaleDateString() : 'No date'}
+                                        </div>
+                                    </div>
+                                </div>
+                                {getStatusBadge(project.status)}
                             </div>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>
-                                {project.description || 'No description'}
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>
-                                Mentor: {project.mentor?.full_name || 'Unassigned'}
-                            </div>
+
+                            {/* Description */}
+                            <p className="text-sm text-slate-400 mb-4 line-clamp-2">
+                                {project.description || 'No description provided'}
+                            </p>
+
+                            {/* Tech Stack */}
                             {project.tech_stack && project.tech_stack.length > 0 && (
-                                <div style={{ marginBottom: '0.5rem' }}>
+                                <div className="flex flex-wrap gap-2 mb-4">
                                     {project.tech_stack.slice(0, 3).map((tech, index) => (
-                                        <span key={index} style={{
-                                            fontSize: '0.7rem',
-                                            padding: '0.1rem 0.4rem',
-                                            borderRadius: '0.25rem',
-                                            background: 'var(--primary-color)',
-                                            color: 'white',
-                                            marginRight: '0.25rem'
-                                        }}>
+                                        <span key={index} className="px-2 py-1 text-xs font-medium bg-purple-500/20 text-purple-300 rounded-lg border border-purple-500/20">
                                             {tech}
                                         </span>
                                     ))}
                                     {project.tech_stack.length > 3 && (
-                                        <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginLeft: '0.25rem' }}>
+                                        <span className="px-2 py-1 text-xs font-medium bg-slate-700/50 text-slate-400 rounded-lg">
                                             +{project.tech_stack.length - 3} more
                                         </span>
                                     )}
                                 </div>
                             )}
 
+                            {/* Mentor */}
+                            <div className="flex items-center gap-2 text-sm text-slate-400 mb-4">
+                                <Users size={14} className="text-purple-400" />
+                                <span>Mentor: {project.mentor?.full_name || 'Unassigned'}</span>
+                            </div>
+
                             {/* Assigned Interns */}
-                            <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <Users size={14} />
-                                        Assigned Interns ({project.assignments?.length || 0})
+                            <div className="pt-4 border-t border-white/5">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-sm text-slate-400 flex items-center gap-2">
+                                        <Users size={14} className="text-indigo-400" />
+                                        Assigned ({project.assignments?.length || 0})
                                     </span>
                                     {showAddButton && (
                                         <button
                                             onClick={() => openAssignModal(project)}
-                                            style={{ background: 'transparent', color: 'var(--primary-color)', padding: 0, fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '2px' }}
+                                            className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
                                         >
-                                            <UserPlus size={12} /> Add
+                                            <UserPlus size={12} />
+                                            Add
                                         </button>
                                     )}
                                 </div>
                                 {project.assignments && project.assignments.length > 0 ? (
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                                    <div className="flex flex-wrap gap-2">
                                         {project.assignments.map((assignment) => (
-                                            <span key={assignment.id} style={{
-                                                fontSize: '0.7rem',
-                                                padding: '0.2rem 0.4rem',
-                                                borderRadius: '0.25rem',
-                                                background: 'rgba(99, 102, 241, 0.1)',
-                                                color: '#6366f1',
-                                            }}>
+                                            <span key={assignment.id} className="px-2 py-1 text-xs font-medium bg-indigo-500/20 text-indigo-300 rounded-lg border border-indigo-500/20">
                                                 {assignment.intern?.full_name || 'Unknown'}
                                             </span>
                                         ))}
                                     </div>
                                 ) : (
-                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>No interns assigned</span>
+                                    <p className="text-xs text-slate-500">No interns assigned</p>
                                 )}
                             </div>
 
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
-                                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
-                                    {project.start_date ? new Date(project.start_date).toLocaleDateString() : ''}
-                                </div>
+                            {/* Actions */}
+                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
+                                {project.repository_url && (
+                                    <a
+                                        href={project.repository_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-slate-400 hover:text-purple-400 flex items-center gap-1 transition-colors"
+                                    >
+                                        <ExternalLink size={14} />
+                                        Repository
+                                    </a>
+                                )}
                                 {showAddButton && (
                                     <button
                                         onClick={() => openEditModal(project)}
-                                        style={{ background: 'transparent', color: 'var(--primary-color)', padding: 0, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors ml-auto"
                                     >
-                                        <Edit size={14} /> Edit
+                                        <Edit size={14} />
+                                        Edit
                                     </button>
                                 )}
                             </div>
-                        </div>
-                    ))
-                )}
-            </div>
+                        </Card>
+                    ))}
+                </div>
+            )}
 
             {/* Add Project Modal */}
             {showAddModal && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div className="card" style={{ width: '550px', maxHeight: '90vh', overflow: 'auto' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h3 style={{ margin: 0 }}>Create New Project</h3>
-                            <button onClick={() => setShowAddModal(false)} style={{ background: 'transparent', padding: '0.5rem' }}>
-                                <X size={20} />
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowAddModal(false)}></div>
+                    <div className="relative bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-purple-500/20 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
+                        {/* Modal Header */}
+                        <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-white/10 z-10">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl flex items-center justify-center">
+                                    <Plus size={18} className="text-purple-400" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-white">Create New Project</h2>
+                                    <p className="text-xs text-slate-400">Fill in the project details</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowAddModal(false)}
+                                className="p-2 hover:bg-white/5 rounded-xl transition-colors group"
+                            >
+                                <X size={20} className="text-slate-400 group-hover:text-white transition-colors" />
                             </button>
                         </div>
 
-                        {error && <div style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</div>}
+                        <form onSubmit={handleAddProject} className="p-6 space-y-5">
+                            {error && (
+                                <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
+                                    <X size={16} />
+                                    {error}
+                                </div>
+                            )}
 
-                        <form onSubmit={handleAddProject}>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Project Name *</label>
+                            <div className="group">
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Project Name *</label>
                                 <input
                                     type="text"
                                     required
                                     value={newProject.name}
                                     onChange={e => setNewProject(prev => ({ ...prev, name: e.target.value }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                    placeholder="My Awesome Project"
                                 />
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Description *</label>
+
+                            <div className="group">
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Description *</label>
                                 <textarea
                                     required
                                     value={newProject.description}
                                     onChange={e => setNewProject(prev => ({ ...prev, description: e.target.value }))}
                                     rows={3}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
+                                    placeholder="Describe your project..."
                                 />
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Status *</label>
+
+                            <div className="group">
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Status *</label>
                                 <select
                                     value={newProject.status}
                                     onChange={e => setNewProject(prev => ({ ...prev, status: e.target.value }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
                                 >
                                     <option value="PLANNED">Planned</option>
                                     <option value="IN_PROGRESS">In Progress</option>
@@ -414,62 +479,78 @@ const ProjectList: React.FC = () => {
                                     <option value="COMPLETED">Completed</option>
                                 </select>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Start Date *</label>
-                                    <input
-                                        type="date"
-                                        required
-                                        value={newProject.start_date}
-                                        onChange={e => setNewProject(prev => ({ ...prev, start_date: e.target.value }))}
-                                        style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
-                                    />
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="group">
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">Start Date *</label>
+                                    <div className="relative">
+                                        <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                                        <input
+                                            type="date"
+                                            required
+                                            value={newProject.start_date}
+                                            onChange={e => setNewProject(prev => ({ ...prev, start_date: e.target.value }))}
+                                            className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>End Date</label>
+                                <div className="group">
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">End Date</label>
+                                    <div className="relative">
+                                        <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                                        <input
+                                            type="date"
+                                            value={newProject.end_date}
+                                            onChange={e => setNewProject(prev => ({ ...prev, end_date: e.target.value }))}
+                                            className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="group">
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Repository URL</label>
+                                <div className="relative">
+                                    <ExternalLink size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
                                     <input
-                                        type="date"
-                                        value={newProject.end_date}
-                                        onChange={e => setNewProject(prev => ({ ...prev, end_date: e.target.value }))}
-                                        style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                        type="url"
+                                        placeholder="https://github.com/..."
+                                        value={newProject.repository_url}
+                                        onChange={e => setNewProject(prev => ({ ...prev, repository_url: e.target.value }))}
+                                        className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                     />
                                 </div>
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Repository URL</label>
-                                <input
-                                    type="url"
-                                    placeholder="https://github.com/..."
-                                    value={newProject.repository_url}
-                                    onChange={e => setNewProject(prev => ({ ...prev, repository_url: e.target.value }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
-                                />
-                            </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Tech Stack (comma-separated)</label>
+
+                            <div className="group">
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Tech Stack</label>
                                 <input
                                     type="text"
-                                    placeholder="React, Node.js, PostgreSQL, ..."
+                                    placeholder="React, Node.js, PostgreSQL..."
                                     value={newProject.tech_stack}
                                     onChange={e => setNewProject(prev => ({ ...prev, tech_stack: e.target.value }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                 />
+                                <p className="text-xs text-slate-500 mt-1">Separate technologies with commas</p>
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button
+
+                            <div className="flex gap-3 pt-4">
+                                <Button
                                     type="button"
+                                    variant="ghost"
                                     onClick={() => setShowAddModal(false)}
-                                    style={{ flex: 1, padding: '0.75rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer' }}
+                                    fullWidth
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
-                                    disabled={submitting}
-                                    style={{ flex: 1, padding: '0.75rem', borderRadius: '0.25rem', border: 'none', background: 'var(--primary-color)', color: 'white', cursor: 'pointer' }}
+                                    gradient="purple"
+                                    loading={submitting}
+                                    fullWidth
                                 >
-                                    {submitting ? 'Creating...' : 'Create Project'}
-                                </button>
+                                    Create Project
+                                </Button>
                             </div>
                         </form>
                     </div>
@@ -478,55 +559,64 @@ const ProjectList: React.FC = () => {
 
             {/* Edit Project Modal */}
             {showEditModal && selectedProject && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div className="card" style={{ width: '550px', maxHeight: '90vh', overflow: 'auto' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h3 style={{ margin: 0 }}>Edit Project</h3>
-                            <button onClick={() => setShowEditModal(false)} style={{ background: 'transparent', padding: '0.5rem' }}>
-                                <X size={20} />
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowEditModal(false)}></div>
+                    <div className="relative bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-purple-500/20 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
+                        {/* Modal Header */}
+                        <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-white/10 z-10">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-xl flex items-center justify-center">
+                                    <Edit size={18} className="text-indigo-400" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-white">Edit Project</h2>
+                                    <p className="text-xs text-slate-400">Update project details</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowEditModal(false)}
+                                className="p-2 hover:bg-white/5 rounded-xl transition-colors group"
+                            >
+                                <X size={20} className="text-slate-400 group-hover:text-white transition-colors" />
                             </button>
                         </div>
 
-                        {error && <div style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</div>}
+                        <form onSubmit={handleEditProject} className="p-6 space-y-5">
+                            {error && (
+                                <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
+                                    <X size={16} />
+                                    {error}
+                                </div>
+                            )}
 
-                        <form onSubmit={handleEditProject}>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Project Name *</label>
+                            <div className="group">
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Project Name *</label>
                                 <input
                                     type="text"
                                     required
                                     value={editProject.name}
                                     onChange={e => setEditProject(prev => ({ ...prev, name: e.target.value }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                 />
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Description *</label>
+
+                            <div className="group">
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Description *</label>
                                 <textarea
                                     required
                                     value={editProject.description}
                                     onChange={e => setEditProject(prev => ({ ...prev, description: e.target.value }))}
                                     rows={3}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
                                 />
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Status *</label>
+
+                            <div className="group">
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Status *</label>
                                 <select
                                     value={editProject.status}
                                     onChange={e => setEditProject(prev => ({ ...prev, status: e.target.value }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
                                 >
                                     <option value="PLANNED">Planned</option>
                                     <option value="IN_PROGRESS">In Progress</option>
@@ -534,62 +624,68 @@ const ProjectList: React.FC = () => {
                                     <option value="COMPLETED">Completed</option>
                                 </select>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Start Date *</label>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="group">
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">Start Date *</label>
                                     <input
                                         type="date"
                                         required
                                         value={editProject.start_date}
                                         onChange={e => setEditProject(prev => ({ ...prev, start_date: e.target.value }))}
-                                        style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                        className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                     />
                                 </div>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>End Date</label>
+                                <div className="group">
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">End Date</label>
                                     <input
                                         type="date"
                                         value={editProject.end_date}
                                         onChange={e => setEditProject(prev => ({ ...prev, end_date: e.target.value }))}
-                                        style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                        className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                     />
                                 </div>
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Repository URL</label>
+
+                            <div className="group">
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Repository URL</label>
                                 <input
                                     type="url"
                                     placeholder="https://github.com/..."
                                     value={editProject.repository_url}
                                     onChange={e => setEditProject(prev => ({ ...prev, repository_url: e.target.value }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                 />
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Tech Stack (comma-separated)</label>
+
+                            <div className="group">
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Tech Stack</label>
                                 <input
                                     type="text"
-                                    placeholder="React, Node.js, PostgreSQL, ..."
+                                    placeholder="React, Node.js, PostgreSQL..."
                                     value={editProject.tech_stack}
                                     onChange={e => setEditProject(prev => ({ ...prev, tech_stack: e.target.value }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                 />
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button
+
+                            <div className="flex gap-3 pt-4">
+                                <Button
                                     type="button"
+                                    variant="ghost"
                                     onClick={() => setShowEditModal(false)}
-                                    style={{ flex: 1, padding: '0.75rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer' }}
+                                    fullWidth
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
-                                    disabled={submitting}
-                                    style={{ flex: 1, padding: '0.75rem', borderRadius: '0.25rem', border: 'none', background: 'var(--primary-color)', color: 'white', cursor: 'pointer' }}
+                                    gradient="indigo"
+                                    loading={submitting}
+                                    fullWidth
                                 >
-                                    {submitting ? 'Saving...' : 'Save Changes'}
-                                </button>
+                                    Update Project
+                                </Button>
                             </div>
                         </form>
                     </div>
@@ -598,75 +694,82 @@ const ProjectList: React.FC = () => {
 
             {/* Assign Intern Modal */}
             {showAssignModal && selectedProject && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div className="card" style={{ width: '450px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h3 style={{ margin: 0 }}>Assign Intern to Project</h3>
-                            <button onClick={() => setShowAssignModal(false)} style={{ background: 'transparent', padding: '0.5rem' }}>
-                                <X size={20} />
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowAssignModal(false)}></div>
+                    <div className="relative bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-purple-500/20 w-full max-w-md animate-scale-in">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500/20 to-blue-500/20 rounded-xl flex items-center justify-center">
+                                    <UserPlus size={18} className="text-indigo-400" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-white">Assign Intern</h2>
+                                    <p className="text-xs text-slate-400">to {selectedProject.name}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowAssignModal(false)}
+                                className="p-2 hover:bg-white/5 rounded-xl transition-colors group"
+                            >
+                                <X size={20} className="text-slate-400 group-hover:text-white transition-colors" />
                             </button>
                         </div>
 
-                        <div style={{ marginBottom: '1rem', padding: '0.75rem', background: 'var(--card-bg)', borderRadius: '0.25rem' }}>
-                            <strong>{selectedProject.name}</strong>
-                        </div>
+                        <form onSubmit={handleAssignIntern} className="p-6 space-y-5">
+                            {error && (
+                                <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
+                                    <X size={16} />
+                                    {error}
+                                </div>
+                            )}
 
-                        {error && <div style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</div>}
-
-                        <form onSubmit={handleAssignIntern}>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Select Intern *</label>
+                            <div className="group">
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Select Intern *</label>
                                 <select
+                                    value={assignIntern.intern_id}
+                                    onChange={e => setAssignIntern(prev => ({ ...prev, intern_id: Number(e.target.value) }))}
                                     required
-                                    value={assignIntern.intern_id || ''}
-                                    onChange={e => setAssignIntern(prev => ({ ...prev, intern_id: parseInt(e.target.value) }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
                                 >
-                                    <option value="">Choose an intern...</option>
-                                    {interns
-                                        .filter(intern => !selectedProject.assignments?.some(a => a.intern.id === intern.id))
-                                        .map(intern => (
-                                            <option key={intern.id} value={intern.id}>{intern.full_name}</option>
-                                        ))
-                                    }
+                                    <option value={0}>Choose an intern...</option>
+                                    {interns.map((intern) => (
+                                        <option key={intern.id} value={intern.id}>
+                                            {intern.full_name} ({intern.email})
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Role (e.g., Frontend Developer)</label>
+
+                            <div className="group">
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Role *</label>
                                 <input
                                     type="text"
-                                    placeholder="Role in project"
                                     value={assignIntern.role}
                                     onChange={e => setAssignIntern(prev => ({ ...prev, role: e.target.value }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    required
+                                    placeholder="e.g., Frontend Developer"
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                 />
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button
+
+                            <div className="flex gap-3 pt-4">
+                                <Button
                                     type="button"
+                                    variant="ghost"
                                     onClick={() => setShowAssignModal(false)}
-                                    style={{ flex: 1, padding: '0.75rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer' }}
+                                    fullWidth
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
-                                    disabled={submitting}
-                                    style={{ flex: 1, padding: '0.75rem', borderRadius: '0.25rem', border: 'none', background: 'var(--primary-color)', color: 'white', cursor: 'pointer' }}
+                                    gradient="indigo"
+                                    loading={submitting}
+                                    fullWidth
                                 >
-                                    {submitting ? 'Assigning...' : 'Assign Intern'}
-                                </button>
+                                    Assign Intern
+                                </Button>
                             </div>
                         </form>
                     </div>

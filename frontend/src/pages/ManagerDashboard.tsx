@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Users, ClipboardList, MessageSquare, Plus, X, Star } from 'lucide-react';
+import { Users, ClipboardList, MessageSquare, Plus, X, Star, Mail, Building, Check, Circle } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import Card from '../components/common/Card';
+import Badge from '../components/common/Badge';
+import Button from '../components/common/Button';
 
 interface Intern {
     id: number;
@@ -139,155 +142,227 @@ const ManagerDashboard: React.FC = () => {
         }
     };
 
-    if (loading) return <div>Loading...</div>;
+    const getStatusVariant = (status: string): 'success' | 'warning' | 'danger' | 'default' => {
+        switch (status) {
+            case 'ACTIVE': return 'success';
+            case 'ONBOARDING': return 'warning';
+            case 'COMPLETED': return 'default';
+            case 'INACTIVE': return 'danger';
+            default: return 'default';
+        }
+    };
+
+    const getAssessmentTypeColor = (type: string): string => {
+        switch (type) {
+            case 'TECHNICAL': return 'from-purple-500 to-indigo-500';
+            case 'CODING': return 'from-emerald-500 to-teal-500';
+            case 'BEHAVIORAL': return 'from-amber-500 to-orange-500';
+            case 'PROJECT': return 'from-pink-500 to-rose-500';
+            default: return 'from-slate-500 to-slate-600';
+        }
+    };
+
+    const getInitials = (name: string) => {
+        return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'NA';
+    };
+
+    const getGradient = (name: string): string => {
+        const colors = [
+            'from-purple-500 via-pink-500 to-rose-500',
+            'from-blue-500 via-cyan-500 to-teal-500',
+            'from-amber-500 via-orange-500 to-red-500',
+            'from-emerald-500 via-green-500 to-lime-500',
+            'from-indigo-500 via-violet-500 to-purple-500',
+        ];
+        const index = name.charCodeAt(0) % colors.length;
+        return colors[index];
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+                    <p className="text-slate-400">Loading dashboard...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div>
-            <h2 style={{ marginBottom: '1.5rem' }}>Manager Dashboard</h2>
+        <div className="space-y-6 animate-fade-in">
+            {/* Page Header */}
+            <div>
+                <h1 className="text-3xl font-bold text-white mb-2">
+                    Manager <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Dashboard</span>
+                </h1>
+                <p className="text-slate-400">Manage your intern team, assessments, and feedback</p>
+            </div>
+
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                    { label: 'Total Interns', value: interns.length, icon: Users, color: 'from-purple-500 to-indigo-500' },
+                    { label: 'Assessments', value: assessments.length, icon: ClipboardList, color: 'from-pink-500 to-rose-500' },
+                    { label: 'Feedback Given', value: feedback.length, icon: MessageSquare, color: 'from-amber-500 to-orange-500' },
+                ].map((stat) => (
+                    <Card key={stat.label} hover className="group">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-slate-400 mb-1">{stat.label}</p>
+                                <p className="text-3xl font-bold text-white">{stat.value}</p>
+                            </div>
+                            <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                                <stat.icon size={24} className="text-white" />
+                            </div>
+                        </div>
+                    </Card>
+                ))}
+            </div>
 
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                <button
-                    onClick={() => setActiveTab('interns')}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '0.75rem 1.5rem',
-                        border: 'none',
-                        borderRadius: '0.5rem',
-                        background: activeTab === 'interns' ? 'var(--primary-color)' : 'var(--card-bg)',
-                        color: activeTab === 'interns' ? 'white' : 'var(--text)',
-                        cursor: 'pointer',
-                    }}
-                >
-                    <Users size={18} /> Interns
-                </button>
-                <button
-                    onClick={() => setActiveTab('assessments')}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '0.75rem 1.5rem',
-                        border: 'none',
-                        borderRadius: '0.5rem',
-                        background: activeTab === 'assessments' ? 'var(--primary-color)' : 'var(--card-bg)',
-                        color: activeTab === 'assessments' ? 'white' : 'var(--text)',
-                        cursor: 'pointer',
-                    }}
-                >
-                    <ClipboardList size={18} /> Assessments
-                </button>
-                <button
-                    onClick={() => setActiveTab('feedback')}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '0.75rem 1.5rem',
-                        border: 'none',
-                        borderRadius: '0.5rem',
-                        background: activeTab === 'feedback' ? 'var(--primary-color)' : 'var(--card-bg)',
-                        color: activeTab === 'feedback' ? 'white' : 'var(--text)',
-                        cursor: 'pointer',
-                    }}
-                >
-                    <MessageSquare size={18} /> Feedback
-                </button>
+            <div className="flex flex-wrap gap-2">
+                {[
+                    { id: 'interns', label: 'Interns', icon: Users, count: interns.length },
+                    { id: 'assessments', label: 'Assessments', icon: ClipboardList, count: assessments.length },
+                    { id: 'feedback', label: 'Feedback', icon: MessageSquare, count: feedback.length },
+                ].map((tab) => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all duration-200 ${activeTab === tab.id
+                                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25'
+                                : 'bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700'
+                            }`}
+                    >
+                        <tab.icon size={18} />
+                        {tab.label}
+                        <Badge variant={activeTab === tab.id ? 'purple' : 'default'} size="sm">
+                            {tab.count}
+                        </Badge>
+                    </button>
+                ))}
             </div>
 
             {/* Interns Tab */}
             {activeTab === 'interns' && (
-                <div className="card" style={{ padding: 0 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                        <thead>
-                            <tr style={{ color: 'var(--text-dim)', fontSize: '0.875rem', borderBottom: '1px solid var(--border-color)' }}>
-                                <th style={{ padding: '1rem' }}>Name</th>
-                                <th style={{ padding: '1rem' }}>Email</th>
-                                <th style={{ padding: '1rem' }}>University</th>
-                                <th style={{ padding: '1rem' }}>Status</th>
-                                <th style={{ padding: '1rem' }}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {interns.length === 0 ? (
-                                <tr><td colSpan={5} style={{ padding: '1rem', textAlign: 'center' }}>No interns found.</td></tr>
-                            ) : (
-                                interns.map((intern) => (
-                                    <tr key={intern.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                        <td style={{ padding: '1rem' }}>{intern.user.full_name}</td>
-                                        <td style={{ padding: '1rem' }}>{intern.user.email}</td>
-                                        <td style={{ padding: '1rem' }}>{intern.university}</td>
-                                        <td style={{ padding: '1rem' }}>
-                                            <span style={{
-                                                padding: '0.25rem 0.5rem',
-                                                borderRadius: '0.25rem',
-                                                background: intern.status === 'ACTIVE' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(99, 102, 241, 0.1)',
-                                                color: intern.status === 'ACTIVE' ? '#10b981' : '#6366f1',
-                                                fontSize: '0.75rem'
-                                            }}>
-                                                {intern.status}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '1rem' }}>
-                                            <button
-                                                onClick={() => {
-                                                    setNewFeedback(prev => ({ ...prev, recipient_id: intern.id }));
-                                                    setActiveTab('feedback');
-                                                }}
-                                                style={{ background: 'transparent', color: 'var(--primary-color)', padding: 0, marginRight: '0.5rem' }}
-                                            >
-                                                Give Feedback
-                                            </button>
+                <Card padding="none">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b border-slate-700/50 text-slate-400 text-sm">
+                                    <th className="text-left p-4 font-medium">Intern</th>
+                                    <th className="text-left p-4 font-medium">Contact</th>
+                                    <th className="text-left p-4 font-medium">University</th>
+                                    <th className="text-left p-4 font-medium">Status</th>
+                                    <th className="text-left p-4 font-medium">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {interns.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={5} className="p-8 text-center text-slate-400">
+                                            <Users size={48} className="mx-auto mb-3 opacity-50" />
+                                            <p>No interns found in your department</p>
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                ) : (
+                                    interns.map((intern) => (
+                                        <tr key={intern.id} className="border-b border-slate-700/30 hover:bg-slate-800/30 transition-colors">
+                                            <td className="p-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getGradient(intern.user.full_name)} flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
+                                                        {getInitials(intern.user.full_name)}
+                                                    </div>
+                                                    <span className="font-medium text-white">{intern.user.full_name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="flex items-center gap-2 text-slate-400">
+                                                    <Mail size={14} />
+                                                    {intern.user.email}
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="flex items-center gap-2 text-slate-300">
+                                                    <Building size={14} className="text-purple-400" />
+                                                    {intern.university}
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                <Badge variant={getStatusVariant(intern.status)}>
+                                                    {intern.status}
+                                                </Badge>
+                                            </td>
+                                            <td className="p-4">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => {
+                                                        setNewFeedback(prev => ({ ...prev, recipient_id: intern.id }));
+                                                        setActiveTab('feedback');
+                                                    }}
+                                                    icon={<MessageSquare size={14} />}
+                                                >
+                                                    Give Feedback
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
             )}
 
             {/* Assessments Tab */}
             {activeTab === 'assessments' && (
-                <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h3 style={{ margin: 0 }}>Assessments</h3>
-                        <button
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-semibold text-white">All Assessments</h3>
+                        <Button
                             onClick={() => setShowAssessmentModal(true)}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            gradient="purple"
+                            icon={<Plus size={16} />}
                         >
-                            <Plus size={18} /> New Assessment
-                        </button>
+                            New Assessment
+                        </Button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {assessments.length === 0 ? (
-                            <div className="card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>
-                                No assessments found.
-                            </div>
+                            <Card className="col-span-full py-12 text-center">
+                                <ClipboardList size={48} className="mx-auto mb-3 text-slate-600" />
+                                <p className="text-slate-400">No assessments created yet</p>
+                                <Button
+                                    onClick={() => setShowAssessmentModal(true)}
+                                    gradient="purple"
+                                    icon={<Plus size={16} />}
+                                    className="mt-4"
+                                >
+                                    Create First Assessment
+                                </Button>
+                            </Card>
                         ) : (
                             assessments.map((assessment) => (
-                                <div key={assessment.id} className="card">
-                                    <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--primary-color)' }}>{assessment.title}</h4>
-                                    <p style={{ color: 'var(--text-dim)', fontSize: '0.875rem', marginBottom: '1rem' }}>
-                                        {assessment.assessment_type}
-                                    </p>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                                            {new Date(assessment.created_at).toLocaleDateString()}
-                                        </span>
-                                        <button
-                                            onClick={() => {
-                                                // Could navigate to assessment details
-                                            }}
-                                            style={{ background: 'transparent', color: 'var(--primary-color)', padding: 0, fontSize: '0.875rem' }}
-                                        >
-                                            View Details
-                                        </button>
+                                <Card key={assessment.id} hover className="group">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className={`p-2 rounded-lg bg-gradient-to-br ${getAssessmentTypeColor(assessment.assessment_type)}`}>
+                                            <ClipboardList size={16} className="text-white" />
+                                        </div>
+                                        <Badge variant="default" size="sm">{assessment.assessment_type}</Badge>
                                     </div>
-                                </div>
+                                    <h4 className="font-semibold text-white mb-1 group-hover:text-purple-400 transition-colors">
+                                        {assessment.title}
+                                    </h4>
+                                    <p className="text-sm text-slate-400 mb-4">
+                                        {new Date(assessment.created_at).toLocaleDateString()}
+                                    </p>
+                                    <Button size="sm" variant="ghost" className="w-full">
+                                        View Details
+                                    </Button>
+                                </Card>
                             ))
                         )}
                     </div>
@@ -296,40 +371,66 @@ const ManagerDashboard: React.FC = () => {
 
             {/* Feedback Tab */}
             {activeTab === 'feedback' && (
-                <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h3 style={{ margin: 0 }}>Feedback Given</h3>
-                        <button
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-semibold text-white">Feedback Given</h3>
+                        <Button
                             onClick={() => setShowFeedbackModal(true)}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            gradient="purple"
+                            icon={<Plus size={16} />}
                         >
-                            <Plus size={18} /> Give Feedback
-                        </button>
+                            Give Feedback
+                        </Button>
                     </div>
 
-                    <div style={{ display: 'grid', gap: '1rem' }}>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         {feedback.length === 0 ? (
-                            <div className="card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>
-                                No feedback given yet.
-                            </div>
+                            <Card className="col-span-full py-12 text-center">
+                                <MessageSquare size={48} className="mx-auto mb-3 text-slate-600" />
+                                <p className="text-slate-400">No feedback given yet</p>
+                                <Button
+                                    onClick={() => setShowFeedbackModal(true)}
+                                    gradient="purple"
+                                    icon={<Plus size={16} />}
+                                    className="mt-4"
+                                >
+                                    Give First Feedback
+                                </Button>
+                            </Card>
                         ) : (
                             feedback.map((item) => (
-                                <div key={item.id} className="card">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
-                                        <div>
-                                            <h4 style={{ margin: 0 }}>{item.recipient.full_name}</h4>
-                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>{item.feedback_type}</span>
+                                <Card key={item.id} hover>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getGradient(item.recipient.full_name)} flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
+                                                {getInitials(item.recipient.full_name)}
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-white">{item.recipient.full_name}</p>
+                                                <Badge variant="purple" size="sm">{item.feedback_type.replace(/_/g, ' ')}</Badge>
+                                            </div>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <Star size={16} fill="#f59e0b" color="#f59e0b" />
-                                            <span style={{ fontWeight: 600 }}>{item.rating}/5</span>
+                                        <div className="flex items-center gap-1">
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <Star
+                                                    key={star}
+                                                    size={16}
+                                                    fill={star <= item.rating ? '#f59e0b' : 'transparent'}
+                                                    color="#f59e0b"
+                                                />
+                                            ))}
+                                            <span className="text-sm font-medium text-white ml-1">{item.rating}/5</span>
                                         </div>
                                     </div>
-                                    <p style={{ color: 'var(--text)', marginBottom: '0.5rem' }}>{item.comments}</p>
-                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                                        {new Date(item.created_at).toLocaleDateString()}
-                                    </span>
-                                </div>
+                                    <p className="text-slate-300 mb-3">{item.comments}</p>
+                                    <p className="text-xs text-slate-500">
+                                        {new Date(item.created_at).toLocaleDateString('en-US', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric'
+                                        })}
+                                    </p>
+                                </Card>
                             ))
                         )}
                     </div>
@@ -338,42 +439,35 @@ const ManagerDashboard: React.FC = () => {
 
             {/* Create Assessment Modal */}
             {showAssessmentModal && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div className="card" style={{ width: '500px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h3 style={{ margin: 0 }}>Create Assessment</h3>
-                            <button onClick={() => setShowAssessmentModal(false)} style={{ background: 'transparent', padding: '0.5rem' }}>
-                                <X size={20} />
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+                    <Card className="w-full max-w-md animate-scale-in" padding="lg">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-semibold text-white">Create Assessment</h3>
+                            <button
+                                onClick={() => setShowAssessmentModal(false)}
+                                className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+                            >
+                                <X size={20} className="text-slate-400" />
                             </button>
                         </div>
-                        <form onSubmit={handleCreateAssessment}>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Title *</label>
+                        <form onSubmit={handleCreateAssessment} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Title *</label>
                                 <input
                                     type="text"
                                     required
                                     value={newAssessment.title}
                                     onChange={e => setNewAssessment(prev => ({ ...prev, title: e.target.value }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                                    placeholder="Enter assessment title"
                                 />
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Type *</label>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Type *</label>
                                 <select
                                     value={newAssessment.assessment_type}
                                     onChange={e => setNewAssessment(prev => ({ ...prev, assessment_type: e.target.value }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                                 >
                                     <option value="TECHNICAL">Technical Quiz</option>
                                     <option value="CODING">Coding Challenge</option>
@@ -381,65 +475,60 @@ const ManagerDashboard: React.FC = () => {
                                     <option value="PROJECT">Project Evaluation</option>
                                 </select>
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Description</label>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
                                 <textarea
                                     value={newAssessment.description}
                                     onChange={e => setNewAssessment(prev => ({ ...prev, description: e.target.value }))}
                                     rows={3}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
+                                    placeholder="Enter description"
                                 />
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <button
+                            <div className="flex gap-3 pt-2">
+                                <Button
                                     type="button"
                                     onClick={() => setShowAssessmentModal(false)}
-                                    style={{ flex: 1, padding: '0.75rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer' }}
+                                    variant="outline"
+                                    className="flex-1"
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
                                     disabled={submitting}
-                                    style={{ flex: 1, padding: '0.75rem', borderRadius: '0.25rem', border: 'none', background: 'var(--primary-color)', color: 'white', cursor: 'pointer' }}
+                                    gradient="purple"
+                                    className="flex-1"
                                 >
                                     {submitting ? 'Creating...' : 'Create'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
-                    </div>
+                    </Card>
                 </div>
             )}
 
             {/* Give Feedback Modal */}
             {showFeedbackModal && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div className="card" style={{ width: '500px', maxHeight: '90vh', overflow: 'auto' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h3 style={{ margin: 0 }}>Give Feedback</h3>
-                            <button onClick={() => setShowFeedbackModal(false)} style={{ background: 'transparent', padding: '0.5rem' }}>
-                                <X size={20} />
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+                    <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto animate-scale-in" padding="lg">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-semibold text-white">Give Feedback</h3>
+                            <button
+                                onClick={() => setShowFeedbackModal(false)}
+                                className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+                            >
+                                <X size={20} className="text-slate-400" />
                             </button>
                         </div>
-                        <form onSubmit={handleCreateFeedback}>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Intern *</label>
+                        <form onSubmit={handleCreateFeedback} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Intern *</label>
                                 <select
                                     required
                                     value={newFeedback.recipient_id || ''}
                                     onChange={e => setNewFeedback(prev => ({ ...prev, recipient_id: parseInt(e.target.value) }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                                 >
                                     <option value="">Select intern...</option>
                                     {interns.map(intern => (
@@ -447,12 +536,12 @@ const ManagerDashboard: React.FC = () => {
                                     ))}
                                 </select>
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Feedback Type *</label>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Feedback Type *</label>
                                 <select
                                     value={newFeedback.feedback_type}
                                     onChange={e => setNewFeedback(prev => ({ ...prev, feedback_type: e.target.value }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                                 >
                                     <option value="WEEKLY">Weekly Check-in</option>
                                     <option value="PROJECT">Project Review</option>
@@ -460,18 +549,18 @@ const ManagerDashboard: React.FC = () => {
                                     <option value="FINAL">Final Evaluation</option>
                                 </select>
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Rating *</label>
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    {[1, 2, 3, 4, 5].map(star => (
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Rating *</label>
+                                <div className="flex gap-2">
+                                    {[1, 2, 3, 4, 5].map((star) => (
                                         <button
                                             key={star}
                                             type="button"
                                             onClick={() => setNewFeedback(prev => ({ ...prev, rating: star }))}
-                                            style={{ background: 'transparent', padding: '0.25rem' }}
+                                            className="p-1 transition-transform hover:scale-110"
                                         >
                                             <Star
-                                                size={24}
+                                                size={32}
                                                 fill={star <= newFeedback.rating ? '#f59e0b' : 'transparent'}
                                                 color="#f59e0b"
                                             />
@@ -479,52 +568,57 @@ const ManagerDashboard: React.FC = () => {
                                     ))}
                                 </div>
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Comments *</label>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Comments *</label>
                                 <textarea
                                     required
                                     value={newFeedback.comments}
                                     onChange={e => setNewFeedback(prev => ({ ...prev, comments: e.target.value }))}
                                     rows={3}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
+                                    placeholder="Enter your feedback comments"
                                 />
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Strengths</label>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Strengths</label>
                                 <textarea
                                     value={newFeedback.strengths}
                                     onChange={e => setNewFeedback(prev => ({ ...prev, strengths: e.target.value }))}
                                     rows={2}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
+                                    placeholder="List areas of strength"
                                 />
                             </div>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Areas for Improvement</label>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Areas for Improvement</label>
                                 <textarea
                                     value={newFeedback.areas_for_improvement}
                                     onChange={e => setNewFeedback(prev => ({ ...prev, areas_for_improvement: e.target.value }))}
                                     rows={2}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'white' }}
+                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
+                                    placeholder="List areas for improvement"
                                 />
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <button
+                            <div className="flex gap-3 pt-2">
+                                <Button
                                     type="button"
                                     onClick={() => setShowFeedbackModal(false)}
-                                    style={{ flex: 1, padding: '0.75rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer' }}
+                                    variant="outline"
+                                    className="flex-1"
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
                                     disabled={submitting}
-                                    style={{ flex: 1, padding: '0.75rem', borderRadius: '0.25rem', border: 'none', background: 'var(--primary-color)', color: 'white', cursor: 'pointer' }}
+                                    gradient="purple"
+                                    className="flex-1"
                                 >
                                     {submitting ? 'Submitting...' : 'Submit'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
-                    </div>
+                    </Card>
                 </div>
             )}
         </div>

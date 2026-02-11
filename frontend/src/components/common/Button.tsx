@@ -15,37 +15,40 @@ export const Icons = {
 };
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'ghost';
+    variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'ghost' | 'outline';
     size?: 'sm' | 'md' | 'lg';
-    gradient?: 'blue' | 'emerald' | 'violet' | 'amber' | 'rose' | 'slate';
+    gradient?: 'purple' | 'blue' | 'emerald' | 'amber' | 'rose' | 'slate' | 'indigo';
     icon?: React.ReactNode;
     iconPosition?: 'left' | 'right';
     loading?: boolean;
     fullWidth?: boolean;
+    glow?: boolean;
 }
 
 const variantClasses = {
-    primary: 'bg-blue-500 hover:bg-blue-600 text-white',
-    secondary: 'bg-gray-100 hover:bg-gray-200 text-gray-800',
-    success: 'bg-emerald-500 hover:bg-emerald-600 text-white',
-    warning: 'bg-amber-500 hover:bg-amber-600 text-white',
-    danger: 'bg-red-500 hover:bg-red-600 text-white',
-    ghost: 'bg-transparent hover:bg-gray-100 text-gray-600',
+    primary: 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white',
+    secondary: 'bg-slate-800/50 hover:bg-slate-700/50 text-slate-200 border border-slate-700 hover:border-slate-600',
+    success: 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white',
+    warning: 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white',
+    danger: 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white',
+    ghost: 'bg-transparent hover:bg-white/5 text-slate-300 hover:text-white',
+    outline: 'bg-transparent border-2 border-purple-500/50 text-purple-400 hover:bg-purple-500/10 hover:border-purple-500',
 };
 
 const gradientClasses = {
-    blue: 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md hover:shadow-lg',
-    emerald: 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md hover:shadow-lg',
-    violet: 'bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-md hover:shadow-lg',
-    amber: 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg',
-    rose: 'bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-md hover:shadow-lg',
-    slate: 'bg-gradient-to-r from-slate-500 to-gray-600 hover:from-slate-600 hover:to-gray-700 text-white shadow-md hover:shadow-lg',
+    purple: 'bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-500 bg-size-200 bg-pos-0 hover:bg-pos-100 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98]',
+    blue: 'bg-gradient-to-r from-blue-500 via-cyan-500 to-indigo-500 bg-size-200 bg-pos-0 hover:bg-pos-100 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98]',
+    emerald: 'bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 bg-size-200 bg-pos-0 hover:bg-pos-100 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-[0.98]',
+    amber: 'bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 bg-size-200 bg-pos-0 hover:bg-pos-100 text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-[1.02] active:scale-[0.98]',
+    rose: 'bg-gradient-to-r from-rose-500 via-pink-500 to-red-500 bg-size-200 bg-pos-0 hover:bg-pos-100 text-white shadow-lg shadow-rose-500/25 hover:shadow-rose-500/40 hover:scale-[1.02] active:scale-[0.98]',
+    slate: 'bg-gradient-to-r from-slate-500 via-gray-500 to-zinc-500 bg-size-200 bg-pos-0 hover:bg-pos-100 text-white shadow-lg shadow-slate-500/25 hover:shadow-slate-500/40 hover:scale-[1.02] active:scale-[0.98]',
+    indigo: 'bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-500 bg-size-200 bg-pos-0 hover:bg-pos-100 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] active:scale-[0.98]',
 };
 
 const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2.5 text-sm',
-    lg: 'px-6 py-3 text-base',
+    sm: 'px-3 py-1.5 text-sm rounded-lg',
+    md: 'px-4 py-2.5 text-sm rounded-xl',
+    lg: 'px-6 py-3 text-base rounded-xl',
 };
 
 const Button: React.FC<ButtonProps> = ({
@@ -56,18 +59,21 @@ const Button: React.FC<ButtonProps> = ({
     iconPosition = 'left',
     loading = false,
     fullWidth = false,
+    glow = false,
     children,
     className = '',
     disabled,
     ...props
 }) => {
-    const baseClasses = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseClasses = 'inline-flex items-center justify-center font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100';
+    const glowClasses = glow ? 'hover:animate-glow' : '';
 
     const classes = [
         baseClasses,
         gradient ? gradientClasses[gradient] : variantClasses[variant],
         sizeClasses[size],
         fullWidth ? 'w-full' : '',
+        glowClasses,
         className,
     ].join(' ');
 
@@ -80,11 +86,11 @@ const Button: React.FC<ButtonProps> = ({
             {loading ? (
                 <Icons.Loader2 size={18} className="animate-spin mr-2" />
             ) : icon && iconPosition === 'left' ? (
-                <span className="mr-2">{icon}</span>
+                <span className="mr-2 transition-transform group-hover:translate-x-0.5">{icon}</span>
             ) : null}
             {children}
             {icon && iconPosition === 'right' && !loading && (
-                <span className="ml-2">{icon}</span>
+                <span className="ml-2 transition-transform group-hover:translate-x-0.5">{icon}</span>
             )}
         </button>
     );

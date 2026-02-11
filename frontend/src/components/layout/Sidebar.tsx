@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
     LayoutDashboard, Users, FolderKanban, MessageSquare,
     FileText, Brain, Monitor, Settings, ChevronRight,
-    Sparkles
+    Sparkles, LogOut, Zap
 } from 'lucide-react';
 
 interface NavItem {
@@ -12,15 +12,16 @@ interface NavItem {
     path: string;
     icon: React.ReactNode;
     roles?: string[];
+    badge?: string;
 }
 
 const Sidebar: React.FC = () => {
     const location = useLocation();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
 
     const mainNavItems: NavItem[] = [
         { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
-        { name: 'Interns', path: '/interns', icon: <Users size={20} /> },
+        { name: 'Interns', path: '/interns', icon: <Users size={20} />, badge: '12' },
         { name: 'Projects', path: '/projects', icon: <FolderKanban size={20} /> },
         { name: 'Feedback', path: '/feedback', icon: <MessageSquare size={20} /> },
         { name: 'Documents', path: '/documents', icon: <FileText size={20} /> },
@@ -47,15 +48,18 @@ const Sidebar: React.FC = () => {
     };
 
     return (
-        <aside className="fixed left-0 top-0 h-screen w-64 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex flex-col shadow-xl z-40">
+        <aside className="fixed left-0 top-0 h-screen w-64 bg-slate-900/80 backdrop-blur-xl text-white flex flex-col z-40 border-r border-white/5">
             {/* Logo Section */}
-            <div className="p-6 border-b border-slate-700/50">
+            <div className="p-6 border-b border-white/5">
                 <Link to="/" className="flex items-center gap-3 group">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-blue-500/25 transition-shadow">
-                        <Sparkles size={20} className="text-white" />
+                    <div className="relative">
+                        <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl blur opacity-40 group-hover:opacity-60 transition-opacity"></div>
+                        <div className="relative w-10 h-10 bg-gradient-to-br from-purple-500 via-pink-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
+                            <Sparkles size={20} className="text-white" />
+                        </div>
                     </div>
                     <div>
-                        <h1 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                        <h1 className="text-lg font-bold bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent">
                             AI Pipeline
                         </h1>
                         <p className="text-xs text-slate-400">Talent Intelligence</p>
@@ -64,10 +68,11 @@ const Sidebar: React.FC = () => {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto py-6 px-3">
+            <nav className="flex-1 overflow-y-auto py-6 px-3 scrollbar-thin">
                 {/* Main Navigation */}
                 <div className="mb-6">
-                    <p className="px-3 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <p className="px-3 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <Zap size={12} className="text-purple-400" />
                         Main Menu
                     </p>
                     <ul className="space-y-1">
@@ -75,17 +80,30 @@ const Sidebar: React.FC = () => {
                             <li key={item.path}>
                                 <Link
                                     to={item.path}
-                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${isActive(item.path)
-                                            ? 'bg-gradient-to-r from-blue-500/20 to-indigo-500/20 text-white border border-blue-500/30'
-                                            : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                                    className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group ${isActive(item.path)
+                                            ? 'text-white'
+                                            : 'text-slate-400 hover:text-white'
                                         }`}
                                 >
-                                    <span className={`transition-colors ${isActive(item.path) ? 'text-blue-400' : 'group-hover:text-blue-400'}`}>
+                                    {isActive(item.path) && (
+                                        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-indigo-500/20 rounded-xl border border-purple-500/30">
+                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b from-purple-400 to-pink-400 rounded-r-full"></div>
+                                        </div>
+                                    )}
+                                    <span className={`relative z-10 transition-all duration-300 ${isActive(item.path)
+                                            ? 'text-purple-400 scale-110'
+                                            : 'group-hover:scale-110 group-hover:text-purple-400'
+                                        }`}>
                                         {item.icon}
                                     </span>
-                                    <span className="font-medium">{item.name}</span>
+                                    <span className="relative z-10 font-medium">{item.name}</span>
+                                    {item.badge && (
+                                        <span className="relative z-10 ml-auto px-2 py-0.5 text-xs font-semibold bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 rounded-full border border-purple-500/30">
+                                            {item.badge}
+                                        </span>
+                                    )}
                                     {isActive(item.path) && (
-                                        <ChevronRight size={16} className="ml-auto text-blue-400" />
+                                        <ChevronRight size={16} className="relative z-10 ml-auto text-purple-400 animate-pulse" />
                                     )}
                                 </Link>
                             </li>
@@ -96,7 +114,8 @@ const Sidebar: React.FC = () => {
                 {/* Admin Navigation */}
                 {filterByRole(adminNavItems).length > 0 && (
                     <div className="mb-6">
-                        <p className="px-3 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        <p className="px-3 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Brain size={12} className="text-indigo-400" />
                             Analytics
                         </p>
                         <ul className="space-y-1">
@@ -104,17 +123,25 @@ const Sidebar: React.FC = () => {
                                 <li key={item.path}>
                                     <Link
                                         to={item.path}
-                                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${isActive(item.path)
-                                                ? 'bg-gradient-to-r from-violet-500/20 to-purple-500/20 text-white border border-violet-500/30'
-                                                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                                        className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group ${isActive(item.path)
+                                                ? 'text-white'
+                                                : 'text-slate-400 hover:text-white'
                                             }`}
                                     >
-                                        <span className={`transition-colors ${isActive(item.path) ? 'text-violet-400' : 'group-hover:text-violet-400'}`}>
+                                        {isActive(item.path) && (
+                                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 via-violet-500/20 to-purple-500/20 rounded-xl border border-indigo-500/30">
+                                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b from-indigo-400 to-violet-400 rounded-r-full"></div>
+                                            </div>
+                                        )}
+                                        <span className={`relative z-10 transition-all duration-300 ${isActive(item.path)
+                                                ? 'text-indigo-400 scale-110'
+                                                : 'group-hover:scale-110 group-hover:text-indigo-400'
+                                            }`}>
                                             {item.icon}
                                         </span>
-                                        <span className="font-medium">{item.name}</span>
+                                        <span className="relative z-10 font-medium">{item.name}</span>
                                         {isActive(item.path) && (
-                                            <ChevronRight size={16} className="ml-auto text-violet-400" />
+                                            <ChevronRight size={16} className="relative z-10 ml-auto text-indigo-400 animate-pulse" />
                                         )}
                                     </Link>
                                 </li>
@@ -125,12 +152,22 @@ const Sidebar: React.FC = () => {
             </nav>
 
             {/* Bottom Section */}
-            <div className="p-3 border-t border-slate-700/50">
-                <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all w-full">
-                    <Settings size={20} />
+            <div className="p-3 border-t border-white/5 space-y-1">
+                <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-300 w-full group">
+                    <Settings size={20} className="group-hover:rotate-90 transition-transform duration-300" />
                     <span className="font-medium">Settings</span>
                 </button>
+                <button
+                    onClick={logout}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 w-full group"
+                >
+                    <LogOut size={20} className="group-hover:-translate-x-1 transition-transform duration-300" />
+                    <span className="font-medium">Sign Out</span>
+                </button>
             </div>
+
+            {/* Decorative Elements */}
+            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-purple-500/5 to-transparent pointer-events-none"></div>
         </aside>
     );
 };

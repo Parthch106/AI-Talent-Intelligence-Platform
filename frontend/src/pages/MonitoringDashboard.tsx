@@ -7,7 +7,9 @@ import {
     OverviewTab, TasksTab, AttendanceTab,
     PerformanceTab, WeeklyReportsTab
 } from '../components/monitoring';
-import { Home, Target, Calendar, TrendingUp, FileText, CheckCircle } from 'lucide-react';
+import { Home, Target, Calendar, TrendingUp, FileText, CheckCircle, User, ChevronDown } from 'lucide-react';
+import Card from '../components/common/Card';
+import Badge from '../components/common/Badge';
 
 // Types
 interface Task {
@@ -85,6 +87,7 @@ const MonitoringDashboard: React.FC = () => {
     const [loading, setLoading] = useState<boolean>(false);
     const [activeModal, setActiveModal] = useState<ModalType>(null);
     const [success, setSuccess] = useState<string>('');
+    const [showInternDropdown, setShowInternDropdown] = useState(false);
 
     // Form states
     const [taskForm, setTaskForm] = useState({
@@ -212,48 +215,95 @@ const MonitoringDashboard: React.FC = () => {
         }
     };
 
+    const getSelectedInternName = () => {
+        const intern = interns.find(i => i.id === selectedIntern);
+        return intern?.full_name || intern?.email || 'Select Intern';
+    };
+
+    const getGradient = (name: string): string => {
+        const colors = [
+            'from-purple-500 via-pink-500 to-rose-500',
+            'from-blue-500 via-cyan-500 to-teal-500',
+            'from-amber-500 via-orange-500 to-red-500',
+            'from-emerald-500 via-green-500 to-lime-500',
+            'from-indigo-500 via-violet-500 to-purple-500',
+        ];
+        const index = (name?.charCodeAt(0) || 0) % colors.length;
+        return colors[index];
+    };
+
+    const getInitials = (name: string | null) => {
+        if (!name) return 'NA';
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    };
+
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen animate-fade-in">
             {/* Header */}
-            <div className="bg-white border-b border-gray-100 px-6 py-4">
+            <div className="bg-slate-800/30 border-b border-slate-700/50 px-6 py-4 backdrop-blur-xl">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800">Internship Monitoring</h1>
-                        <p className="text-gray-500 mt-1">Track progress, attendance, and performance</p>
+                        <h1 className="text-2xl font-bold text-white">
+                            Internship <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Monitoring</span>
+                        </h1>
+                        <p className="text-slate-400 mt-1">Track progress, attendance, and performance</p>
                     </div>
                     {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
-                        <select
-                            value={selectedIntern || ''}
-                            onChange={(e) => setSelectedIntern(e.target.value ? parseInt(e.target.value) : null)}
-                            className="px-4 py-2.5 border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                        >
-                            <option value="">Select Intern</option>
-                            {interns.map((intern) => (
-                                <option key={intern.id} value={intern.id}>{intern.full_name || intern.email}</option>
-                            ))}
-                        </select>
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowInternDropdown(!showInternDropdown)}
+                                className="flex items-center gap-3 px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-purple-500/50 transition-all"
+                            >
+                                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(getSelectedInternName())} flex items-center justify-center text-white font-bold text-xs`}>
+                                    {getInitials(interns.find(i => i.id === selectedIntern)?.full_name || null)}
+                                </div>
+                                <span className="text-white">{getSelectedInternName()}</span>
+                                <ChevronDown size={16} className={`text-slate-400 transition-transform ${showInternDropdown ? 'rotate-180' : ''}`} />
+                            </button>
+                            {showInternDropdown && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden animate-scale-in">
+                                    <div className="p-2">
+                                        {interns.map((intern) => (
+                                            <button
+                                                key={intern.id}
+                                                onClick={() => {
+                                                    setSelectedIntern(intern.id);
+                                                    setShowInternDropdown(false);
+                                                }}
+                                                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${selectedIntern === intern.id ? 'bg-purple-500/20' : 'hover:bg-slate-700'}`}
+                                            >
+                                                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(intern.full_name || intern.email)} flex items-center justify-center text-white font-bold text-xs`}>
+                                                    {getInitials(intern.full_name)}
+                                                </div>
+                                                <span className="text-white text-sm">{intern.full_name || intern.email}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>
 
             {/* Success Message */}
             {success && (
-                <div className="mx-6 mt-4 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl flex items-center gap-2">
+                <div className="mx-6 mt-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-xl flex items-center gap-2 animate-slide-up">
                     <CheckCircle size={18} />
                     {success}
                 </div>
             )}
 
             {/* Tabs */}
-            <div className="bg-white border-b border-gray-100 px-6 py-3 sticky top-16 z-20">
+            <div className="bg-slate-800/20 border-b border-slate-700/50 px-6 py-3 sticky top-0 z-20 backdrop-blur-xl">
                 <div className="flex gap-2 overflow-x-auto">
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => handleTabChange(tab.id)}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium whitespace-nowrap transition-all ${activeTab === tab.id
-                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
-                                : 'text-gray-600 hover:bg-gray-100'
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium whitespace-nowrap transition-all duration-200 ${activeTab === tab.id
+                                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25'
+                                : 'bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700'
                                 }`}
                         >
                             <tab.icon size={18} />
@@ -267,7 +317,10 @@ const MonitoringDashboard: React.FC = () => {
             <div className="p-6">
                 {loading ? (
                     <div className="flex justify-center items-center h-64">
-                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+                            <p className="text-slate-400">Loading data...</p>
+                        </div>
                     </div>
                 ) : (
                     <>
@@ -305,37 +358,37 @@ const MonitoringDashboard: React.FC = () => {
                 isOpen={activeModal === 'task'}
                 onClose={closeModal}
                 title="Assign New Task"
-                gradient="blue"
+                gradient="violet"
             >
                 <form onSubmit={handleCreateTask} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Title</label>
                         <input
                             type="text"
                             required
                             placeholder="Enter task title"
                             value={taskForm.title}
                             onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
                         <textarea
                             placeholder="Enter task description"
                             value={taskForm.description}
                             onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
                             rows={3}
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Priority</label>
                             <select
                                 value={taskForm.priority}
                                 onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                             >
                                 <option value="LOW">Low</option>
                                 <option value="MEDIUM">Medium</option>
@@ -344,11 +397,11 @@ const MonitoringDashboard: React.FC = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Complexity</label>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Complexity</label>
                             <select
                                 value={taskForm.complexity}
                                 onChange={(e) => setTaskForm({ ...taskForm, complexity: e.target.value })}
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                             >
                                 <option value="SIMPLE">Simple</option>
                                 <option value="MODERATE">Moderate</option>
@@ -357,20 +410,20 @@ const MonitoringDashboard: React.FC = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Due Date</label>
                         <input
                             type="date"
                             required
                             value={taskForm.due_date}
                             onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
-                            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                         />
                     </div>
                     <div className="flex gap-3 pt-4">
-                        <Button type="button" onClick={closeModal} variant="secondary" fullWidth>
+                        <Button type="button" onClick={closeModal} variant="outline" fullWidth>
                             Cancel
                         </Button>
-                        <Button type="submit" gradient="blue" fullWidth>
+                        <Button type="submit" gradient="purple" fullWidth>
                             Create Task
                         </Button>
                     </div>
@@ -386,21 +439,21 @@ const MonitoringDashboard: React.FC = () => {
             >
                 <form onSubmit={handleMarkAttendance} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Date</label>
                         <input
                             type="date"
                             required
                             value={attendanceForm.date}
                             onChange={(e) => setAttendanceForm({ ...attendanceForm, date: e.target.value })}
-                            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Status</label>
                         <select
                             value={attendanceForm.status}
                             onChange={(e) => setAttendanceForm({ ...attendanceForm, status: e.target.value })}
-                            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                         >
                             <option value="PRESENT">Present</option>
                             <option value="ABSENT">Absent</option>
@@ -410,26 +463,26 @@ const MonitoringDashboard: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Check In</label>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Check In</label>
                             <input
                                 type="time"
                                 value={attendanceForm.check_in_time}
                                 onChange={(e) => setAttendanceForm({ ...attendanceForm, check_in_time: e.target.value })}
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Check Out</label>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Check Out</label>
                             <input
                                 type="time"
                                 value={attendanceForm.check_out_time}
                                 onChange={(e) => setAttendanceForm({ ...attendanceForm, check_out_time: e.target.value })}
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                             />
                         </div>
                     </div>
                     <div className="flex gap-3 pt-4">
-                        <Button type="button" onClick={closeModal} variant="secondary" fullWidth>
+                        <Button type="button" onClick={closeModal} variant="outline" fullWidth>
                             Cancel
                         </Button>
                         <Button type="submit" gradient="emerald" fullWidth>
@@ -444,109 +497,109 @@ const MonitoringDashboard: React.FC = () => {
                 isOpen={activeModal === 'report'}
                 onClose={closeModal}
                 title="Submit Weekly Report"
-                gradient="violet"
+                gradient="indigo"
                 size="xl"
             >
                 <form onSubmit={handleSubmitReport} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Week Start</label>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Week Start</label>
                             <input
                                 type="date"
                                 required
                                 value={reportForm.week_start_date}
                                 onChange={(e) => setReportForm({ ...reportForm, week_start_date: e.target.value })}
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Week End</label>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Week End</label>
                             <input
                                 type="date"
                                 required
                                 value={reportForm.week_end_date}
                                 onChange={(e) => setReportForm({ ...reportForm, week_end_date: e.target.value })}
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
                             />
                         </div>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Completed</label>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Completed</label>
                             <input
                                 type="number"
                                 min="0"
                                 value={reportForm.tasks_completed}
                                 onChange={(e) => setReportForm({ ...reportForm, tasks_completed: parseInt(e.target.value) || 0 })}
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">In Progress</label>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">In Progress</label>
                             <input
                                 type="number"
                                 min="0"
                                 value={reportForm.tasks_in_progress}
                                 onChange={(e) => setReportForm({ ...reportForm, tasks_in_progress: parseInt(e.target.value) || 0 })}
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Blocked</label>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Blocked</label>
                             <input
                                 type="number"
                                 min="0"
                                 value={reportForm.tasks_blocked}
                                 onChange={(e) => setReportForm({ ...reportForm, tasks_blocked: parseInt(e.target.value) || 0 })}
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
                             />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Accomplishments *</label>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Accomplishments *</label>
                         <textarea
                             required
                             placeholder="What did you accomplish this week?"
                             value={reportForm.accomplishments}
                             onChange={(e) => setReportForm({ ...reportForm, accomplishments: e.target.value })}
-                            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all resize-none"
                             rows={3}
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Challenges</label>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Challenges</label>
                             <textarea
                                 placeholder="What challenges did you face?"
                                 value={reportForm.challenges}
                                 onChange={(e) => setReportForm({ ...reportForm, challenges: e.target.value })}
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all resize-none"
                                 rows={2}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Learnings</label>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Learnings</label>
                             <textarea
                                 placeholder="What did you learn?"
                                 value={reportForm.learnings}
                                 onChange={(e) => setReportForm({ ...reportForm, learnings: e.target.value })}
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all resize-none"
                                 rows={2}
                             />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Next Week Goals</label>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Next Week Goals</label>
                         <textarea
                             placeholder="What are your goals for next week?"
                             value={reportForm.next_week_goals}
                             onChange={(e) => setReportForm({ ...reportForm, next_week_goals: e.target.value })}
-                            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all resize-none"
                             rows={2}
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Self Rating: {reportForm.self_rating}/10</label>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Self Rating: {reportForm.self_rating}/10</label>
                         <input
                             type="range"
                             min="1"
@@ -557,25 +610,15 @@ const MonitoringDashboard: React.FC = () => {
                         />
                     </div>
                     <div className="flex gap-3 pt-4">
-                        <Button type="button" onClick={closeModal} variant="secondary" fullWidth>
+                        <Button type="button" onClick={closeModal} variant="outline" fullWidth>
                             Cancel
                         </Button>
-                        <Button type="submit" gradient="violet" fullWidth>
+                        <Button type="submit" gradient="indigo" fullWidth>
                             Submit Report
                         </Button>
                     </div>
                 </form>
             </Modal>
-
-            {/* CSS for animations */}
-            <style>{`
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
         </div>
     );
 };
