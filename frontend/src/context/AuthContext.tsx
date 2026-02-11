@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '../api/axios';
 
 interface User {
     id: number;
     email: string;
     role: string;
+    full_name?: string;
+    department?: string;
 }
 
 interface AuthContextType {

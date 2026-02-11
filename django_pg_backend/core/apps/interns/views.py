@@ -15,7 +15,10 @@ class InternProfileViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role == 'INTERN':
             return InternProfile.objects.filter(user=user)
-        # Managers and admins see all interns
+        elif user.role == 'MANAGER':
+            # Managers see only interns in their department
+            return InternProfile.objects.filter(user__department=user.department)
+        # Admin sees all interns
         return InternProfile.objects.all()
 
     def perform_create(self, serializer):  
@@ -29,12 +32,13 @@ class CreateInternView(views.APIView):
         user_data = request.data.get('user', {})
         profile_data = request.data.get('profile', {})
         
-        # Create user
+        # Create user with manager's department
         user = User.objects.create_user(
             email=user_data.get('email'),
             password=user_data.get('password'),
             full_name=user_data.get('full_name'),
-            role=User.Role.INTERN
+            role=User.Role.INTERN,
+            department=request.user.department
         )
         
         # Create intern profile
@@ -52,3 +56,17 @@ class CreateInternView(views.APIView):
         
         serializer = InternProfileSerializer(profile)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class DepartmentInternsView(views.APIView):
+    """API endpoint to get interns in the manager's department"""
+    permission_classes = [IsAuthenticated, IsManager]
+    
+    def get(self, request):
+        interns = User.objects.filter(
+            role=User.Role.INTERN,
+            department=request.user.department
+        )
+        from apps.accounts.serializers import UserSerializer
+        serializer = UserSerializer(interns, many=True)
+        return Response(serializer.data)

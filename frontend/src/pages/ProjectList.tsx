@@ -88,10 +88,7 @@ const ProjectList: React.FC = () => {
 
     const fetchData = async () => {
         try {
-            const [projectsRes, internsRes] = await Promise.all([
-                api.get('/projects/projects/'),
-                api.get('/interns/profiles/'),
-            ]);
+            const projectsRes = await api.get('/projects/projects/');
 
             // Fetch assignments for each project
             const assignmentsRes = await api.get('/projects/assignments/');
@@ -106,7 +103,17 @@ const ProjectList: React.FC = () => {
             }));
 
             setProjects(projectsWithAssignments);
-            setInterns(internsRes.data.map((profile: any) => profile.user));
+
+            // Fetch interns based on role
+            if (user?.role === 'MANAGER') {
+                // Managers get interns from their department
+                const deptInternsRes = await api.get('/interns/department-interns/');
+                setInterns(deptInternsRes.data);
+            } else {
+                // Admin gets all interns
+                const internsRes = await api.get('/interns/profiles/');
+                setInterns(internsRes.data.map((profile: any) => profile.user));
+            }
         } catch (error) {
             console.error("Failed to fetch data", error);
         } finally {
@@ -116,7 +123,7 @@ const ProjectList: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [user?.role]);
 
     const handleAddProject = async (e: React.FormEvent) => {
         e.preventDefault();

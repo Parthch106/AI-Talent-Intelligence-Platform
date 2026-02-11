@@ -82,8 +82,8 @@ const ManagerDashboard: React.FC = () => {
         try {
             const [internsRes, assessmentsRes, feedbackRes] = await Promise.all([
                 api.get('/interns/profiles/'),
-                api.get('/assessments/assessments/'),
-                api.get('/feedback/feedback/'),
+                api.get('/assessments/'),
+                api.get('/feedback/'),
             ]);
             setInterns(internsRes.data);
             setAssessments(assessmentsRes.data);
@@ -103,7 +103,7 @@ const ManagerDashboard: React.FC = () => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            await api.post('/assessments/assessments/', newAssessment);
+            await api.post('/assessments/', newAssessment);
             setShowAssessmentModal(false);
             setNewAssessment({ title: '', assessment_type: 'TECHNICAL', description: '' });
             fetchData();
@@ -118,7 +118,7 @@ const ManagerDashboard: React.FC = () => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            await api.post('/feedback/feedback/', {
+            await api.post('/feedback/', {
                 ...newFeedback,
                 project: null,
             });

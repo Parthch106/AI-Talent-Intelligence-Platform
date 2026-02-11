@@ -7,7 +7,7 @@ from .models import User
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "email", "full_name", "role"]
+        fields = ["id", "email", "full_name", "role", "department"]
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -15,7 +15,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["email", "full_name", "password", "role"]
+        fields = ["email", "full_name", "password", "role", "department"]
 
     def create(self, validated_data):
         user = User.objects.create_user(
@@ -23,6 +23,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             password=validated_data["password"],
             full_name=validated_data["full_name"],
             role=validated_data.get("role", User.Role.INTERN),
+            department=validated_data.get("department", ""),
         )
         return user
 
@@ -46,7 +47,9 @@ class LoginSerializer(serializers.Serializer):
             "user": {
                 "id": user.id,
                 "email": user.email,
+                "full_name": user.full_name,
                 "role": user.role,
+                "department": user.department,
             },
             "access": str(refresh.access_token),
             "refresh": str(refresh),
