@@ -141,20 +141,7 @@ class TaskTracking(models.Model):
         default='MEDIUM'
     )
     
-    # Complexity
-    COMPLEXITY_CHOICES = [
-        ('SIMPLE', 'Simple'),
-        ('MODERATE', 'Moderate'),
-        ('COMPLEX', 'Complex'),
-        ('VERY_COMPLEX', 'Very Complex'),
-    ]
-    complexity = models.CharField(
-        max_length=15,
-        choices=COMPLEXITY_CHOICES,
-        default='MODERATE'
-    )
-    
-    # Assignment
+
     assigned_at = models.DateTimeField(auto_now_add=True)
     due_date = models.DateTimeField()
     

@@ -302,10 +302,12 @@ class TaskTrackingView(APIView):
             'title': task.title,
             'status': task.status,
             'priority': task.priority,
-            'complexity': task.complexity,
             'assigned_at': task.assigned_at,
             'due_date': task.due_date,
+            'submitted_at': task.submitted_at,
             'completed_at': task.completed_at,
+            'estimated_hours': task.estimated_hours,
+            'actual_hours': task.actual_hours,
             'quality_rating': task.quality_rating,
             'code_review_score': task.code_review_score,
         } for task in tasks]
@@ -351,7 +353,6 @@ class TaskTrackingView(APIView):
             description=task_data.get('description', ''),
             status=task_data.get('status', 'ASSIGNED'),
             priority=task_data.get('priority', 'MEDIUM'),
-            complexity=task_data.get('complexity', 'MODERATE'),
             due_date=task_data.get('due_date'),
             estimated_hours=task_data.get('estimated_hours', 0.0),
         )
@@ -391,7 +392,7 @@ class TaskTrackingView(APIView):
             )
         
         # Validate status transitions
-        valid_statuses = ['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'BLOCKED']
+        valid_statuses = ['ASSIGNED', 'IN_PROGRESS', 'SUBMITTED', 'REVIEWED', 'COMPLETED', 'REWORK', 'BLOCKED']
         if new_status not in valid_statuses:
             return Response(
                 {'error': f'Invalid status. Must be one of: {valid_statuses}'},
@@ -400,11 +401,11 @@ class TaskTrackingView(APIView):
         
         # Permission check:
         # - Manager/Admin can update to any status including BLOCKED
-        # - Intern can only update to IN_PROGRESS or COMPLETED
+        # - Intern can only update to IN_PROGRESS, SUBMITTED, or COMPLETED
         if user.role == User.Role.INTERN:
-            if new_status not in ['IN_PROGRESS', 'COMPLETED']:
+            if new_status not in ['IN_PROGRESS', 'SUBMITTED', 'COMPLETED']:
                 return Response(
-                    {'error': 'Interns can only update task status to IN_PROGRESS or COMPLETED'},
+                    {'error': 'Interns can only update task status to IN_PROGRESS, SUBMITTED, or COMPLETED'},
                     status=status.HTTP_403_FORBIDDEN
                 )
             # Intern can only update their own tasks
@@ -427,9 +428,22 @@ class TaskTrackingView(APIView):
         old_status = task.status
         task.status = new_status
         
+        # Set submitted_at when task is submitted
+        if new_status == 'SUBMITTED' and not task.submitted_at:
+            task.submitted_at = timezone.now()
+        
+        # Set actual_hours when task is submitted (from request data)
+        actual_hours = request.data.get('actual_hours')
+        if actual_hours is not None and new_status in ['SUBMITTED', 'COMPLETED']:
+            task.actual_hours = float(actual_hours)
+        
         # Set completed_at if status is COMPLETED
         if new_status == 'COMPLETED' and not task.completed_at:
             task.completed_at = timezone.now()
+            # If actual_hours not provided, calculate from assigned_at to completed_at
+            if not task.actual_hours:
+                time_diff = task.completed_at - task.assigned_at
+                task.actual_hours = round(time_diff.total_seconds() / 3600, 2)
         
         task.save()
         
@@ -438,7 +452,174 @@ class TaskTrackingView(APIView):
             'task_id': task.id,
             'old_status': old_status,
             'new_status': new_status,
-            'completed_at': task.completed_at
+            'submitted_at': task.submitted_at,
+            'completed_at': task.completed_at,
+            'actual_hours': task.actual_hours
+        })
+
+
+class TaskEvaluationView(APIView):
+    """
+    API endpoint for managers to evaluate intern tasks.
+    Allows managers to rate task quality, provide feedback, and mark for rework.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, task_id=None):
+        """Get task evaluation details."""
+        user = request.user
+        
+        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+            return Response(
+                {'error': 'Permission denied. Only managers and admins can view task evaluations.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if not task_id:
+            task_id = request.query_params.get('task_id')
+        
+        if not task_id:
+            return Response(
+                {'error': 'task_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            task = TaskTracking.objects.select_related('intern').get(id=task_id)
+        except TaskTracking.DoesNotExist:
+            return Response(
+                {'error': 'Task not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Validate manager access to intern's department
+        if user.role == User.Role.MANAGER:
+            is_valid, error_response = validate_manager_access(user, task.intern_id)
+            if not is_valid:
+                return error_response
+        
+        return Response({
+            'task_id': task.id,
+            'task_number': task.task_id,
+            'title': task.title,
+            'intern': {
+                'id': task.intern.id,
+                'name': f"{task.intern.first_name} {task.intern.last_name}",
+                'email': task.intern.email
+            },
+            'status': task.status,
+            'priority': task.priority,
+            'assigned_at': task.assigned_at,
+            'due_date': task.due_date,
+            'submitted_at': task.submitted_at,
+            'completed_at': task.completed_at,
+            'estimated_hours': task.estimated_hours,
+            'actual_hours': task.actual_hours,
+            'evaluation': {
+                'quality_rating': task.quality_rating,
+                'code_review_score': task.code_review_score,
+                'bug_count': task.bug_count,
+                'mentor_feedback': task.mentor_feedback,
+                'rework_required': task.rework_required
+            }
+        })
+
+    def patch(self, request, task_id=None):
+        """Update task evaluation (for managers to submit evaluation)."""
+        user = request.user
+        
+        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+            return Response(
+                {'error': 'Permission denied. Only managers and admins can evaluate tasks.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if not task_id:
+            task_id = request.data.get('task_id')
+        
+        if not task_id:
+            return Response(
+                {'error': 'task_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            task = TaskTracking.objects.get(id=task_id)
+        except TaskTracking.DoesNotExist:
+            return Response(
+                {'error': 'Task not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Validate manager access to intern's department
+        if user.role == User.Role.MANAGER:
+            is_valid, error_response = validate_manager_access(user, task.intern_id)
+            if not is_valid:
+                return error_response
+        
+        # Update evaluation fields
+        quality_rating = request.data.get('quality_rating')
+        if quality_rating is not None:
+            quality_rating = float(quality_rating)
+            if not (0 <= quality_rating <= 5):
+                return Response(
+                    {'error': 'quality_rating must be between 0 and 5'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            task.quality_rating = quality_rating
+        
+        code_review_score = request.data.get('code_review_score')
+        if code_review_score is not None:
+            code_review_score = float(code_review_score)
+            if not (0 <= code_review_score <= 100):
+                return Response(
+                    {'error': 'code_review_score must be between 0 and 100'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            task.code_review_score = code_review_score
+        
+        bug_count = request.data.get('bug_count')
+        if bug_count is not None:
+            try:
+                task.bug_count = int(bug_count)
+            except ValueError:
+                return Response(
+                    {'error': 'bug_count must be an integer'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        mentor_feedback = request.data.get('mentor_feedback')
+        if mentor_feedback is not None:
+            task.mentor_feedback = mentor_feedback
+        
+        rework_required = request.data.get('rework_required')
+        if rework_required is not None:
+            task.rework_required = bool(rework_required)
+            # If rework is required, change status to REWORK
+            if task.rework_required and task.status == 'COMPLETED':
+                task.status = 'REWORK'
+        
+        # Update status if provided
+        new_status = request.data.get('status')
+        if new_status:
+            if new_status in ['REVIEWED', 'COMPLETED', 'REWORK']:
+                task.status = new_status
+                if new_status == 'COMPLETED' and not task.completed_at:
+                    task.completed_at = timezone.now()
+        
+        task.save()
+        
+        return Response({
+            'message': 'Task evaluation updated successfully',
+            'task_id': task.id,
+            'evaluation': {
+                'quality_rating': task.quality_rating,
+                'code_review_score': task.code_review_score,
+                'bug_count': task.bug_count,
+                'mentor_feedback': task.mentor_feedback,
+                'rework_required': task.rework_required
+            },
+            'status': task.status
         })
 
 

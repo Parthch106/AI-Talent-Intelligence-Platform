@@ -18,7 +18,13 @@ interface Task {
     status: string;
     priority: string;
     due_date: string;
+    estimated_hours: number;
+    actual_hours: number;
     quality_rating: number | null;
+    code_review_score: number | null;
+    bug_count: number;
+    mentor_feedback: string;
+    rework_required: boolean;
 }
 
 interface Attendance {
@@ -38,11 +44,14 @@ interface WeeklyReport {
     tasks_in_progress: number;
     tasks_blocked: number;
     accomplishments: string;
-    challenges: string;
-    learnings: string;
-    next_week_goals: string;
+    challenges?: string;
+    learnings?: string;
+    next_week_goals?: string;
     self_rating: number | null;
     is_submitted: boolean;
+    is_reviewed?: boolean;
+    pdf_url: string | null;
+    submitted_at?: string;
 }
 
 interface PerformanceMetric {
@@ -433,6 +442,7 @@ const MonitoringDashboard: React.FC = () => {
                                 onAddTask={() => openModal('task')}
                                 canCreate={user?.role === 'ADMIN' || user?.role === 'MANAGER'}
                                 onStatusChange={handleTaskStatusChange}
+                                onRefresh={fetchData}
                             />
                         )}
                         {activeTab === 'attendance' && (

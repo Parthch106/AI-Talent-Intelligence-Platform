@@ -12,7 +12,7 @@ from rest_framework import status
 from django.db.models import Q
 
 from apps.accounts.models import User
-from apps.documents.models import ResumeData
+from apps.documents.models import ResumeData, Document
 from apps.analytics.models import (
     JobRole,
     Application,
@@ -367,6 +367,23 @@ class LegacyIntelligenceView(APIView):
         # Get job role
         job_role = application.job_role
         
+        # Get resume document URL
+        resume_document = None
+        try:
+            resume_doc = Document.objects.filter(
+                owner=intern,
+                document_type='RESUME'
+            ).first()
+            if resume_doc and resume_doc.file:
+                resume_document = {
+                    'id': resume_doc.id,
+                    'url': resume_doc.file.url,
+                    'filename': resume_doc.title,
+                    'uploaded_at': resume_doc.created_at.isoformat() if resume_doc.created_at else None,
+                }
+        except Exception as e:
+            pass  # If document lookup fails, continue without it
+        
         # Build scores
         scores = {
             'technical': prediction.technical_competency_score or 0,
@@ -435,13 +452,13 @@ class LegacyIntelligenceView(APIView):
         # Risk flags (derived from prediction and resume features)
         risk_flags = []
         if resume_feature:
-            if resume_feature.inflation_score and resume_feature.inflation_score > 0.5:
-                risk_flags.append("Potential resume inflation detected")
             if resume_feature.keyword_stuffing_ratio and resume_feature.keyword_stuffing_ratio > 0.3:
-                risk_flags.append("Possible keyword stuffing detected")
+                risk_flags.append({'type': 'KEYWORD_STUFFING', 'message': 'Possible keyword stuffing detected'})
+            if resume_feature.resume_consistency_score and resume_feature.resume_consistency_score < 0.4:
+                risk_flags.append({'type': 'LOW_CONSISTENCY', 'message': 'Low resume consistency - verify information'})
         if prediction:
             if prediction.resume_authenticity_score and prediction.resume_authenticity_score < 0.5:
-                risk_flags.append("Low resume authenticity - verify credentials")
+                risk_flags.append({'type': 'AUTHENTICITY_CONCERN', 'message': 'Low resume authenticity - verify credentials'})
         
         # Resume analysis details
         resume_analysis = {
@@ -467,6 +484,7 @@ class LegacyIntelligenceView(APIView):
         
         return {
             'user_id': intern.id,
+            'resume_document': resume_document,
             'scores': scores,
             'skill_profile': skill_profile,
             'domain_strengths': domain_strengths,

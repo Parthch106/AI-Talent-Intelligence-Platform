@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.conf import settings
 from .models import (
     TaskTracking,
     AttendanceRecord,
@@ -17,11 +18,35 @@ from .models import (
 )
 
 
+# Customize Admin Site Header
+admin.site.site_header = getattr(settings, 'SITE_HEADER', 'AI Talent Intelligence')
+admin.site.site_title = getattr(settings, 'SITE_TITLE', 'Talent Intelligence Platform')
+admin.site.index_title = getattr(settings, 'INDEX_TITLE', 'Welcome to Talent Intelligence Platform')
+
+
 @admin.register(TaskTracking)
 class TaskTrackingAdmin(admin.ModelAdmin):
-    list_display = ('intern', 'task_id', 'title', 'status', 'due_date')
-    list_filter = ('status', 'due_date')
-    search_fields = ('intern__full_name', 'title')
+    list_display = ('intern', 'task_id', 'title', 'status', 'priority', 'due_date', 'quality_rating', 'code_review_score')
+    list_filter = ('status', 'priority', 'due_date', 'rework_required')
+    search_fields = ('intern__full_name', 'task_id', 'title')
+    readonly_fields = ('assigned_at', 'submitted_at', 'completed_at')
+    fieldsets = (
+        ('Task Details', {
+            'fields': ('intern', 'task_id', 'title', 'description')
+        }),
+        ('Status & Priority', {
+            'fields': ('status', 'priority')
+        }),
+        ('Dates', {
+            'fields': ('assigned_at', 'due_date', 'submitted_at', 'completed_at')
+        }),
+        ('Time Tracking', {
+            'fields': ('estimated_hours', 'actual_hours')
+        }),
+        ('Evaluation (For Manager)', {
+            'fields': ('quality_rating', 'code_review_score', 'bug_count', 'mentor_feedback', 'rework_required')
+        }),
+    )
 
 
 @admin.register(AttendanceRecord)

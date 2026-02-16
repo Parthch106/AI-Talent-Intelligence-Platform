@@ -7,12 +7,17 @@ from apps.accounts.models import User
 def get_document_upload_path(instance, filename):
     """
     Generate upload path based on document_type.
-    Files will be stored in: documents/<document_type>/<filename>
+    Files will be stored in: resume/<filename> for resumes
     """
-    # Get the document type and convert to lowercase for folder name
-    doc_type = instance.document_type.lower()
-    # Create folder path
-    return os.path.join('documents', doc_type, filename)
+    # Get the document type
+    doc_type = instance.document_type
+    
+    # For resumes, store directly in resume folder
+    if doc_type == 'RESUME':
+        return os.path.join('resume', filename)
+    
+    # For other documents, use documents/<type> path
+    return os.path.join('documents', doc_type.lower(), filename)
 
 
 class Document(models.Model):

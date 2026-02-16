@@ -8,6 +8,7 @@ from .views import (
     SkillGapAnalysisView,
     # Phase 2 - Part 2 Views
     TaskTrackingView,
+    TaskEvaluationView,
     AttendanceRecordView,
     MyAttendanceView,
     WeeklyReportView,
@@ -51,6 +52,8 @@ urlpatterns = [
     path('tasks/', TaskTrackingView.as_view(), name='task-tracking'),
     path('tasks/create/', TaskTrackingView.as_view(), name='task-create'),
     path('tasks/<int:task_id>/update-status/', TaskTrackingView.as_view(), name='task-update-status'),
+    path('tasks/<int:task_id>/evaluate/', TaskEvaluationView.as_view(), name='task-evaluate'),
+    path('tasks/evaluate/', TaskEvaluationView.as_view(), name='task-evaluate-list'),
 
     # Attendance
     path('attendance/', AttendanceRecordView.as_view(), name='attendance'),

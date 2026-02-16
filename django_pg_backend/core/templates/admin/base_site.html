@@ -1,0 +1,23 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block branding %}
+<div style="display: flex; align-items: center; gap: 10px;">
+    <img src="{% static 'images/logo.svg' %}" alt="Logo" style="height: 40px; width: auto;">
+    <h1 id="site-name" style="margin: 0; font-size: 1.2rem;">{{ site_header|default:"Talent Intelligence Platform" }}
+    </h1>
+</div>
+{% endblock %}
+
+{% block userlinks %}
+{% if user.is_active and user.is_staff %}
+{% url 'admin:index' as index_url %}
+{% if request.path != index_url %}
+<a href="{{ index_url }}">{% trans 'Admin' %}</a> /
+{% endif %}
+{% endif %}
+{% if user.has_usable_password %}
+<a href="{% url 'admin:password_change' %}">{% trans 'Change password' %}</a> /
+{% endif %}
+<a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
+{% endblock %}

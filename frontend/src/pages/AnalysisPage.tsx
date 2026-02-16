@@ -40,6 +40,12 @@ interface IntelligenceData {
         severity: string;
         message: string;
     }>;
+    resume_document?: {
+        id: number;
+        url: string;
+        filename: string;
+        uploaded_at: string | null;
+    };
     resume_analysis?: {
         applied_role?: string;
         years_of_education?: number;
@@ -364,6 +370,41 @@ const AnalysisPage: React.FC = () => {
                         </div>
                     </Card>
 
+                    {/* Resume Preview */}
+                    {intelligence.resume_document && (
+                        <Card className="border-l-4 border-l-blue-500">
+                            <div className="flex items-center gap-2 mb-4">
+                                <FileText size={20} className="text-blue-400" />
+                                <h3 className="text-lg font-semibold text-white">Resume Document</h3>
+                            </div>
+                            <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-xl">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                        <FileText size={24} className="text-blue-400" />
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-white">{intelligence.resume_document!.filename || 'Resume'}</p>
+                                        <p className="text-sm text-slate-400">Document ID: {intelligence.resume_document!.id}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            const response = await api.get(`/documents/files/${intelligence.resume_document!.id}/download/`);
+                                            // Open the authenticated URL
+                                            window.open(response.data.url, '_blank');
+                                        } catch (error) {
+                                            console.error('Error fetching resume URL:', error);
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
+                                >
+                                    View Resume
+                                </button>
+                            </div>
+                        </Card>
+                    )}
+
                     {/* Score Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {[
@@ -431,15 +472,15 @@ const AnalysisPage: React.FC = () => {
                                     <div>
                                         <p className="text-sm text-slate-400 mb-2">Suitability Score</p>
                                         <div className="flex items-baseline gap-2">
-                                            <span className={`text-4xl font-bold ${getSuitabilityColor(intelligence.resume_analysis.suitability_score || 0)}`}>
-                                                {intelligence.resume_analysis.suitability_score?.toFixed(0) || 0}
+                                            <span className={`text-4xl font-bold ${getSuitabilityColor((intelligence.resume_analysis.suitability_score || 0) * 100)}`}>
+                                                {((intelligence.resume_analysis.suitability_score || 0) * 100).toFixed(0)}
                                             </span>
                                             <span className="text-xl text-slate-500">/100</span>
                                         </div>
                                         <div className="mt-3 h-3 bg-slate-700 rounded-full overflow-hidden">
                                             <div
-                                                className={`h-full ${getScoreBgColor((intelligence.resume_analysis.suitability_score || 0) / 100)} transition-all`}
-                                                style={{ width: `${intelligence.resume_analysis.suitability_score || 0}%` }}
+                                                className={`h-full ${getScoreBgColor((intelligence.resume_analysis.suitability_score || 0))} transition-all`}
+                                                style={{ width: `${(intelligence.resume_analysis.suitability_score || 0) * 100}%` }}
                                             />
                                         </div>
                                     </div>
@@ -535,6 +576,23 @@ const AnalysisPage: React.FC = () => {
                                 )}
                             </Card>
                         </div>
+                    )}
+
+                    {/* Domain Strengths */}
+                    {intelligence.domain_strengths && intelligence.domain_strengths.length > 0 && (
+                        <Card className="border-l-4 border-l-green-500">
+                            <div className="flex items-center gap-2 mb-4">
+                                <TrendingUp size={20} className="text-green-400" />
+                                <h3 className="text-lg font-semibold text-green-400">Domain Strengths</h3>
+                            </div>
+                            <div className="space-y-2">
+                                {intelligence.domain_strengths.map((strength, index) => (
+                                    <div key={index} className="p-3 bg-green-500/10 rounded-xl">
+                                        <p className="font-medium text-white">{strength}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </Card>
                     )}
 
                     {/* Risk Flags */}

@@ -127,6 +127,26 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @action(detail=True, methods=['get'], url_path='download')
+    def download_file(self, request, pk=None):
+        """
+        API endpoint to download a document file.
+        
+        GET /api/documents/<id>/download/
+        """
+        document = self.get_object()
+        
+        if not document.file:
+            return Response(
+                {'error': 'No file attached to this document'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Return the file URL
+        return Response({
+            'url': request.build_absolute_uri(document.file.url)
+        })
+    
     @action(detail=True, methods=['get'], url_path='parsed-data')
     def get_parsed_data(self, request, pk=None):
         """

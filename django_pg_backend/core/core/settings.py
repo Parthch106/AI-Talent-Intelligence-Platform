@@ -80,7 +80,7 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -113,6 +113,26 @@ DATABASES = {
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 DEBUG = os.getenv("DJANGO_DEBUG") == "True"
 AUTH_USER_MODEL = "accounts.User"
+
+# =============================================================================
+# Website Branding Settings
+# =============================================================================
+SITE_NAME = "Talent Intelligence Platform"
+SITE_HEADER = "AI Talent Intelligence"
+SITE_TITLE = "Talent Intelligence Platform"
+INDEX_TITLE = "Welcome to AI Talent Intelligence Platform"
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/6.0/howto/static-files/
+STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "static"),
+]
+
+# Media files (Uploads)
+MEDIA_URL = "media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "..", "core", "documents")
 
 
 # Password validation

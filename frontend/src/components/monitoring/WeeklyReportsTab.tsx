@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, FileText, CheckCircle, Clock, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Plus, FileText, CheckCircle, Clock, AlertTriangle, ChevronRight, Download, Eye } from 'lucide-react';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
@@ -12,8 +12,14 @@ interface WeeklyReport {
     tasks_in_progress: number;
     tasks_blocked: number;
     accomplishments: string;
+    challenges?: string;
+    learnings?: string;
+    next_week_goals?: string;
     self_rating: number | null;
     is_submitted: boolean;
+    is_reviewed?: boolean;
+    pdf_url: string | null;
+    submitted_at?: string;
 }
 
 interface WeeklyReportsTabProps {
@@ -53,6 +59,11 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                                     <Badge variant={report.is_submitted ? 'success' : 'warning'} withDot>
                                         {report.is_submitted ? 'Submitted' : 'Draft'}
                                     </Badge>
+                                    {report.is_reviewed && (
+                                        <Badge variant="info" withDot>
+                                            Reviewed
+                                        </Badge>
+                                    )}
                                 </div>
                                 <div className="flex flex-wrap gap-4 text-sm">
                                     <span className="flex items-center gap-1 text-emerald-400">
@@ -69,17 +80,60 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                                     </span>
                                 </div>
                             </div>
+                            {report.pdf_url && (
+                                <a
+                                    href={report.pdf_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg transition-colors border border-purple-500/30"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <Download size={16} />
+                                    <span className="text-sm font-medium">Download PDF</span>
+                                </a>
+                            )}
                             <ChevronRight size={20} className="text-slate-400" />
                         </div>
-                        {report.is_submitted && report.accomplishments && (
-                            <div className="mt-4 pt-4 border-t border-white/10">
-                                <p className="text-sm text-slate-300 line-clamp-2">{report.accomplishments}</p>
-                                {report.self_rating && (
-                                    <div className="flex items-center gap-2 mt-3">
-                                        <span className="text-sm text-slate-400">Self Rating:</span>
-                                        <span className="font-semibold text-white">{report.self_rating}/10</span>
+                        {report.is_submitted && (
+                            <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+                                {report.accomplishments && (
+                                    <div>
+                                        <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Accomplishments</p>
+                                        <p className="text-sm text-slate-300">{report.accomplishments}</p>
                                     </div>
                                 )}
+                                {report.challenges && (
+                                    <div>
+                                        <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Challenges</p>
+                                        <p className="text-sm text-slate-300">{report.challenges}</p>
+                                    </div>
+                                )}
+                                {report.learnings && (
+                                    <div>
+                                        <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Learnings</p>
+                                        <p className="text-sm text-slate-300">{report.learnings}</p>
+                                    </div>
+                                )}
+                                {report.next_week_goals && (
+                                    <div>
+                                        <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Next Week Goals</p>
+                                        <p className="text-sm text-slate-300">{report.next_week_goals}</p>
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-4 pt-2">
+                                    {report.self_rating && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm text-slate-400">Self Rating:</span>
+                                            <span className="font-semibold text-white">{report.self_rating}/10</span>
+                                        </div>
+                                    )}
+                                    {report.submitted_at && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm text-slate-400">Submitted:</span>
+                                            <span className="text-sm text-slate-300">{new Date(report.submitted_at).toLocaleDateString()}</span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </Card>
