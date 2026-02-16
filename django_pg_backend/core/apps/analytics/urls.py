@@ -9,6 +9,7 @@ from .views import (
     # Phase 2 - Part 2 Views
     TaskTrackingView,
     AttendanceRecordView,
+    MyAttendanceView,
     WeeklyReportView,
     PerformanceMetricsView,
     ComputePerformanceMetricsView,
@@ -16,13 +17,28 @@ from .views import (
     DropoutRiskDashboardView,
     PPOEligibilityDashboardView,
 )
+from .views_talent_intelligence import (
+    AnalyzeInternView,
+    AnalyzeAllInternsView,
+    GetInternAnalysisView,
+    JobRoleListView,
+    ApplicationListView,
+    LegacyIntelligenceView,
+    LegacyComputeIntelligenceView,
+)
 
 urlpatterns = [
-    # Existing URLs
+    # ============================================================================
+    # BACKWARD COMPATIBLE ENDPOINTS FOR FRONTEND (USING NEW ML PIPELINE)
+    # ============================================================================
+    
+    # Legacy endpoints matching old frontend interface - now using new ML pipeline
+    path('intelligence/', LegacyIntelligenceView.as_view(), name='intern-intelligence'),
+    path('intelligence/compute/', LegacyComputeIntelligenceView.as_view(), name='compute-intelligence'),
+    path('intelligence/compute/<int:intern_id>/', LegacyComputeIntelligenceView.as_view(), name='compute-intelligence-detail'),
+    
+    # Other analytics endpoints
     path('summary/', DashboardStatsView.as_view(), name='dashboard-summary'),
-    path('intelligence/', InternIntelligenceView.as_view(), name='intern-intelligence'),
-    path('intelligence/compute/', ComputeIntelligenceView.as_view(), name='compute-intelligence'),
-    path('intelligence/compute/<int:intern_id>/', ComputeIntelligenceView.as_view(), name='compute-intelligence-detail'),
     path('manager/', ManagerDashboardView.as_view(), name='manager-dashboard'),
     path('admin/', AdminDashboardView.as_view(), name='admin-dashboard'),
     path('skill-gaps/', SkillGapAnalysisView.as_view(), name='skill-gap-analysis'),
@@ -34,10 +50,12 @@ urlpatterns = [
     # Task Tracking
     path('tasks/', TaskTrackingView.as_view(), name='task-tracking'),
     path('tasks/create/', TaskTrackingView.as_view(), name='task-create'),
+    path('tasks/<int:task_id>/update-status/', TaskTrackingView.as_view(), name='task-update-status'),
 
     # Attendance
     path('attendance/', AttendanceRecordView.as_view(), name='attendance'),
     path('attendance/mark/', AttendanceRecordView.as_view(), name='attendance-mark'),
+    path('attendance/my-attendance/', MyAttendanceView.as_view(), name='my-attendance'),
 
     # Weekly Reports
     path('weekly-reports/', WeeklyReportView.as_view(), name='weekly-reports'),
@@ -53,4 +71,19 @@ urlpatterns = [
     # Dashboards
     path('dropout-risk/', DropoutRiskDashboardView.as_view(), name='dropout-risk-dashboard'),
     path('ppo-eligibility/', PPOEligibilityDashboardView.as_view(), name='ppo-eligibility-dashboard'),
+
+    # ============================================================================
+    # NEW TALENT INTELLIGENCE SYSTEM URLs
+    # ============================================================================
+
+    # Resume Analysis
+    path('analyze/', AnalyzeInternView.as_view(), name='analyze-intern'),
+    path('analyze-all/', AnalyzeAllInternsView.as_view(), name='analyze-all-interns'),
+    path('intern/<int:intern_id>/', GetInternAnalysisView.as_view(), name='get-intern-analysis'),
+    
+    # Job Roles
+    path('job-roles/', JobRoleListView.as_view(), name='job-roles'),
+    
+    # Applications
+    path('applications/', ApplicationListView.as_view(), name='applications'),
 ]

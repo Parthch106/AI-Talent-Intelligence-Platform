@@ -11,8 +11,8 @@ from datetime import datetime, timedelta
 from django.db.models import Avg, Count, Q
 from django.contrib.auth import get_user_model
 
+from apps.analytics.models import InternIntelligence
 from apps.documents.models import ResumeData
-from apps.analytics.models import InternIntelligence, ResumeFeature, AnalyticsSnapshot
 from apps.documents.services.feature_engineering import FeatureEngineeringEngine
 
 logger = logging.getLogger(__name__)
@@ -162,25 +162,23 @@ class AnalyticsDashboardService:
         # Compute base features
         features = self.feature_engine.compute_features(data)
         
-        # Phase 2 - Part 1: Compute skill-to-role matching
+        # Phase 2 - Part 1: Compute skill-to-role matching (with 20-25% tolerance)
         role_requirements = self._get_role_requirements(resume_data.applied_role)
         skill_to_role_metrics = self.feature_engine.compute_skill_to_role_match(
             data, role_requirements
         )
         
-        # Phase 2 - Part 1: Compute project and experience depth
-        project_experience_metrics = self.feature_engine.compute_project_experience_depth(data)
+        # Note: Project & Experience Depth removed from suitability calculation
         
         # Phase 2 - Part 1: Compute resume quality indicators
         resume_quality_metrics = self.feature_engine.compute_resume_quality_indicators(data)
         
-        # Phase 2 - Part 1: Compute suitability score
+        # Phase 2 - Part 1: Compute suitability score (simplified)
         suitability_score = self.feature_engine.compute_suitability_score(
             skill_match_percentage=skill_to_role_metrics.get('skill_match_percentage', 0),
-            practical_exposure_score=project_experience_metrics.get('practical_exposure_score', 0),
             education_score=features.get('education_score', 0),
-            experience_relevance_score=project_experience_metrics.get('internship_relevance_score', 0),
-            resume_quality_score=resume_quality_metrics.get('resume_authenticity_score', 0)
+            experience_relevance_score=resume_quality_metrics.get('internship_relevance_score', 0.5),
+            resume_quality_score=resume_quality_metrics.get('resume_authenticity_score', 0.5)
         )
         
         # Phase 2 - Part 1: Compute decision
@@ -208,26 +206,22 @@ class AnalyticsDashboardService:
                 'education_score': features.get('education_score', 0.0),
                 'project_score': features.get('project_score', 0.0),
                 'overall_score': features.get('overall_score', 0.0),
-                # Phase 2 - Part 1: Skill-to-Role Matching
+                # Phase 2 - Part 1: Skill-to-Role Matching (with tolerance)
                 'skill_match_percentage': skill_to_role_metrics.get('skill_match_percentage', 0.0),
                 'core_skill_match_score': skill_to_role_metrics.get('core_skill_match_score', 0.0),
                 'optional_skill_bonus_score': skill_to_role_metrics.get('optional_skill_bonus_score', 0.0),
                 'critical_skill_gap_count': skill_to_role_metrics.get('critical_skill_gap_count', 0),
                 'domain_relevance_score': skill_to_role_metrics.get('domain_relevance_score', 0.0),
-                # Phase 2 - Part 1: Project & Experience Depth
-                'practical_exposure_score': project_experience_metrics.get('practical_exposure_score', 0.0),
-                'problem_solving_depth_score': project_experience_metrics.get('problem_solving_depth_score', 0.0),
-                'project_complexity_score': project_experience_metrics.get('project_complexity_score', 0.0),
-                'production_tools_usage_score': project_experience_metrics.get('production_tools_usage_score', 0.0),
-                'internship_relevance_score': project_experience_metrics.get('internship_relevance_score', 0.0),
-                # Phase 2 - Part 1: Resume Quality Indicators
+                # Internship Relevance (used in suitability)
+                'internship_relevance_score': resume_quality_metrics.get('internship_relevance_score', 0.5),
+                # Resume Quality Indicators
                 'resume_authenticity_score': resume_quality_metrics.get('resume_authenticity_score', 0.0),
-                'clarity_structure_score': resume_quality_metrics.get('clarity_structure_score', 0.0),
-                'keyword_stuffing_flag': resume_quality_metrics.get('keyword_stuffing_flag', False),
                 'role_alignment_score': resume_quality_metrics.get('role_alignment_score', 0.0),
-                'achievement_orientation_score': resume_quality_metrics.get('achievement_orientation_score', 0.0),
+                'achievement_orientation_score': resume_quality_metrics.get('achievement_orientation_score', 0.0),  # Optional
                 'technical_clarity_score': resume_quality_metrics.get('technical_clarity_score', 0.0),
-                # Phase 2 - Part 1: Final Suitability
+                # Optional: Production Tools Percentage
+                'production_tools_percentage': resume_quality_metrics.get('production_tools_percentage', {}),
+                # Phase 2 - Part 1: Final Suitability (simplified)
                 'suitability_score': suitability_score,
                 'decision': decision,
                 'decision_flags': decision_flags,
@@ -254,8 +248,6 @@ class AnalyticsDashboardService:
         Returns:
             Dictionary containing role requirements
         """
-        from apps.analytics.models import RoleRequirement
-        
         # Default role requirements
         default_requirements = {
             'required_core_skills': [],
@@ -271,21 +263,8 @@ class AnalyticsDashboardService:
         if not applied_role:
             return default_requirements
         
-        try:
-            role_req = RoleRequirement.objects.get(role_name=applied_role)
-            return {
-                'required_core_skills': role_req.required_core_skills or [],
-                'preferred_skills': role_req.preferred_skills or [],
-                'minimum_qualification': role_req.minimum_qualification or '',
-                'minimum_experience_years': role_req.minimum_experience_years or 0.0,
-                'required_domains': role_req.required_domains or [],
-                'required_tools': role_req.required_tools or [],
-                'minimum_projects': role_req.minimum_projects or 0,
-                'required_certifications': role_req.required_certifications or [],
-            }
-        except RoleRequirement.DoesNotExist:
-            # Return predefined requirements for common roles
-            return self._get_predefined_role_requirements(applied_role)
+        # Use predefined requirements (job_roles table will replace RoleRequirement)
+        return self._get_predefined_role_requirements(applied_role)
     
     def _get_predefined_role_requirements(self, role: str) -> Dict[str, Any]:
         """
@@ -463,17 +442,16 @@ class AnalyticsDashboardService:
                 'optional_skill_bonus_score': resume_features.optional_skill_bonus_score,
                 'critical_skill_gap_count': resume_features.critical_skill_gap_count,
                 'domain_relevance_score': resume_features.domain_relevance_score,
-                'practical_exposure_score': resume_features.practical_exposure_score,
-                'problem_solving_depth_score': resume_features.problem_solving_depth_score,
-                'project_complexity_score': resume_features.project_complexity_score,
-                'production_tools_usage_score': resume_features.production_tools_usage_score,
                 'internship_relevance_score': resume_features.internship_relevance_score,
+                # Resume Quality Indicators
                 'resume_authenticity_score': resume_features.resume_authenticity_score,
-                'clarity_structure_score': resume_features.clarity_structure_score,
                 'keyword_stuffing_flag': resume_features.keyword_stuffing_flag,
                 'role_alignment_score': resume_features.role_alignment_score,
-                'achievement_orientation_score': resume_features.achievement_orientation_score,
+                'achievement_orientation_score': resume_features.achievement_orientation_score,  # Optional
                 'technical_clarity_score': resume_features.technical_clarity_score,
+                # Optional: Production Tools Percentage
+                'production_tools_percentage': resume_features.production_tools_percentage,
+                # Final Suitability
                 'suitability_score': resume_features.suitability_score,
                 'decision': resume_features.decision,
                 'decision_flags': resume_features.decision_flags,

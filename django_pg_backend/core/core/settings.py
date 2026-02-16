@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "apps.roles",
     "apps.system",
     "apps.projects",
+    "apps.notifications",
     "corsheaders",
     'rest_framework',
 ]

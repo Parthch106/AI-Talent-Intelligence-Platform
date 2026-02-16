@@ -22,6 +22,9 @@ interface WeeklyReportsTabProps {
 }
 
 const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitReport }) => {
+    // Ensure reports is always an array
+    const reportsArray = Array.isArray(reports) ? reports : [];
+
     return (
         <div className="space-y-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -39,7 +42,7 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
             </div>
 
             <div className="space-y-4">
-                {reports.map((report) => (
+                {reportsArray.map((report) => (
                     <Card key={report.id} hover padding="lg" className="animate-slide-up">
                         <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                             <div className="flex-1">
@@ -81,7 +84,7 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                         )}
                     </Card>
                 ))}
-                {reports.length === 0 && (
+                {reportsArray.length === 0 && (
                     <div className="text-center py-12">
                         <FileText size={48} className="mx-auto mb-4 text-slate-600" />
                         <p className="text-lg font-medium text-white">No weekly reports found</p>

@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from django.db.models import Q
 from .models import Document, ResumeData
 from .serializers import DocumentSerializer, ResumeDataSerializer
-from .services import ResumeParserService
+from apps.analytics.services.resume_parsing_engine import resume_parsing_engine
 from apps.analytics.services import AnalyticsDashboardService
 
 
@@ -25,18 +25,25 @@ class DocumentViewSet(viewsets.ModelViewSet):
     def _trigger_resume_parsing(self, document_id: int):
         """
         Trigger resume parsing asynchronously.
-        Uses the ResumeParserService to parse the resume.
-        Then triggers feature engineering.
+        Uses the resume_parsing_engine to extract features from the document.
+        Note: Parsing is now done during analysis, not during upload.
+        This method is kept for backward compatibility.
         """
         try:
-            parser_service = ResumeParserService()
-            # For production, use async task: parser_service.parse_resume_async(document_id)
-            result = parser_service.parse_resume(document_id)
+            # Get the document
+            document = Document.objects.get(id=document_id)
             
-            # Trigger feature engineering after successful parsing
-            if result:
-                self._trigger_feature_engineering(document_id)
-                
+            # Extract text from the document
+            raw_text = resume_parsing_engine._extract_text_from_document(document)
+            
+            # Store raw_text in document if not already set
+            if raw_text and not document.raw_text:
+                document.raw_text = raw_text
+                document.is_parsed = True
+                document.save()
+            
+            print(f"Resume parsing completed for document {document_id}")
+                 
         except Exception as e:
             # Log error but don't fail the upload
             print(f"Error triggering resume parsing: {e}")
@@ -64,30 +71,15 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 }
                 features = feature_engine.compute_features(data)
                 
-                # Store features
-                from apps.analytics.models import ResumeFeature
-                ResumeFeature.objects.update_or_create(
-                    resume_data=resume_data,
-                    defaults={
-                        'skill_vector': features.get('skill_vector', {}),
-                        'skill_frequency': features.get('skill_frequency', {}),
-                        'tfidf_embedding': features.get('tfidf_embedding', {}),
-                        'skill_categories': features.get('skill_categories', {}),
-                        'skill_diversity_score': features.get('skill_diversity_score', 0.0),
-                        'experience_depth_score': features.get('experience_depth_score', 0.0),
-                        'technical_ratio': features.get('technical_ratio', 0.0),
-                        'leadership_indicator': features.get('leadership_indicator', 0.0),
-                        'domain_specialization': features.get('domain_specialization', {}),
-                        'experience_score': features.get('experience_score', 0.0),
-                        'education_score': features.get('education_score', 0.0),
-                        'project_score': features.get('project_score', 0.0),
-                        'overall_score': features.get('overall_score', 0.0),
-                    }
-                )
+                # TODO: Store features in new resume_features table (see INTERN_ANALYSIS_SCHEMA.md)
+                # This will be implemented with the new schema
+                # from apps.analytics.models import ResumeFeature
+                # ResumeFeature.objects.update_or_create(...)
                 
-                # Compute intern intelligence
-                analytics_service = AnalyticsDashboardService()
-                analytics_service.compute_intern_intelligence(resume_data.user_id)
+                # TODO: Compute intern intelligence with new model_predictions table
+                # This will be implemented with the new schema
+                # analytics_service = AnalyticsDashboardService()
+                # analytics_service.compute_intern_intelligence(resume_data.user_id)
                 
                 print(f"Feature engineering completed for document {document_id}")
                 
@@ -110,8 +102,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            parser_service = ResumeParserService()
-            parsed_data = parser_service.parse_resume(document.id)
+            # Use the new resume_parsing_engine
+            parsed_data = resume_parsing_engine.parse_document(document)
+            
+            # Store raw_text if not already set
+            if '_raw_text' in parsed_data and not document.raw_text:
+                document.raw_text = parsed_data.get('_raw_text', '')
+                document.is_parsed = True
+                document.save()
             
             if parsed_data:
                 return Response({
@@ -145,8 +143,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            parser_service = ResumeParserService()
-            parsed_data = parser_service.get_resume_data(document.id)
+            # Use the new resume_parsing_engine
+            parsed_data = resume_parsing_engine.parse_document(document)
             
             if parsed_data:
                 return Response(parsed_data, status=status.HTTP_200_OK)

@@ -13,6 +13,14 @@ interface Intern {
     department: string;
 }
 
+interface JobRole {
+    id: number;
+    role_title: string;
+    role_description: string;
+    mandatory_skills: string[];
+    preferred_skills: string[];
+}
+
 interface IntelligenceData {
     user_id: number;
     scores: {
@@ -42,17 +50,21 @@ interface IntelligenceData {
         optional_skill_bonus_score?: number;
         critical_skill_gap_count?: number;
         domain_relevance_score?: number;
-        practical_exposure_score?: number;
-        problem_solving_depth_score?: number;
-        project_complexity_score?: number;
-        production_tools_usage_score?: number;
+        // Internship Relevance (used in suitability)
         internship_relevance_score?: number;
+        // Resume Quality Indicators
         resume_authenticity_score?: number;
-        clarity_structure_score?: number;
         keyword_stuffing_flag?: boolean;
         role_alignment_score?: number;
-        achievement_orientation_score?: number;
+        achievement_orientation_score?: number;  // Optional - doesn't affect suitability
         technical_clarity_score?: number;
+        // Optional: Production Tools Percentage
+        production_tools_percentage?: {
+            percentage?: number;
+            tools_found?: string[];
+            tool_categories?: Record<string, string[]>;
+            total_tools_found?: number;
+        };
         suitability_score?: number;
         decision?: string;
         decision_flags?: string[];
@@ -71,11 +83,16 @@ const AnalysisPage: React.FC = () => {
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
 
+    // Job role state
+    const [jobRoles, setJobRoles] = useState<JobRole[]>([]);
+    const [selectedJobRole, setSelectedJobRole] = useState<string>('');
+
     useEffect(() => {
         const fetchInterns = async () => {
             if (user?.role !== 'ADMIN' && user?.role !== 'MANAGER') return;
             try {
                 const response = await api.get('/accounts/users/?role=INTERN');
+                console.log('Interns API Response:', response.data);
                 setInterns(response.data.results || response.data);
             } catch (err) {
                 console.error('Error fetching interns:', err);
@@ -83,6 +100,24 @@ const AnalysisPage: React.FC = () => {
         };
         fetchInterns();
     }, [user]);
+
+    // Fetch job roles
+    useEffect(() => {
+        const fetchJobRoles = async () => {
+            try {
+                const response = await api.get('/analytics/job-roles/');
+                console.log('Job Roles API Response:', response.data);
+                setJobRoles(response.data.job_roles || []);
+                // Auto-select first job role if available
+                if (response.data.job_roles?.length > 0) {
+                    setSelectedJobRole(response.data.job_roles[0].role_title);
+                }
+            } catch (err) {
+                console.error('Error fetching job roles:', err);
+            }
+        };
+        fetchJobRoles();
+    }, []);
 
     useEffect(() => {
         if (selectedInternId) {
@@ -97,8 +132,10 @@ const AnalysisPage: React.FC = () => {
         setError('');
         try {
             const response = await api.get(`/analytics/intelligence/?intern_id=${internId}`);
+            console.log('Intelligence API Response:', response.data);
             setIntelligence(response.data);
         } catch (err: any) {
+            console.error('Intelligence API Error:', err);
             setError(err.response?.data?.detail || 'Failed to fetch intelligence data');
             setIntelligence(null);
         } finally {
@@ -111,10 +148,15 @@ const AnalysisPage: React.FC = () => {
         setError('');
         setSuccessMessage('');
         try {
-            await api.post(`/analytics/intelligence/compute/${internId}/`);
+            console.log('Computing intelligence for intern:', internId, 'with job role:', selectedJobRole);
+            const response = await api.post(`/analytics/intelligence/compute/${internId}/`, {
+                job_role: selectedJobRole
+            });
+            console.log('Compute Intelligence Response:', response.data);
             setSuccessMessage('Intelligence computed successfully!');
             await fetchIntelligence(internId);
         } catch (err: any) {
+            console.error('Compute Intelligence Error:', err);
             setError(err.response?.data?.error || 'Failed to compute intelligence');
         } finally {
             setComputing(false);
@@ -294,14 +336,32 @@ const AnalysisPage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        <Button
-                            onClick={() => selectedInternId && computeIntelligence(selectedInternId as number)}
-                            disabled={computing}
-                            gradient="purple"
-                            icon={<RefreshCw size={16} className={computing ? 'animate-spin' : ''} />}
-                        >
-                            {computing ? 'Computing...' : 'Recompute'}
-                        </Button>
+                        <div className="flex items-center gap-3">
+                            {/* Job Role Selector */}
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs text-slate-400">Target Role</label>
+                                <select
+                                    value={selectedJobRole}
+                                    onChange={(e) => setSelectedJobRole(e.target.value)}
+                                    className="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                >
+                                    <option value="">Select role...</option>
+                                    {jobRoles.map((role) => (
+                                        <option key={role.id} value={role.role_title}>
+                                            {role.role_title.replace(/_/g, ' ')}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <Button
+                                onClick={() => selectedInternId && computeIntelligence(selectedInternId as number)}
+                                disabled={computing || !selectedJobRole}
+                                gradient="purple"
+                                icon={<RefreshCw size={16} className={computing ? 'animate-spin' : ''} />}
+                            >
+                                {computing ? 'Computing...' : 'Recompute'}
+                            </Button>
+                        </div>
                     </Card>
 
                     {/* Score Cards */}
@@ -409,37 +469,63 @@ const AnalysisPage: React.FC = () => {
                                 </div>
                             </Card>
 
-                            {/* Project & Experience */}
-                            <Card icon={<Zap size={20} />} title="Project & Experience Depth">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {[
-                                        { label: 'Practical Exposure', value: intelligence.resume_analysis.practical_exposure_score },
-                                        { label: 'Problem Solving', value: intelligence.resume_analysis.problem_solving_depth_score },
-                                        { label: 'Project Complexity', value: intelligence.resume_analysis.project_complexity_score },
-                                        { label: 'Production Tools', value: intelligence.resume_analysis.production_tools_usage_score },
-                                    ].map((item) => (
-                                        <div key={item.label} className="p-3 bg-slate-800/30 rounded-xl">
-                                            <p className="text-xs text-slate-400 mb-1">{item.label}</p>
-                                            <p className="text-xl font-bold text-white">{((item.value || 0) * 100).toFixed(0)}%</p>
+                            {/* Production Tools (Optional - doesn't affect suitability) */}
+                            {intelligence.resume_analysis.production_tools_percentage && intelligence.resume_analysis.production_tools_percentage.percentage !== undefined && (
+                                <Card icon={<Zap size={20} />} title="Production Tools Usage">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div className="p-3 bg-slate-800/30 rounded-xl">
+                                            <p className="text-xs text-slate-400 mb-1">Overall Score</p>
+                                            <p className="text-xl font-bold text-white">
+                                                {intelligence.resume_analysis.production_tools_percentage.percentage.toFixed(0)}%
+                                            </p>
                                         </div>
-                                    ))}
-                                </div>
-                            </Card>
+                                        <div className="p-3 bg-slate-800/30 col-span-2">
+                                            <p className="text-xs text-slate-400 mb-1">Tools Found</p>
+                                            <p className="text-sm font-medium text-white">
+                                                {(intelligence.resume_analysis.production_tools_percentage.tools_found?.length ?? 0) > 0
+                                                    ? (intelligence.resume_analysis.production_tools_percentage.tools_found ?? []).join(', ')
+                                                    : 'None'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {/* Tool Categories Breakdown */}
+                                    {intelligence.resume_analysis.production_tools_percentage.tool_categories && (
+                                        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+                                            {Object.entries(intelligence.resume_analysis.production_tools_percentage.tool_categories).map(([category, tools]) => (
+                                                tools.length > 0 && (
+                                                    <div key={category} className="p-2 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                                                        <p className="text-xs text-purple-400 capitalize">{category.replace('_', ' ')}</p>
+                                                        <p className="text-xs text-slate-300">{tools.join(', ')}</p>
+                                                    </div>
+                                                )
+                                            ))}
+                                        </div>
+                                    )}
+                                </Card>
+                            )}
 
-                            {/* Quality Indicators */}
+                            {/* Resume Quality Indicators */}
                             <Card icon={<Shield size={20} />} title="Resume Quality Indicators">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     {[
                                         { label: 'Authenticity', value: intelligence.resume_analysis.resume_authenticity_score },
-                                        { label: 'Clarity', value: intelligence.resume_analysis.clarity_structure_score },
                                         { label: 'Role Alignment', value: intelligence.resume_analysis.role_alignment_score },
-                                        { label: 'Achievement Oriented', value: intelligence.resume_analysis.achievement_orientation_score },
+                                        { label: 'Technical Clarity', value: intelligence.resume_analysis.technical_clarity_score },
                                     ].map((item) => (
                                         <div key={item.label} className="p-3 bg-slate-800/30 rounded-xl">
                                             <p className="text-xs text-slate-400 mb-1">{item.label}</p>
                                             <p className="text-xl font-bold text-white">{((item.value || 0) * 100).toFixed(0)}%</p>
                                         </div>
                                     ))}
+                                    {/* Optional: Achievement Oriented */}
+                                    {intelligence.resume_analysis.achievement_orientation_score !== undefined && (
+                                        <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                                            <p className="text-xs text-purple-400 mb-1">
+                                                Achievement Oriented <span className="text-slate-500">(Optional)</span>
+                                            </p>
+                                            <p className="text-xl font-bold text-white">{((intelligence.resume_analysis.achievement_orientation_score || 0) * 100).toFixed(0)}%</p>
+                                        </div>
+                                    )}
                                 </div>
                                 {intelligence.resume_analysis.keyword_stuffing_flag && (
                                     <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 flex items-center gap-2">
@@ -501,9 +587,27 @@ const AnalysisPage: React.FC = () => {
                     </div>
                     <h3 className="text-lg font-medium text-white mb-2">No Analysis Data Available</h3>
                     <p className="text-slate-400 mb-6">Intelligence data is not available for this intern yet.</p>
+
+                    {/* Job Role Selector */}
+                    <div className="max-w-xs mx-auto mb-4">
+                        <label className="block text-sm text-slate-300 mb-2">Select Target Role</label>
+                        <select
+                            value={selectedJobRole}
+                            onChange={(e) => setSelectedJobRole(e.target.value)}
+                            className="w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        >
+                            <option value="">Choose a role...</option>
+                            {jobRoles.map((role) => (
+                                <option key={role.id} value={role.role_title}>
+                                    {role.role_title.replace(/_/g, ' ')}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
                     <Button
                         onClick={() => selectedInternId && computeIntelligence(selectedInternId as number)}
-                        disabled={computing}
+                        disabled={computing || !selectedJobRole}
                         gradient="purple"
                         icon={<RefreshCw size={16} className={computing ? 'animate-spin' : ''} />}
                     >

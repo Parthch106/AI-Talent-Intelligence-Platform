@@ -7,9 +7,7 @@ import {
     OverviewTab, TasksTab, AttendanceTab,
     PerformanceTab, WeeklyReportsTab
 } from '../components/monitoring';
-import { Home, Target, Calendar, TrendingUp, FileText, CheckCircle, User, ChevronDown } from 'lucide-react';
-import Card from '../components/common/Card';
-import Badge from '../components/common/Badge';
+import { Home, Target, Calendar, TrendingUp, FileText, CheckCircle, ChevronDown } from 'lucide-react';
 
 // Types
 interface Task {
@@ -19,7 +17,6 @@ interface Task {
     description: string;
     status: string;
     priority: string;
-    complexity: string;
     due_date: string;
     quality_rating: number | null;
 }
@@ -91,7 +88,7 @@ const MonitoringDashboard: React.FC = () => {
 
     // Form states
     const [taskForm, setTaskForm] = useState({
-        title: '', description: '', priority: 'MEDIUM', complexity: 'MODERATE', due_date: '', estimated_hours: 0,
+        title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0,
     });
     const [attendanceForm, setAttendanceForm] = useState({
         date: new Date().toISOString().split('T')[0], status: 'PRESENT', check_in_time: '', check_out_time: '', notes: '',
@@ -100,6 +97,7 @@ const MonitoringDashboard: React.FC = () => {
         week_start_date: '', week_end_date: '', tasks_completed: 0, tasks_in_progress: 0, tasks_blocked: 0,
         accomplishments: '', challenges: '', learnings: '', next_week_goals: '', self_rating: 5,
     });
+    const [pdfFile, setPdfFile] = useState<File | null>(null);
 
     const tabs = [
         { id: 'overview', label: 'Overview', icon: Home },
@@ -116,12 +114,38 @@ const MonitoringDashboard: React.FC = () => {
         } else {
             setActiveTab('overview');
         }
-        fetchInterns();
     }, [location.pathname]);
 
+    // Fetch interns when page loads (for managers/admins)
     useEffect(() => {
-        fetchData();
-    }, [selectedIntern, activeTab]);
+        if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
+            fetchInterns();
+        } else if (user?.role === 'INTERN') {
+            // For interns, fetch data directly
+            fetchData();
+        }
+    }, [user?.role]);
+
+    // Fetch data when tab changes or selectedIntern is set - with proper chaining
+    useEffect(() => {
+        console.log('[useEffect] Running with selectedIntern:', selectedIntern, 'interns:', interns.length);
+
+        // For managers, ensure an intern is selected
+        if ((user?.role === 'ADMIN' || user?.role === 'MANAGER')) {
+            if (interns.length > 0 && !selectedIntern) {
+                console.log('[useEffect] Setting first intern as selected');
+                setSelectedIntern(interns[0].id);
+            } else if (selectedIntern) {
+                console.log('[useEffect] Intern selected, fetching data for:', selectedIntern);
+                fetchData();
+            } else {
+                console.log('[useEffect] No interns available or no intern selected yet');
+            }
+        } else if (user?.role === 'INTERN') {
+            // For interns, always fetch data
+            fetchData();
+        }
+    }, [selectedIntern, activeTab, user?.role, interns]);
 
     // API Functions
     const fetchInterns = async (): Promise<void> => {
@@ -143,22 +167,57 @@ const MonitoringDashboard: React.FC = () => {
 
     const fetchData = async (): Promise<void> => {
         setLoading(true);
+
+        // For managers, require an intern to be selected
+        if ((user?.role === 'ADMIN' || user?.role === 'MANAGER') && !selectedIntern) {
+            console.log('[fetchData] No intern selected for manager, skipping data fetch');
+            setLoading(false);
+            return;
+        }
+
         const targetId = selectedIntern || user?.id;
+        console.log('===========================================');
+        console.log('[fetchData] targetId:', targetId);
+        console.log('[fetchData] selectedIntern:', selectedIntern);
+        console.log('[fetchData] user?.id:', user?.id);
+        console.log('===========================================');
 
         try {
-            const [tasksRes, attendanceRes, performanceRes, reportsRes] = await Promise.all([
-                axios.get('/analytics/tasks/', { params: { intern_id: targetId } }),
-                axios.get('/analytics/attendance/', { params: { intern_id: targetId } }),
-                axios.get('/analytics/performance/', { params: { intern_id: targetId } }),
-                axios.get('/analytics/weekly-reports/', { params: { intern_id: targetId } }),
-            ]);
+            console.log('[fetchData] Fetching tasks...');
+            const tasksRes = await axios.get('/analytics/tasks/', { params: { intern_id: targetId } });
+            console.log('[fetchData] Tasks response:', tasksRes.data);
 
-            setTasks(tasksRes.data.tasks || []);
-            setAttendance(attendanceRes.data.attendance || []);
-            setPerformance(performanceRes.data.performance_metrics || null);
-            setWeeklyReports(reportsRes.data.weekly_reports || []);
-        } catch (err) {
-            console.error('Error fetching data:', err);
+            console.log('[fetchData] Fetching attendance...');
+            const attendanceRes = await axios.get('/analytics/attendance/', { params: { intern_id: targetId } });
+            console.log('[fetchData] Attendance response:', attendanceRes.data);
+
+            console.log('[fetchData] Fetching performance...');
+            const performanceRes = await axios.get('/analytics/performance/', { params: { intern_id: targetId } });
+            console.log('[fetchData] Performance response:', performanceRes.data);
+
+            console.log('[fetchData] Fetching weekly reports...');
+            const reportsRes = await axios.get('/analytics/weekly-reports/', { params: { intern_id: targetId } });
+            console.log('[fetchData] Weekly reports response:', reportsRes.data);
+
+            // Ensure data is always arrays/objects before setting state
+            const tasks = Array.isArray(tasksRes.data.tasks) ? tasksRes.data.tasks : [];
+            const attendance = Array.isArray(attendanceRes.data.attendance) ? attendanceRes.data.attendance : [];
+            const performance = performanceRes.data.performance_metrics || null;
+            const weeklyReports = Array.isArray(reportsRes.data.weekly_reports) ? reportsRes.data.weekly_reports : [];
+
+            console.log('[fetchData] Processed data - tasks:', tasks.length, 'attendance:', attendance.length, 'reports:', weeklyReports.length);
+
+            setTasks(tasks);
+            setAttendance(attendance);
+            setPerformance(performance);
+            setWeeklyReports(weeklyReports);
+            console.log('[fetchData] State updated successfully');
+        } catch (err: any) {
+            console.error('[fetchData] Error fetching data:', err.message || err);
+            if (err.response) {
+                console.error('[fetchData] Response:', err.response.data);
+                console.error('[fetchData] Status:', err.response.status);
+            }
         }
         setLoading(false);
     };
@@ -168,6 +227,19 @@ const MonitoringDashboard: React.FC = () => {
         setActiveTab(tabId);
         setActiveModal(null);
         navigate(`/monitoring/${tabId}`);
+
+        // For managers/admins, ensure an intern is selected before fetching data
+        if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
+            if (!selectedIntern && interns.length > 0) {
+                setSelectedIntern(interns[0].id);
+            }
+            if (selectedIntern) {
+                fetchData();
+            }
+        } else if (user?.role === 'INTERN') {
+            // For interns, always fetch data
+            fetchData();
+        }
     };
 
     const openModal = (modalType: ModalType): void => setActiveModal(modalType);
@@ -179,7 +251,7 @@ const MonitoringDashboard: React.FC = () => {
             await axios.post('/analytics/tasks/create/', { ...taskForm, intern_id: selectedIntern });
             setSuccess('Task created successfully!');
             closeModal();
-            setTaskForm({ title: '', description: '', priority: 'MEDIUM', complexity: 'MODERATE', due_date: '', estimated_hours: 0 });
+            setTaskForm({ title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0 });
             fetchData();
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
@@ -190,7 +262,12 @@ const MonitoringDashboard: React.FC = () => {
     const handleMarkAttendance = async (e: React.FormEvent): Promise<void> => {
         e.preventDefault();
         try {
-            await axios.post('/analytics/attendance/mark/', attendanceForm);
+            // For managers/admins, include the selected intern's ID
+            const attendanceData = {
+                ...attendanceForm,
+                ...((user?.role === 'ADMIN' || user?.role === 'MANAGER') && selectedIntern ? { intern_id: selectedIntern } : {})
+            };
+            await axios.post('/analytics/attendance/mark/', attendanceData);
             setSuccess('Attendance marked successfully!');
             closeModal();
             setAttendanceForm({ date: new Date().toISOString().split('T')[0], status: 'PRESENT', check_in_time: '', check_out_time: '', notes: '' });
@@ -203,15 +280,38 @@ const MonitoringDashboard: React.FC = () => {
 
     const handleSubmitReport = async (e: React.FormEvent): Promise<void> => {
         e.preventDefault();
+        if (!pdfFile) {
+            setSuccess('Please select a PDF file to upload');
+            return;
+        }
         try {
-            await axios.post('/analytics/weekly-reports/submit/', reportForm);
+            const formData = new FormData();
+            formData.append('pdf_report', pdfFile);
+            await axios.post('/analytics/weekly-reports/submit/', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
             setSuccess('Weekly report submitted successfully!');
             closeModal();
-            setReportForm({ week_start_date: '', week_end_date: '', tasks_completed: 0, tasks_in_progress: 0, tasks_blocked: 0, accomplishments: '', challenges: '', learnings: '', next_week_goals: '', self_rating: 5 });
+            setPdfFile(null);
             fetchData();
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             console.error('Error submitting report:', err);
+        }
+    };
+
+    const handleTaskStatusChange = async (taskId: number, newStatus: string): Promise<void> => {
+        try {
+            await axios.patch(`/analytics/tasks/${taskId}/update-status/`, {
+                status: newStatus
+            });
+            setSuccess(`Task status updated to ${newStatus.replace('_', ' ')}`);
+            fetchData();
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (err) {
+            console.error('Error updating task status:', err);
+            setSuccess('Failed to update task status');
+            setTimeout(() => setSuccess(''), 3000);
         }
     };
 
@@ -238,10 +338,10 @@ const MonitoringDashboard: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen animate-fade-in">
+        <div className="min-h-screen animate-fade-in overflow-visible">
             {/* Header */}
-            <div className="bg-slate-800/30 border-b border-slate-700/50 px-6 py-4 backdrop-blur-xl">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="bg-slate-800/30 border-b-0 px-6 py-4 backdrop-blur-xl overflow-visible z-30 relative">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 overflow-visible">
                     <div>
                         <h1 className="text-2xl font-bold text-white">
                             Internship <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Monitoring</span>
@@ -249,7 +349,7 @@ const MonitoringDashboard: React.FC = () => {
                         <p className="text-slate-400 mt-1">Track progress, attendance, and performance</p>
                     </div>
                     {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
-                        <div className="relative">
+                        <div className="relative z-30">
                             <button
                                 onClick={() => setShowInternDropdown(!showInternDropdown)}
                                 className="flex items-center gap-3 px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-purple-500/50 transition-all"
@@ -261,7 +361,7 @@ const MonitoringDashboard: React.FC = () => {
                                 <ChevronDown size={16} className={`text-slate-400 transition-transform ${showInternDropdown ? 'rotate-180' : ''}`} />
                             </button>
                             {showInternDropdown && (
-                                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden animate-scale-in">
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-xl z-[9999] isolate animate-scale-in">
                                     <div className="p-2">
                                         {interns.map((intern) => (
                                             <button
@@ -332,6 +432,7 @@ const MonitoringDashboard: React.FC = () => {
                                 tasks={tasks}
                                 onAddTask={() => openModal('task')}
                                 canCreate={user?.role === 'ADMIN' || user?.role === 'MANAGER'}
+                                onStatusChange={handleTaskStatusChange}
                             />
                         )}
                         {activeTab === 'attendance' && (
@@ -394,18 +495,6 @@ const MonitoringDashboard: React.FC = () => {
                                 <option value="MEDIUM">Medium</option>
                                 <option value="HIGH">High</option>
                                 <option value="CRITICAL">Critical</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">Complexity</label>
-                            <select
-                                value={taskForm.complexity}
-                                onChange={(e) => setTaskForm({ ...taskForm, complexity: e.target.value })}
-                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                            >
-                                <option value="SIMPLE">Simple</option>
-                                <option value="MODERATE">Moderate</option>
-                                <option value="COMPLEX">Complex</option>
                             </select>
                         </div>
                     </div>
@@ -497,117 +586,20 @@ const MonitoringDashboard: React.FC = () => {
                 isOpen={activeModal === 'report'}
                 onClose={closeModal}
                 title="Submit Weekly Report"
-                gradient="indigo"
-                size="xl"
+                gradient="violet"
+                size="md"
             >
                 <form onSubmit={handleSubmitReport} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">Week Start</label>
-                            <input
-                                type="date"
-                                required
-                                value={reportForm.week_start_date}
-                                onChange={(e) => setReportForm({ ...reportForm, week_start_date: e.target.value })}
-                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">Week End</label>
-                            <input
-                                type="date"
-                                required
-                                value={reportForm.week_end_date}
-                                onChange={(e) => setReportForm({ ...reportForm, week_end_date: e.target.value })}
-                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
-                            />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">Completed</label>
-                            <input
-                                type="number"
-                                min="0"
-                                value={reportForm.tasks_completed}
-                                onChange={(e) => setReportForm({ ...reportForm, tasks_completed: parseInt(e.target.value) || 0 })}
-                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">In Progress</label>
-                            <input
-                                type="number"
-                                min="0"
-                                value={reportForm.tasks_in_progress}
-                                onChange={(e) => setReportForm({ ...reportForm, tasks_in_progress: parseInt(e.target.value) || 0 })}
-                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">Blocked</label>
-                            <input
-                                type="number"
-                                min="0"
-                                value={reportForm.tasks_blocked}
-                                onChange={(e) => setReportForm({ ...reportForm, tasks_blocked: parseInt(e.target.value) || 0 })}
-                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
-                            />
-                        </div>
-                    </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Accomplishments *</label>
-                        <textarea
-                            required
-                            placeholder="What did you accomplish this week?"
-                            value={reportForm.accomplishments}
-                            onChange={(e) => setReportForm({ ...reportForm, accomplishments: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all resize-none"
-                            rows={3}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">Challenges</label>
-                            <textarea
-                                placeholder="What challenges did you face?"
-                                value={reportForm.challenges}
-                                onChange={(e) => setReportForm({ ...reportForm, challenges: e.target.value })}
-                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all resize-none"
-                                rows={2}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">Learnings</label>
-                            <textarea
-                                placeholder="What did you learn?"
-                                value={reportForm.learnings}
-                                onChange={(e) => setReportForm({ ...reportForm, learnings: e.target.value })}
-                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all resize-none"
-                                rows={2}
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Next Week Goals</label>
-                        <textarea
-                            placeholder="What are your goals for next week?"
-                            value={reportForm.next_week_goals}
-                            onChange={(e) => setReportForm({ ...reportForm, next_week_goals: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all resize-none"
-                            rows={2}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Self Rating: {reportForm.self_rating}/10</label>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Upload Weekly Report (PDF) *</label>
                         <input
-                            type="range"
-                            min="1"
-                            max="10"
-                            value={reportForm.self_rating}
-                            onChange={(e) => setReportForm({ ...reportForm, self_rating: parseInt(e.target.value) })}
-                            className="w-full accent-violet-500"
+                            type="file"
+                            accept=".pdf"
+                            required
+                            onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                            className="block w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-500/20 file:text-violet-400 hover:file:bg-violet-500/30"
                         />
+                        <p className="text-xs text-slate-500 mt-2">Upload your weekly report as a PDF file</p>
                     </div>
                     <div className="flex gap-3 pt-4">
                         <Button type="button" onClick={closeModal} variant="outline" fullWidth>

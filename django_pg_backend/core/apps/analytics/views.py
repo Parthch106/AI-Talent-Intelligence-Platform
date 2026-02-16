@@ -1,3 +1,7 @@
+import re
+import uuid
+from datetime import datetime
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -16,6 +20,7 @@ from apps.analytics.models import (
     PerformanceMetrics,
     MonthlyEvaluationReport,
 )
+from apps.analytics.services.weekly_report_parser import parse_weekly_report
 
 
 def validate_manager_access(user, target_intern_id):
@@ -226,7 +231,6 @@ class SkillGapAnalysisView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        from apps.analytics.models import InternIntelligence
         from django.db.models import Count
         
         # Get all interns with skill gaps
@@ -335,9 +339,14 @@ class TaskTrackingView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        # Auto-generate task_id if not provided
+        task_id = task_data.get('task_id')
+        if not task_id:
+            task_id = f"TASK-{intern.id}-{uuid.uuid4().hex[:8].upper()}"
+
         task = TaskTracking.objects.create(
             intern=intern,
-            task_id=task_data.get('task_id'),
+            task_id=task_id,
             title=task_data.get('title'),
             description=task_data.get('description', ''),
             status=task_data.get('status', 'ASSIGNED'),
@@ -352,6 +361,86 @@ class TaskTrackingView(APIView):
             'task_id': task.id
         }, status=status.HTTP_201_CREATED)
 
+    def patch(self, request, task_id=None):
+        """Update task status."""
+        user = request.user
+        
+        if not task_id:
+            task_id = request.data.get('task_id')
+        
+        if not task_id:
+            return Response(
+                {'error': 'task_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            task = TaskTracking.objects.get(id=task_id)
+        except TaskTracking.DoesNotExist:
+            return Response(
+                {'error': 'Task not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        new_status = request.data.get('status')
+        
+        if not new_status:
+            return Response(
+                {'error': 'status is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate status transitions
+        valid_statuses = ['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'BLOCKED']
+        if new_status not in valid_statuses:
+            return Response(
+                {'error': f'Invalid status. Must be one of: {valid_statuses}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Permission check:
+        # - Manager/Admin can update to any status including BLOCKED
+        # - Intern can only update to IN_PROGRESS or COMPLETED
+        if user.role == User.Role.INTERN:
+            if new_status not in ['IN_PROGRESS', 'COMPLETED']:
+                return Response(
+                    {'error': 'Interns can only update task status to IN_PROGRESS or COMPLETED'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            # Intern can only update their own tasks
+            if task.intern_id != user.id:
+                return Response(
+                    {'error': 'You can only update your own tasks'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
+        # Managers can only update tasks for interns in their department
+        if user.role == User.Role.MANAGER:
+            target_intern = User.objects.get(id=task.intern_id)
+            if target_intern.department != user.department:
+                return Response(
+                    {'error': 'You can only update tasks for interns in your department'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
+        # Update task status
+        old_status = task.status
+        task.status = new_status
+        
+        # Set completed_at if status is COMPLETED
+        if new_status == 'COMPLETED' and not task.completed_at:
+            task.completed_at = timezone.now()
+        
+        task.save()
+        
+        return Response({
+            'message': 'Task status updated successfully',
+            'task_id': task.id,
+            'old_status': old_status,
+            'new_status': new_status,
+            'completed_at': task.completed_at
+        })
+
 
 class AttendanceRecordView(APIView):
     """
@@ -365,6 +454,9 @@ class AttendanceRecordView(APIView):
         intern_id = request.query_params.get('intern_id')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
+        
+        print(f"[Attendance API] User: {user.id} ({user.role})")
+        print(f"[Attendance API] intern_id param: {intern_id}")
 
         # Determine target intern
         if intern_id:
@@ -374,15 +466,20 @@ class AttendanceRecordView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             target_id = int(intern_id)
+            print(f"[Attendance API] Manager viewing intern: {target_id}")
             # Validate manager access to intern
             is_valid, error_response = validate_manager_access(user, target_id)
             if not is_valid:
+                print(f"[Attendance API] Access denied for intern: {target_id}")
                 return error_response
         else:
             target_id = user.id
+            print(f"[Attendance API] Viewing own attendance: {target_id}")
 
         # Get attendance
+        print(f"[Attendance API] Querying AttendanceRecord for intern_id: {target_id}")
         attendance = AttendanceRecord.objects.filter(intern_id=target_id)
+        print(f"[Attendance API] Found records: {attendance.count()}")
 
         if start_date:
             attendance = attendance.filter(date__gte=start_date)
@@ -398,6 +495,8 @@ class AttendanceRecordView(APIView):
             'working_hours': record.working_hours,
             'notes': record.notes,
         } for record in attendance]
+        
+        print(f"[Attendance API] Returning {len(data)} records")
 
         return Response({'attendance': data})
 
@@ -434,6 +533,50 @@ class AttendanceRecordView(APIView):
             'message': 'Attendance recorded successfully',
             'id': attendance.id
         }, status=status.HTTP_201_CREATED)
+
+
+class MyAttendanceView(APIView):
+    """
+    API endpoint for interns to view their own attendance records.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Get the current intern's attendance records with intern details."""
+        user = request.user
+        
+        # Only interns can access their own attendance
+        if user.role != User.Role.INTERN:
+            return Response(
+                {'error': 'This endpoint is only for interns'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        print(f"[MyAttendance API] User: {user.id} ({user.name})")
+        
+        # Get attendance records for this intern
+        attendance = AttendanceRecord.objects.filter(intern=user).order_by('-date')
+        print(f"[MyAttendance API] Found records: {attendance.count()}")
+        
+        # Include intern details in response
+        data = [{
+            'id': record.id,
+            'intern': {
+                'id': record.intern.id,
+                'name': record.intern.name,
+                'email': record.intern.email
+            },
+            'date': record.date,
+            'status': record.status,
+            'check_in_time': record.check_in_time,
+            'check_out_time': record.check_out_time,
+            'working_hours': record.working_hours,
+            'notes': record.notes,
+        } for record in attendance]
+        
+        print(f"[MyAttendance API] Returning {len(data)} records")
+        
+        return Response(data)
 
 
 class WeeklyReportView(APIView):
@@ -479,15 +622,32 @@ class WeeklyReportView(APIView):
             'is_submitted': report.is_submitted,
             'submitted_at': report.submitted_at,
             'is_reviewed': report.is_reviewed,
+            'pdf_url': report.pdf_report.url if report.pdf_report else None,
         } for report in reports]
 
         return Response({'weekly_reports': data})
 
     def post(self, request):
-        """Submit a weekly report."""
+        """Submit a weekly report with PDF upload."""
         user = request.user
-
+        
+        # Only interns can submit weekly reports
+        if user.role != User.Role.INTERN:
+            return Response(
+                {'error': 'Only interns can submit weekly reports'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         report_data = request.data
+        pdf_file = report_data.get('pdf_report')
+
+        if not pdf_file:
+            return Response(
+                {'error': 'PDF report is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get intern_id from form data or use current user
         intern_id = report_data.get('intern_id', user.id)
 
         try:
@@ -498,19 +658,83 @@ class WeeklyReportView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        # Parse the PDF to extract report data
+        parsed_data = {}
+        try:
+            parsed_data = parse_weekly_report(pdf_file)
+        except Exception as e:
+            print(f"[WeeklyReportView] Error parsing PDF: {e}")
+            # Continue without parsed data - user can fill in manually
+            parsed_data = {}
+
+        # Get week dates from form data, parsed data, or use current week
+        week_start_date = report_data.get('week_start_date') or parsed_data.get('week_start_date')
+        week_end_date = report_data.get('week_end_date') or parsed_data.get('week_end_date')
+
+        # If no dates provided, use current week
+        if not week_start_date or not week_end_date:
+            today = timezone.now().date()
+            # Calculate Monday as start of week
+            start_of_week = today - timezone.timedelta(days=today.weekday())
+            end_of_week = start_of_week + timezone.timedelta(days=6)
+            week_start_date = week_start_date or start_of_week
+            week_end_date = week_end_date or end_of_week
+
+        # Get task data from form or parsed data
+        # Note: parsed_data.tasks_completed is the text of tasks, not a count
+        parsed_tasks_text = parsed_data.get('tasks_completed', '')
+        
+        # For parsed data, use accomplishments for task text and count tasks
+        accomplishments = parsed_tasks_text or report_data.get('accomplishments', '')
+        
+        # Count tasks from parsed text
+        if parsed_tasks_text:
+            # Count numbered tasks (1., 2., etc.)
+            tasks_completed = len(re.findall(r'\d+[\.\)]', parsed_tasks_text))
+            # Ensure at least 0
+            tasks_completed = max(tasks_completed, 0)
+        else:
+            tasks_completed = int(report_data.get('tasks_completed', 0))
+        
+        tasks_in_progress = int(report_data.get('tasks_in_progress', parsed_data.get('tasks_in_progress', 0)))
+        tasks_blocked = int(report_data.get('tasks_blocked', parsed_data.get('tasks_blocked', 0)))
+        challenges = report_data.get('challenges', parsed_data.get('challenges', ''))
+        learnings = report_data.get('learnings', parsed_data.get('learnings', ''))
+        next_week_goals = report_data.get('next_week_goals', parsed_data.get('next_week_goals', ''))
+        
+        # Handle self_rating safely - can be None from parsed data
+        parsed_rating = parsed_data.get('self_rating')
+        form_rating = report_data.get('self_rating')
+        self_rating = None
+        if form_rating:
+            try:
+                self_rating = float(form_rating)
+            except (ValueError, TypeError):
+                pass
+        elif parsed_rating is not None:
+            try:
+                self_rating = float(parsed_rating)
+            except (ValueError, TypeError):
+                pass
+
+        # Reset file position for saving
+        if hasattr(pdf_file, 'seek'):
+            pdf_file.seek(0)
+
         report, created = WeeklyReport.objects.update_or_create(
             intern=intern,
-            week_start_date=report_data.get('week_start_date'),
+            week_start_date=week_start_date,
             defaults={
-                'week_end_date': report_data.get('week_end_date'),
-                'tasks_completed': report_data.get('tasks_completed', 0),
-                'tasks_in_progress': report_data.get('tasks_in_progress', 0),
-                'tasks_blocked': report_data.get('tasks_blocked', 0),
-                'accomplishments': report_data.get('accomplishments', ''),
-                'challenges': report_data.get('challenges', ''),
-                'learnings': report_data.get('learnings', ''),
-                'next_week_goals': report_data.get('next_week_goals', ''),
-                'self_rating': report_data.get('self_rating'),
+                'week_end_date': week_end_date,
+                'pdf_report': pdf_file,
+                'tasks_completed': tasks_completed,
+                'tasks_in_progress': tasks_in_progress,
+                'tasks_blocked': tasks_blocked,
+                'accomplishments': accomplishments,
+                'challenges': challenges,
+                'learnings': learnings,
+                'next_week_goals': next_week_goals,
+                'self_rating': self_rating if self_rating and self_rating > 0 else None,
                 'is_submitted': True,
                 'submitted_at': timezone.now(),
             }
@@ -518,7 +742,20 @@ class WeeklyReportView(APIView):
 
         return Response({
             'message': 'Weekly report submitted successfully',
-            'id': report.id
+            'id': report.id,
+            'pdf_url': report.pdf_report.url if report.pdf_report else None,
+            'parsed_data': {
+                'week_start_date': str(report.week_start_date),
+                'week_end_date': str(report.week_end_date),
+                'tasks_completed': report.tasks_completed,
+                'tasks_in_progress': report.tasks_in_progress,
+                'tasks_blocked': report.tasks_blocked,
+                'accomplishments': report.accomplishments[:100] if report.accomplishments else '',
+                'challenges': report.challenges[:100] if report.challenges else '',
+                'learnings': report.learnings[:100] if report.learnings else '',
+                'next_week_goals': report.next_week_goals[:100] if report.next_week_goals else '',
+                'self_rating': report.self_rating,
+            }
         }, status=status.HTTP_201_CREATED)
 
 

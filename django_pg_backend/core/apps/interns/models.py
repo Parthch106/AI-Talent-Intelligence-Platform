@@ -9,7 +9,6 @@ class InternProfile(models.Model):
     graduation_year = models.IntegerField(null=True, blank=True)
     github_profile = models.URLField(blank=True, null=True)
     linkedin_profile = models.URLField(blank=True, null=True)
-    resume = models.FileField(upload_to='resumes/', null=True, blank=True)
     skills = models.JSONField(default=list, blank=True)
     
     STATUS_CHOICES = [

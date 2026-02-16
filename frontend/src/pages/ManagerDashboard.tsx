@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, ClipboardList, MessageSquare, Plus, X, Star, Mail, Building, Check, Circle } from 'lucide-react';
+import { Users, ClipboardList, MessageSquare, Plus, X, Star, Mail, Building } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
@@ -52,7 +52,7 @@ interface NewFeedback {
 }
 
 const ManagerDashboard: React.FC = () => {
-    const { user } = useAuth();
+    const { } = useAuth();
     const [activeTab, setActiveTab] = useState<'interns' | 'assessments' | 'feedback'>('interns');
     const [interns, setInterns] = useState<Intern[]>([]);
     const [assessments, setAssessments] = useState<Assessment[]>([]);
@@ -231,8 +231,8 @@ const ManagerDashboard: React.FC = () => {
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as typeof activeTab)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all duration-200 ${activeTab === tab.id
-                                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25'
-                                : 'bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700'
+                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25'
+                            : 'bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700'
                             }`}
                     >
                         <tab.icon size={18} />

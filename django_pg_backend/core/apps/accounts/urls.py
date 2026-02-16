@@ -7,6 +7,7 @@ urlpatterns = [
 
     # Profile endpoints
     path("users/me/", UserProfileView.as_view(), name="user-profile"),
+    path("profile/", UserProfileView.as_view(), name="user-profile-alt"),  # Alias for frontend compatibility
     path("change-password/", ChangePasswordView.as_view(), name="change-password"),
     path("users/", UserListView.as_view(), name="user-list"),
 

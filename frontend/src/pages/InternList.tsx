@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { UserPlus, Search, Filter, X, Mail, Phone, Building, ArrowRight, MoreVertical, Eye, Edit, Trash2 } from 'lucide-react';
+import { UserPlus, Search, Filter, X, Mail, Phone, Building, ArrowRight, Eye, Edit } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
@@ -18,6 +18,14 @@ interface InternProfile {
     phone_number: string;
     status: string;
     skills: string[];
+}
+
+interface AvailableIntern {
+    id: number;
+    email: string;
+    full_name: string;
+    role: string;
+    department: string;
 }
 
 interface NewInternData {
@@ -41,6 +49,32 @@ const InternList: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedDepartment, setSelectedDepartment] = useState<string>('');
+    const [departments, setDepartments] = useState<string[]>([]);
+    const [availableInterns, setAvailableInterns] = useState<AvailableIntern[]>([]);
+    const [selectedInternId, setSelectedInternId] = useState<number | ''>('');
+
+    const fetchAvailableInterns = async () => {
+        try {
+            const response = await api.get('/interns/available-interns/');
+            console.log('[DEBUG] Available interns response:', response.data);
+            setAvailableInterns(response.data);
+        } catch (err) {
+            console.error('[DEBUG] Error fetching available interns:', err);
+            setAvailableInterns([]);
+        }
+    };
+
+    const openAddModal = async () => {
+        setShowAddModal(true);
+        setError('');
+        setSelectedInternId('');
+
+        // For managers, fetch available interns
+        if (user?.role === 'MANAGER') {
+            await fetchAvailableInterns();
+        }
+    };
 
     const [newIntern, setNewIntern] = useState<NewInternData>({
         user: {
@@ -57,8 +91,82 @@ const InternList: React.FC = () => {
 
     const fetchInterns = async () => {
         try {
-            const response = await api.get('/interns/profiles/');
-            setInterns(response.data);
+            console.log('[DEBUG] fetchInterns called, user:', user?.role, user?.department);
+            let allInterns: InternProfile[] = [];
+
+            // For admins, fetch all interns grouped by department
+            if (user?.role === 'ADMIN') {
+                console.log('[DEBUG] ADMIN mode - fetching all interns');
+                try {
+                    const response = await api.get('/interns/all-by-department/');
+                    console.log('[DEBUG] Admin - All by department response:', response.data);
+                    const byDepartment = response.data;
+
+                    // Get all departments
+                    const depts = Object.keys(byDepartment);
+                    setDepartments(depts);
+
+                    // Build allInterns from all departments
+                    depts.forEach(dept => {
+                        byDepartment[dept].forEach((intern: any) => {
+                            allInterns.push({
+                                id: intern.id,
+                                user: intern,
+                                university: intern.university || '',
+                                phone_number: intern.phone_number || '',
+                                status: intern.status || 'ACTIVE',
+                                skills: intern.skills || [],
+                            });
+                        });
+                    });
+                    console.log('[DEBUG] Admin mode - Total interns:', allInterns.length);
+                } catch (e) {
+                    console.error('Error fetching all interns by department:', e);
+                }
+            } else if (user?.role === 'MANAGER' || user?.role === 'INTERN') {
+                // For managers and interns: fetch all interns in department
+                console.log('[DEBUG] MANAGER/INTERN mode - fetching department interns');
+                try {
+                    const response = await api.get('/interns/department-interns/');
+                    console.log('[DEBUG] Department interns response:', response.data);
+                    const deptInterns: any[] = Array.isArray(response.data) ? response.data : [];
+
+                    // Fetch profile data for each intern
+                    for (const intern of deptInterns) {
+                        try {
+                            // Try to get profile for this intern
+                            const profileResponse = await api.get(`/interns/profile-by-user/${intern.id}/`);
+                            const profile = profileResponse.data;
+                            allInterns.push({
+                                id: profile.id,
+                                user: intern,
+                                university: profile.university || intern.department || '',
+                                phone_number: profile.phone_number || '',
+                                status: profile.status || 'ACTIVE',
+                                skills: profile.skills || [],
+                            });
+                        } catch (profileErr) {
+                            // No profile exists, create a basic one using User data
+                            console.log('[DEBUG] No profile for intern:', intern.id, intern.full_name);
+                            allInterns.push({
+                                id: intern.id,
+                                user: intern,
+                                university: intern.department || '',  // Use department as university fallback
+                                phone_number: '',
+                                status: 'ACTIVE',
+                                skills: [],
+                            });
+                        }
+                    }
+                    console.log('[DEBUG] Final allInterns count:', allInterns.length);
+                } catch (e) {
+                    console.error('Error fetching department interns:', e);
+                }
+            }
+
+            // Update state with all interns
+            console.log('[DEBUG] Setting interns state, count:', allInterns.length);
+            setInterns(allInterns);
         } catch (error) {
             console.error("Failed to fetch interns", error);
         } finally {
@@ -68,7 +176,7 @@ const InternList: React.FC = () => {
 
     useEffect(() => {
         fetchInterns();
-    }, []);
+    }, [user, selectedDepartment]);
 
     const handleAddIntern = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -76,15 +184,27 @@ const InternList: React.FC = () => {
         setError('');
 
         try {
-            await api.post('/interns/create/', newIntern);
+            if (user?.role === 'MANAGER') {
+                // For managers, assign existing intern
+                if (!selectedInternId) {
+                    setError('Please select an intern');
+                    setSubmitting(false);
+                    return;
+                }
+                await api.post('/interns/assign-intern/', { intern_id: selectedInternId });
+            } else {
+                // For admins, create new intern
+                await api.post('/interns/create/', newIntern);
+            }
             setShowAddModal(false);
             setNewIntern({
                 user: { email: '', full_name: '', password: '' },
                 profile: { university: '', phone_number: '', skills: [] },
             });
+            setSelectedInternId('');
             fetchInterns();
         } catch (err: any) {
-            setError(err.response?.data?.detail || 'Failed to create intern');
+            setError(err.response?.data?.detail || err.response?.data?.error || 'Failed to add intern');
         } finally {
             setSubmitting(false);
         }
@@ -130,6 +250,8 @@ const InternList: React.FC = () => {
 
     const showAddButton = user?.role === 'ADMIN' || user?.role === 'MANAGER';
 
+    const isManager = user?.role === 'MANAGER';
+
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Page Header */}
@@ -138,11 +260,20 @@ const InternList: React.FC = () => {
                     <h1 className="text-3xl font-bold text-white mb-2">
                         Intern <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Directory</span>
                     </h1>
-                    <p className="text-slate-400">Manage and view all intern profiles</p>
+                    <p className="text-slate-400">
+                        {user?.role === 'ADMIN'
+                            ? selectedDepartment
+                                ? `Interns in ${selectedDepartment}`
+                                : 'Manage and view all intern profiles'
+                            : user?.role === 'MANAGER'
+                                ? `View interns in your department (${user.department || 'N/A'})`
+                                : `View interns in your department (${user?.department || 'N/A'})`
+                        }
+                    </p>
                 </div>
                 {showAddButton && (
                     <Button
-                        onClick={() => setShowAddModal(true)}
+                        onClick={openAddModal}
                         gradient="purple"
                         icon={<UserPlus size={18} />}
                     >
@@ -163,6 +294,18 @@ const InternList: React.FC = () => {
                         className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                     />
                 </div>
+                {user?.role === 'ADMIN' && (
+                    <select
+                        value={selectedDepartment}
+                        onChange={(e) => setSelectedDepartment(e.target.value)}
+                        className="px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                    >
+                        <option value="">All Departments</option>
+                        {departments.map(dept => (
+                            <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                    </select>
+                )}
                 <Button variant="outline" icon={<Filter size={18} />}>
                     Filters
                 </Button>
@@ -266,8 +409,15 @@ const InternList: React.FC = () => {
                                     <UserPlus size={18} className="text-purple-400" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-bold text-white">Add New Intern</h2>
-                                    <p className="text-xs text-slate-400">Fill in the details below</p>
+                                    <h2 className="text-lg font-bold text-white">
+                                        {isManager ? 'Add Existing Intern' : 'Add New Intern'}
+                                    </h2>
+                                    <p className="text-xs text-slate-400">
+                                        {isManager
+                                            ? 'Select an intern from your department'
+                                            : 'Fill in the details below'
+                                        }
+                                    </p>
                                 </div>
                             </div>
                             <button
@@ -286,117 +436,159 @@ const InternList: React.FC = () => {
                                 </div>
                             )}
 
-                            {/* User Information Section */}
-                            <div className="space-y-4">
-                                <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                                    <div className="w-1 h-4 bg-gradient-to-b from-purple-400 to-pink-400 rounded-full"></div>
-                                    User Information
-                                </h4>
+                            {isManager ? (
+                                // Manager: Show dropdown of available interns
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                        <div className="w-1 h-4 bg-gradient-to-b from-purple-400 to-pink-400 rounded-full"></div>
+                                        Select Intern
+                                    </h4>
 
-                                <div className="group">
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Full Name *</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={newIntern.user.full_name}
-                                        onChange={e => setNewIntern(prev => ({
-                                            ...prev,
-                                            user: { ...prev.user, full_name: e.target.value }
-                                        }))}
-                                        className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                        placeholder="John Doe"
-                                    />
+                                    {availableInterns.length === 0 ? (
+                                        <div className="text-center py-8">
+                                            <div className="w-16 h-16 mx-auto mb-4 bg-slate-800/50 rounded-full flex items-center justify-center">
+                                                <UserPlus size={24} className="text-slate-500" />
+                                            </div>
+                                            <h3 className="text-lg font-medium text-white mb-2">No interns available</h3>
+                                            <p className="text-slate-400">All interns in your department have already been added</p>
+                                        </div>
+                                    ) : (
+                                        <div className="group">
+                                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                                                Available Interns
+                                            </label>
+                                            <select
+                                                value={selectedInternId}
+                                                onChange={(e) => setSelectedInternId(Number(e.target.value) || '')}
+                                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                required
+                                            >
+                                                <option value="">Select an intern...</option>
+                                                {availableInterns.map((intern) => (
+                                                    <option key={intern.id} value={intern.id}>
+                                                        {intern.full_name} ({intern.email})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
                                 </div>
+                            ) : (
+                                // Admin: Show full form to create new intern
+                                <>
+                                    {/* User Information Section */}
+                                    <div className="space-y-4">
+                                        <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                            <div className="w-1 h-4 bg-gradient-to-b from-purple-400 to-pink-400 rounded-full"></div>
+                                            User Information
+                                        </h4>
 
-                                <div className="group">
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Email *</label>
-                                    <div className="relative">
-                                        <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-                                        <input
-                                            type="email"
-                                            required
-                                            value={newIntern.user.email}
-                                            onChange={e => setNewIntern(prev => ({
-                                                ...prev,
-                                                user: { ...prev.user, email: e.target.value }
-                                            }))}
-                                            className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                            placeholder="john@example.com"
-                                        />
+                                        <div className="group">
+                                            <label className="block text-sm font-medium text-slate-300 mb-2">Full Name *</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={newIntern.user.full_name}
+                                                onChange={e => setNewIntern(prev => ({
+                                                    ...prev,
+                                                    user: { ...prev.user, full_name: e.target.value }
+                                                }))}
+                                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                placeholder="John Doe"
+                                            />
+                                        </div>
+
+                                        <div className="group">
+                                            <label className="block text-sm font-medium text-slate-300 mb-2">Email *</label>
+                                            <div className="relative">
+                                                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                                                <input
+                                                    type="email"
+                                                    required
+                                                    value={newIntern.user.email}
+                                                    onChange={e => setNewIntern(prev => ({
+                                                        ...prev,
+                                                        user: { ...prev.user, email: e.target.value }
+                                                    }))}
+                                                    className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                    placeholder="john@example.com"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="group">
+                                            <label className="block text-sm font-medium text-slate-300 mb-2">Password *</label>
+                                            <input
+                                                type="password"
+                                                required
+                                                minLength={8}
+                                                value={newIntern.user.password}
+                                                onChange={e => setNewIntern(prev => ({
+                                                    ...prev,
+                                                    user: { ...prev.user, password: e.target.value }
+                                                }))}
+                                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                placeholder="••••••••"
+                                            />
+                                            <p className="text-xs text-slate-500 mt-1">Minimum 8 characters</p>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="group">
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Password *</label>
-                                    <input
-                                        type="password"
-                                        required
-                                        minLength={8}
-                                        value={newIntern.user.password}
-                                        onChange={e => setNewIntern(prev => ({
-                                            ...prev,
-                                            user: { ...prev.user, password: e.target.value }
-                                        }))}
-                                        className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                        placeholder="••••••••"
-                                    />
-                                    <p className="text-xs text-slate-500 mt-1">Minimum 8 characters</p>
-                                </div>
-                            </div>
+                                    {/* Profile Information Section */}
+                                    <div className="space-y-4 pt-4 border-t border-white/5">
+                                        <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                            <div className="w-1 h-4 bg-gradient-to-b from-indigo-400 to-purple-400 rounded-full"></div>
+                                            Profile Information
+                                        </h4>
 
-                            {/* Profile Information Section */}
-                            <div className="space-y-4 pt-4 border-t border-white/5">
-                                <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                                    <div className="w-1 h-4 bg-gradient-to-b from-indigo-400 to-purple-400 rounded-full"></div>
-                                    Profile Information
-                                </h4>
+                                        <div className="group">
+                                            <label className="block text-sm font-medium text-slate-300 mb-2">University</label>
+                                            <div className="relative">
+                                                <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                                                <input
+                                                    type="text"
+                                                    value={newIntern.profile.university}
+                                                    onChange={e => setNewIntern(prev => ({
+                                                        ...prev,
+                                                        profile: { ...prev.profile, university: e.target.value }
+                                                    }))}
+                                                    className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                    placeholder="Stanford University"
+                                                />
+                                            </div>
+                                        </div>
 
-                                <div className="group">
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">University</label>
-                                    <div className="relative">
-                                        <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-                                        <input
-                                            type="text"
-                                            value={newIntern.profile.university}
-                                            onChange={e => setNewIntern(prev => ({
-                                                ...prev,
-                                                profile: { ...prev.profile, university: e.target.value }
-                                            }))}
-                                            className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                            placeholder="Stanford University"
-                                        />
+                                        <div className="group">
+                                            <label className="block text-sm font-medium text-slate-300 mb-2">Phone Number</label>
+                                            <div className="relative">
+                                                <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                                                <input
+                                                    type="text"
+                                                    value={newIntern.profile.phone_number}
+                                                    onChange={e => setNewIntern(prev => ({
+                                                        ...prev,
+                                                        profile: { ...prev.profile, phone_number: e.target.value }
+                                                    }))}
+                                                    className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                    placeholder="+1 (555) 000-0000"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="group">
+                                            <label className="block text-sm font-medium text-slate-300 mb-2">Skills</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Python, JavaScript, React..."
+                                                value={newIntern.profile.skills.join(', ')}
+                                                onChange={handleSkillChange}
+                                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                            />
+                                            <p className="text-xs text-slate-500 mt-1">Separate skills with commas</p>
+                                        </div>
                                     </div>
-                                </div>
-
-                                <div className="group">
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Phone Number</label>
-                                    <div className="relative">
-                                        <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-                                        <input
-                                            type="text"
-                                            value={newIntern.profile.phone_number}
-                                            onChange={e => setNewIntern(prev => ({
-                                                ...prev,
-                                                profile: { ...prev.profile, phone_number: e.target.value }
-                                            }))}
-                                            className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                            placeholder="+1 (555) 000-0000"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="group">
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Skills</label>
-                                    <input
-                                        type="text"
-                                        placeholder="Python, JavaScript, React..."
-                                        value={newIntern.profile.skills.join(', ')}
-                                        onChange={handleSkillChange}
-                                        className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                    />
-                                    <p className="text-xs text-slate-500 mt-1">Separate skills with commas</p>
-                                </div>
-                            </div>
+                                </>
+                            )}
 
                             {/* Actions */}
                             <div className="flex gap-3 pt-4">
@@ -412,9 +604,10 @@ const InternList: React.FC = () => {
                                     type="submit"
                                     gradient="purple"
                                     loading={submitting}
+                                    disabled={isManager && availableInterns.length === 0}
                                     fullWidth
                                 >
-                                    Create Intern
+                                    {isManager ? 'Add Intern' : 'Create Intern'}
                                 </Button>
                             </div>
                         </form>

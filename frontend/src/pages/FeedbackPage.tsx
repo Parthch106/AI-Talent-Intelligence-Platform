@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MessageSquare, Plus, X, Star, User, Calendar, ThumbsUp, TrendingUp, ArrowRight } from 'lucide-react';
+import { MessageSquare, Plus, X, Star, User, Calendar, ThumbsUp, TrendingUp } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';

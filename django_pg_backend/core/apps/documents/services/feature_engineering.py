@@ -523,6 +523,7 @@ class FeatureEngineeringEngine:
     ) -> Dict[str, Any]:
         """
         Compute skill-to-role matching metrics.
+        Allows 20-25% tolerance for skill gaps.
         
         Args:
             resume_data: Dictionary containing parsed resume data
@@ -546,7 +547,16 @@ class FeatureEngineeringEngine:
         # Compute skill overlap percentage
         total_required = len(required_core_skills)
         matched_required = sum(1 for skill in required_lower if skill in all_skills_lower)
-        skill_match_percentage = (matched_required / total_required * 100) if total_required > 0 else 0.0
+        
+        # Allow 20-25% tolerance for skill gaps
+        # Critical gap if missing more than 25% of required skills
+        missing_required = total_required - matched_required
+        tolerance_threshold = max(total_required * 0.25, 1)  # At least 1 skill tolerance
+        critical_skill_gap_count = max(0, int(missing_required - tolerance_threshold))
+        
+        # Skill match percentage (with tolerance)
+        effective_match = min(matched_required / max(total_required - tolerance_threshold, 1), 1.0)
+        skill_match_percentage = effective_match * 100
         
         # Compute core skill match score (0-1)
         core_skill_match_score = matched_required / total_required if total_required > 0 else 0.0
@@ -556,15 +566,18 @@ class FeatureEngineeringEngine:
         matched_preferred = sum(1 for skill in preferred_lower if skill in all_skills_lower)
         optional_skill_bonus_score = matched_preferred / total_preferred if total_preferred > 0 else 0.0
         
-        # Identify missing critical skills
+        # Identify missing critical skills (beyond tolerance)
         missing_critical = [skill for skill in required_core_skills if skill.lower() not in all_skills_lower]
-        critical_skill_gap_count = len(missing_critical)
         
-        # Compute domain relevance score
+        # Compute domain relevance score (with experience check)
         required_domains = role_requirements.get('required_domains', [])
+        experience = resume_data.get('experience', [])
+        projects = resume_data.get('projects', [])
         domain_relevance_score = self._compute_domain_relevance(
             all_skills_lower,
-            required_domains
+            required_domains,
+            experience,
+            projects
         )
         
         return {
@@ -579,10 +592,13 @@ class FeatureEngineeringEngine:
     def _compute_domain_relevance(
         self,
         skills: List[str],
-        required_domains: List[str]
+        required_domains: List[str],
+        experience: List[Dict] = None,
+        projects: List[Dict] = None
     ) -> float:
         """
         Compute domain relevance score (0-1).
+        If project/experience is in that domain, give 100%.
         """
         if not required_domains:
             return 0.5  # Default score if no domains specified
@@ -598,6 +614,23 @@ class FeatureEngineeringEngine:
             'mobile': ['react native', 'flutter', 'ios', 'android', 'swift', 'kotlin', 'mobile'],
         }
         
+        # Check if experience or projects are in the required domains
+        if experience or projects:
+            all_text = ''
+            if experience:
+                all_text += ' '.join([e.get('title', '') + ' ' + e.get('description', '') for e in experience])
+            if projects:
+                all_text += ' '.join([p.get('title', '') + ' ' + p.get('description', '') for p in projects])
+            
+            all_text_lower = all_text.lower()
+            
+            for domain in required_domains:
+                keywords = domain_keywords.get(domain.lower(), [])
+                # If experience/project explicitly mentions domain, give 100%
+                if domain.lower() in all_text_lower or any(kw in all_text_lower for kw in keywords):
+                    return 1.0
+        
+        # Compute skill-based relevance
         domain_scores = {}
         for domain in required_domains:
             keywords = domain_keywords.get(domain.lower(), [])
@@ -845,6 +878,9 @@ class FeatureEngineeringEngine:
         """
         Compute resume quality indicators.
         
+        Note: Clarity removed from indicators.
+        Achievement Orientation is computed but optional (doesn't affect suitability score).
+        
         Args:
             resume_data: Dictionary containing parsed resume data
             
@@ -854,41 +890,40 @@ class FeatureEngineeringEngine:
         skills = resume_data.get('skills', [])
         experience = resume_data.get('experience', [])
         projects = resume_data.get('projects', [])
-        education = resume_data.get('education', [])
         
         # Resume Authenticity Score
         resume_authenticity_score = self._compute_resume_authenticity_score(
             skills, experience, projects
         )
         
-        # Clarity & Structure Score
-        clarity_structure_score = self._compute_clarity_structure_score(
-            resume_data
-        )
-        
-        # Keyword Stuffing Flag
-        keyword_stuffing_flag = self._detect_keyword_stuffing(skills)
-        
         # Role Alignment Score
         role_alignment_score = self._compute_role_alignment_score(resume_data)
-        
-        # Achievement Orientation Score
-        achievement_orientation_score = self._compute_achievement_orientation_score(
-            experience, projects
-        )
         
         # Technical Clarity Score
         technical_clarity_score = self._compute_technical_clarity_score(
             skills, experience, projects
         )
         
+        # Achievement Orientation Score (optional - doesn't affect suitability)
+        achievement_orientation_score = self._compute_achievement_orientation_score(
+            experience, projects
+        )
+        
+        # Keyword Stuffing Flag
+        keyword_stuffing_flag = self._detect_keyword_stuffing(skills)
+        
+        # Production Tools Score (optional - doesn't affect suitability)
+        production_tools = self._compute_production_tools_percentage(
+            skills, tools=resume_data.get('tools', [])
+        )
+        
         return {
             'resume_authenticity_score': round(resume_authenticity_score, 4),
-            'clarity_structure_score': round(clarity_structure_score, 4),
-            'keyword_stuffing_flag': keyword_stuffing_flag,
             'role_alignment_score': round(role_alignment_score, 4),
-            'achievement_orientation_score': round(achievement_orientation_score, 4),
             'technical_clarity_score': round(technical_clarity_score, 4),
+            'achievement_orientation_score': round(achievement_orientation_score, 4),  # Optional
+            'keyword_stuffing_flag': keyword_stuffing_flag,
+            'production_tools_percentage': production_tools,  # Optional metric
         }
     
     def _compute_resume_authenticity_score(
@@ -954,6 +989,66 @@ class FeatureEngineeringEngine:
             return True
         
         return False
+    
+    def _compute_production_tools_percentage(
+        self,
+        skills: List,
+        tools: List = None
+    ) -> Dict[str, Any]:
+        """
+        Compute production tools usage percentage.
+        Optional metric - doesn't affect suitability score.
+        
+        Returns dict with:
+        - percentage: Overall percentage of production tools usage
+        - tools_found: List of production tools found
+        - tool_categories: Breakdown by category
+        """
+        # Production tools categories
+        production_tools = {
+            'cloud': ['aws', 'azure', 'gcp', 'google cloud', 'amazon web services'],
+            'containerization': ['docker', 'kubernetes', 'k8s', 'container'],
+            'ci_cd': ['jenkins', 'github actions', 'gitlab ci', 'ci/cd', 'circleci', 'travis'],
+            'infrastructure': ['terraform', 'ansible', 'puppet', 'chef', 'cloudformation'],
+            'monitoring': ['prometheus', 'grafana', 'elk', 'splunk', 'datadog'],
+            'version_control': ['git', 'github', 'gitlab', 'bitbucket'],
+            'databases': ['postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'cassandra'],
+            'collaboration': ['jira', 'confluence', 'slack', 'teams'],
+        }
+        
+        all_items = skills.copy()
+        if tools:
+            all_items.extend(tools)
+        
+        # Normalize to lowercase
+        all_items_lower = [s.lower() if isinstance(s, str) else s.get('name', '').lower() for s in all_items]
+        
+        tools_found = []
+        tool_categories = {}
+        
+        for category, tool_list in production_tools.items():
+            category_tools = []
+            for tool in tool_list:
+                for item in all_items_lower:
+                    if tool in item:
+                        category_tools.append(tool)
+                        if tool not in tools_found:
+                            tools_found.append(tool)
+                        break
+            tool_categories[category] = category_tools
+        
+        # Calculate overall percentage (based on finding at least 3 categories with tools)
+        categories_with_tools = sum(1 for tools in tool_categories.values() if tools)
+        total_categories = len(production_tools)
+        
+        percentage = round((categories_with_tools / total_categories) * 100, 2)
+        
+        return {
+            'percentage': percentage,
+            'tools_found': tools_found,
+            'tool_categories': tool_categories,
+            'total_tools_found': len(tools_found),
+        }
     
     def _compute_clarity_structure_score(self, resume_data: Dict) -> float:
         """
@@ -1102,30 +1197,30 @@ class FeatureEngineeringEngine:
     def compute_suitability_score(
         self,
         skill_match_percentage: float,
-        practical_exposure_score: float,
         education_score: float,
-        experience_relevance_score: float,
-        resume_quality_score: float
+        experience_relevance_score: float = 0.5,
+        resume_quality_score: float = 0.5
     ) -> float:
         """
         Compute final suitability score (0-100).
         
-        Weights:
-        - Skill Match (40%)
-        - Project Depth (20%)
-        - Education Alignment (10%)
-        - Experience Relevance (20%)
+        Simplified Weights:
+        - Skill Match (50%)
+        - Education Alignment (25%)
+        - Experience Relevance (15%)
         - Resume Quality (10%)
+        
+        Note: Project & Experience Depth removed.
+        Note: Achievement Oriented made optional (included in resume_quality_score).
         """
-        # Convert scores to 0-1 scale if needed
+        # Convert skill match to 0-1 scale
         skill_match = skill_match_percentage / 100
         
         # Weighted sum
         weighted_score = (
-            skill_match * 0.40 +
-            practical_exposure_score * 0.20 +
-            education_score * 0.10 +
-            experience_relevance_score * 0.20 +
+            skill_match * 0.50 +
+            education_score * 0.25 +
+            experience_relevance_score * 0.15 +
             resume_quality_score * 0.10
         )
         

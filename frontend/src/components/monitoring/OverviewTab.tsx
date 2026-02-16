@@ -34,10 +34,14 @@ interface OverviewTabProps {
 }
 
 const OverviewTab: React.FC<OverviewTabProps> = ({ tasks, attendance, performance }) => {
-    const activeTasks = tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'ASSIGNED').length;
-    const completedTasks = tasks.filter(t => t.status === 'COMPLETED').length;
-    const presentDays = attendance.filter(a => a.status === 'PRESENT').length;
-    const attendanceRate = attendance.length > 0 ? Math.round((presentDays / attendance.length) * 100) : 0;
+    // Ensure data is always arrays
+    const tasksArray = Array.isArray(tasks) ? tasks : [];
+    const attendanceArray = Array.isArray(attendance) ? attendance : [];
+
+    const activeTasks = tasksArray.filter(t => t.status === 'IN_PROGRESS' || t.status === 'ASSIGNED').length;
+    const completedTasks = tasksArray.filter(t => t.status === 'COMPLETED').length;
+    const presentDays = attendanceArray.filter(a => a.status === 'PRESENT').length;
+    const attendanceRate = attendanceArray.length > 0 ? Math.round((presentDays / attendanceArray.length) * 100) : 0;
 
     const getStatusBadge = (status: string) => {
         const variants: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
@@ -116,7 +120,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ tasks, attendance, performanc
             {/* Recent Tasks */}
             <Card title="Recent Tasks" icon={<Target size={20} className="text-blue-500" />}>
                 <div className="space-y-3">
-                    {tasks.slice(0, 5).map((task) => (
+                    {tasksArray.slice(0, 5).map((task) => (
                         <div key={task.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                             <div className="flex items-center gap-4">
                                 <div className={`w-2 h-2 rounded-full ${task.status === 'COMPLETED' ? 'bg-emerald-500' : task.status === 'BLOCKED' ? 'bg-red-500' : 'bg-blue-500'}`}></div>
@@ -130,7 +134,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ tasks, attendance, performanc
                             </Badge>
                         </div>
                     ))}
-                    {tasks.length === 0 && (
+                    {tasksArray.length === 0 && (
                         <div className="text-center py-8 text-gray-500">
                             <Target size={40} className="mx-auto mb-3 text-gray-300" />
                             <p>No tasks assigned yet</p>

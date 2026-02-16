@@ -13,6 +13,10 @@ import FeedbackPage from './pages/FeedbackPage';
 import DocumentsPage from './pages/DocumentsPage';
 import AnalysisPage from './pages/AnalysisPage';
 import MonitoringDashboard from './pages/MonitoringDashboard';
+import ProfilePage from './pages/ProfilePage';
+import UploadWeeklyReport from './pages/UploadWeeklyReport';
+import InternTasks from './pages/InternTasks';
+import MyAttendance from './pages/MyAttendance';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
@@ -28,12 +32,16 @@ const App: React.FC = () => {
           {/* Protected Routes */}
           <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/interns" element={<InternList />} />
             <Route path="/projects" element={<ProjectList />} />
             <Route path="/feedback" element={<FeedbackPage />} />
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/analysis" element={<AnalysisPage />} />
             <Route path="/monitoring/*" element={<MonitoringDashboard />} />
+            <Route path="/upload-report" element={<UploadWeeklyReport />} />
+            <Route path="/my-tasks" element={<InternTasks />} />
+            <Route path="/my-attendance" element={<MyAttendance />} />
             <Route path="/manager" element={<ManagerDashboard />} />
             <Route path="/reports" element={<div className="p-6 text-gray-500">Reports Coming Soon</div>} />
           </Route>

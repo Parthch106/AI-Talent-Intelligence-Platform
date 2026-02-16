@@ -93,6 +93,39 @@ class UserListView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
+        user = request.user
+        role_filter = request.query_params.get('role')
+        department_filter = request.query_params.get('department')
+        
+        # Start with all users
         users = User.objects.all()
+        
+        # If role filter is specified, only return that role
+        if role_filter:
+            users = users.filter(role=role_filter)
+        
+        # Managers and interns can only see interns in their department
+        if user.role == User.Role.MANAGER:
+            if role_filter and role_filter != 'INTERN':
+                # Manager requesting non-interns, return empty
+                users = users.none()
+            else:
+                # Manager requesting interns, filter by their department
+                users = users.filter(role=User.Role.INTERN, department=user.department)
+        
+        if user.role == User.Role.INTERN:
+            # Interns can only see other interns in their department
+            if role_filter and role_filter != 'INTERN':
+                users = users.none()
+            else:
+                users = users.filter(role=User.Role.INTERN, department=user.department)
+        
+        # If department filter is specified (for admins)
+        if department_filter and user.role == User.Role.ADMIN:
+            users = users.filter(department=department_filter)
+        
+        # Exclude the current user from the list
+        users = users.exclude(id=user.id)
+        
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)

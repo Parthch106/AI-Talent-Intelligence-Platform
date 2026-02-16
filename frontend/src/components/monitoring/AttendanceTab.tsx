@@ -19,6 +19,12 @@ interface AttendanceTabProps {
 }
 
 const AttendanceTab: React.FC<AttendanceTabProps> = ({ attendance, onMarkAttendance }) => {
+    // Ensure attendance is always an array
+    const attendanceArray = Array.isArray(attendance) ? attendance : [];
+
+    console.log('[AttendanceTab] Received attendance prop:', attendance);
+    console.log('[AttendanceTab] attendanceArray:', attendanceArray);
+
     const getStatusBadge = (status: string) => {
         const variants: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'purple'> = {
             'PRESENT': 'success',
@@ -33,8 +39,8 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({ attendance, onMarkAttenda
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-800">Attendance Tracking</h2>
-                    <p className="text-gray-500 mt-1">Monitor daily attendance records</p>
+                    <h2 className="text-2xl font-bold text-white">Attendance Tracking</h2>
+                    <p className="text-slate-400 mt-1">Monitor daily attendance records</p>
                 </div>
                 <Button
                     onClick={onMarkAttendance}
@@ -47,74 +53,74 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({ attendance, onMarkAttenda
 
             {/* Attendance Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card padding="md" className="text-center">
-                    <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <CheckCircle size={24} className="text-emerald-600" />
+                <div className="relative rounded-2xl border backdrop-blur-xl bg-slate-800/30 border-white/5 p-5 text-center">
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-teal-5/5 pointer-events-none rounded-2xl"></div>
+                    <div className="relative">
+                        <p className="text-2xl font-bold text-emerald-400">{attendanceArray.filter(a => a.status === 'PRESENT').length}</p>
+                        <p className="text-sm text-slate-400">Present</p>
                     </div>
-                    <p className="text-2xl font-bold text-emerald-600">{attendance.filter(a => a.status === 'PRESENT').length}</p>
-                    <p className="text-sm text-gray-500">Present</p>
-                </Card>
-                <Card padding="md" className="text-center">
-                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <X size={24} className="text-red-600" />
+                </div>
+                <div className="relative rounded-2xl border backdrop-blur-xl bg-slate-800/30 border-white/5 p-5 text-center">
+                    <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 via-transparent to-rose-5/5 pointer-events-none rounded-2xl"></div>
+                    <div className="relative">
+                        <p className="text-2xl font-bold text-red-400">{attendanceArray.filter(a => a.status === 'ABSENT').length}</p>
+                        <p className="text-sm text-slate-400">Absent</p>
                     </div>
-                    <p className="text-2xl font-bold text-red-600">{attendance.filter(a => a.status === 'ABSENT').length}</p>
-                    <p className="text-sm text-gray-500">Absent</p>
-                </Card>
-                <Card padding="md" className="text-center">
-                    <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <Clock size={24} className="text-amber-600" />
+                </div>
+                <div className="relative rounded-2xl border backdrop-blur-xl bg-slate-800/30 border-white/5 p-5 text-center">
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-orange-5/5 pointer-events-none rounded-2xl"></div>
+                    <div className="relative">
+                        <p className="text-2xl font-bold text-amber-400">{attendanceArray.filter(a => a.status === 'LATE').length}</p>
+                        <p className="text-sm text-slate-400">Late</p>
                     </div>
-                    <p className="text-2xl font-bold text-amber-600">{attendance.filter(a => a.status === 'LATE').length}</p>
-                    <p className="text-sm text-gray-500">Late</p>
-                </Card>
-                <Card padding="md" className="text-center">
-                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <Home size={24} className="text-purple-600" />
+                </div>
+                <div className="relative rounded-2xl border backdrop-blur-xl bg-slate-800/30 border-white/5 p-5 text-center">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-violet-5/5 pointer-events-none rounded-2xl"></div>
+                    <div className="relative">
+                        <p className="text-2xl font-bold text-purple-400">{attendanceArray.filter(a => a.status === 'WORK_FROM_HOME').length}</p>
+                        <p className="text-sm text-slate-400">WFH</p>
                     </div>
-                    <p className="text-2xl font-bold text-purple-600">{attendance.filter(a => a.status === 'WORK_FROM_HOME').length}</p>
-                    <p className="text-sm text-gray-500">WFH</p>
-                </Card>
+                </div>
             </div>
 
             {/* Attendance Table */}
-            <Card padding="none">
+            <div className="relative rounded-2xl border backdrop-blur-xl bg-slate-800/30 border-white/5 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-100">
+                        <thead className="bg-slate-800/50 border-b border-white/10">
                             <tr>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Check In</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Check Out</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Hours</th>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Date</th>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Check In</th>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Check Out</th>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Hours</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {attendance.slice(0, 10).map((record) => (
-                                <tr key={record.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-800">{record.date}</td>
+                        <tbody className="divide-y divide-white/5">
+                            {attendanceArray.slice(0, 10).map((record) => (
+                                <tr key={record.id} className="hover:bg-slate-800/50 transition-colors">
+                                    <td className="px-6 py-4 text-sm font-medium text-white">{record.date}</td>
                                     <td className="px-6 py-4">
                                         <Badge variant={getStatusBadge(record.status)}>
                                             {record.status}
                                         </Badge>
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{record.check_in_time || '-'}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{record.check_out_time || '-'}</td>
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-800">{record.working_hours}h</td>
+                                    <td className="px-6 py-4 text-sm text-slate-300">{record.check_in_time || '-'}</td>
+                                    <td className="px-6 py-4 text-sm text-slate-300">{record.check_out_time || '-'}</td>
+                                    <td className="px-6 py-4 text-sm font-medium text-white">{record.working_hours}h</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
-                {attendance.length === 0 && (
-                    <div className="text-center py-12 text-gray-500">
-                        <Calendar size={48} className="mx-auto mb-4 text-gray-300" />
-                        <p className="text-lg font-medium">No attendance records</p>
-                        <p className="text-sm">Records will appear here once marked</p>
+                {attendanceArray.length === 0 && (
+                    <div className="text-center py-12">
+                        <Calendar size={48} className="mx-auto mb-4 text-slate-600" />
+                        <p className="text-lg font-medium text-white">No attendance records</p>
+                        <p className="text-sm text-slate-400 mt-1">Records will appear here once marked</p>
                     </div>
                 )}
-            </Card>
+            </div>
         </div>
     );
 };

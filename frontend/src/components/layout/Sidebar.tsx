@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
     LayoutDashboard, Users, FolderKanban, MessageSquare,
     FileText, Brain, Monitor, Settings, ChevronRight,
-    Sparkles, LogOut, Zap
+    Sparkles, LogOut, Zap, User, Upload, Target
 } from 'lucide-react';
 
 interface NavItem {
@@ -21,6 +21,7 @@ const Sidebar: React.FC = () => {
 
     const mainNavItems: NavItem[] = [
         { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+        { name: 'Profile', path: '/profile', icon: <User size={20} /> },
         { name: 'Interns', path: '/interns', icon: <Users size={20} />, badge: '12' },
         { name: 'Projects', path: '/projects', icon: <FolderKanban size={20} /> },
         { name: 'Feedback', path: '/feedback', icon: <MessageSquare size={20} /> },
@@ -30,6 +31,12 @@ const Sidebar: React.FC = () => {
     const adminNavItems: NavItem[] = [
         { name: 'Analysis', path: '/analysis', icon: <Brain size={20} />, roles: ['ADMIN', 'MANAGER'] },
         { name: 'Monitoring', path: '/monitoring', icon: <Monitor size={20} />, roles: ['ADMIN', 'MANAGER'] },
+    ];
+
+    const internNavItems: NavItem[] = [
+        { name: 'Upload Report', path: '/upload-report', icon: <Upload size={20} />, roles: ['INTERN'] },
+        { name: 'My Tasks', path: '/my-tasks', icon: <Target size={20} />, roles: ['INTERN'] },
+        { name: 'My Attendance', path: '/my-attendance', icon: <Monitor size={20} />, roles: ['INTERN'] },
     ];
 
     const isActive = (path: string) => {
@@ -81,8 +88,8 @@ const Sidebar: React.FC = () => {
                                 <Link
                                     to={item.path}
                                     className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group ${isActive(item.path)
-                                            ? 'text-white'
-                                            : 'text-slate-400 hover:text-white'
+                                        ? 'text-white'
+                                        : 'text-slate-400 hover:text-white'
                                         }`}
                                 >
                                     {isActive(item.path) && (
@@ -91,8 +98,8 @@ const Sidebar: React.FC = () => {
                                         </div>
                                     )}
                                     <span className={`relative z-10 transition-all duration-300 ${isActive(item.path)
-                                            ? 'text-purple-400 scale-110'
-                                            : 'group-hover:scale-110 group-hover:text-purple-400'
+                                        ? 'text-purple-400 scale-110'
+                                        : 'group-hover:scale-110 group-hover:text-purple-400'
                                         }`}>
                                         {item.icon}
                                     </span>
@@ -124,8 +131,8 @@ const Sidebar: React.FC = () => {
                                     <Link
                                         to={item.path}
                                         className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group ${isActive(item.path)
-                                                ? 'text-white'
-                                                : 'text-slate-400 hover:text-white'
+                                            ? 'text-white'
+                                            : 'text-slate-400 hover:text-white'
                                             }`}
                                     >
                                         {isActive(item.path) && (
@@ -134,14 +141,53 @@ const Sidebar: React.FC = () => {
                                             </div>
                                         )}
                                         <span className={`relative z-10 transition-all duration-300 ${isActive(item.path)
-                                                ? 'text-indigo-400 scale-110'
-                                                : 'group-hover:scale-110 group-hover:text-indigo-400'
+                                            ? 'text-indigo-400 scale-110'
+                                            : 'group-hover:scale-110 group-hover:text-indigo-400'
                                             }`}>
                                             {item.icon}
                                         </span>
                                         <span className="relative z-10 font-medium">{item.name}</span>
                                         {isActive(item.path) && (
                                             <ChevronRight size={16} className="relative z-10 ml-auto text-indigo-400 animate-pulse" />
+                                        )}
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {/* Intern Navigation */}
+                {filterByRole(internNavItems).length > 0 && (
+                    <div className="mb-6">
+                        <p className="px-3 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Target size={12} className="text-emerald-400" />
+                            My Workspace
+                        </p>
+                        <ul className="space-y-1">
+                            {filterByRole(internNavItems).map((item) => (
+                                <li key={item.path}>
+                                    <Link
+                                        to={item.path}
+                                        className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group ${isActive(item.path)
+                                            ? 'text-white'
+                                            : 'text-slate-400 hover:text-white'
+                                            }`}
+                                    >
+                                        {isActive(item.path) && (
+                                            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-green-500/20 to-teal-500/20 rounded-xl border border-emerald-500/30">
+                                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b from-emerald-400 to-green-400 rounded-r-full"></div>
+                                            </div>
+                                        )}
+                                        <span className={`relative z-10 transition-all duration-300 ${isActive(item.path)
+                                            ? 'text-emerald-400 scale-110'
+                                            : 'group-hover:scale-110 group-hover:text-emerald-400'
+                                            }`}>
+                                            {item.icon}
+                                        </span>
+                                        <span className="relative z-10 font-medium">{item.name}</span>
+                                        {isActive(item.path) && (
+                                            <ChevronRight size={16} className="relative z-10 ml-auto text-emerald-400 animate-pulse" />
                                         )}
                                     </Link>
                                 </li>

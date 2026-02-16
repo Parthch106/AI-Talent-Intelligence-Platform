@@ -77,17 +77,18 @@ class Command(BaseCommand):
             )
             return 'skipped'
         
-        # Check if intelligence already exists
-        from apps.analytics.models import InternIntelligence
-        intelligence_exists = InternIntelligence.objects.filter(user=user).exists()
+        # TODO: Check model_predictions table instead of InternIntelligence
+        # This will be implemented with the new schema
+        # from apps.analytics.models import InternIntelligence
+        # intelligence_exists = InternIntelligence.objects.filter(user=user).exists()
         
-        if intelligence_exists and not force:
-            self.stdout.write(
-                self.style.WARNING(
-                    f'Skipping {user.email}: Intelligence already exists (use --force to recompute)'
-                )
-            )
-            return 'skipped'
+        # if intelligence_exists and not force:
+        #     self.stdout.write(
+        #         self.style.WARNING(
+        #             f'Skipping {user.email}: Intelligence already exists (use --force to recompute)'
+        #         )
+        #     )
+        #     return 'skipped'
         
         # Compute intelligence
         try:

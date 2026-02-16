@@ -1,0 +1,20 @@
+module.exports = {
+    extends: [
+        'stylelint-config-standard',
+    ],
+    customSyntax: 'postcss-scss',
+    rules: {
+        'at-rule-no-unknown': [
+            true,
+            {
+                ignoreAtRules: [
+                    'tailwind',
+                    'apply',
+                    'layer',
+                    'responsive',
+                    'screen',
+                ],
+            },
+        ],
+    },
+};
