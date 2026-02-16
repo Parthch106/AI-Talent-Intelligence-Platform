@@ -1,6 +1,7 @@
-import React from 'react';
-import { TrendingUp, AlertTriangle, Award } from 'lucide-react';
+import React, { useState } from 'react';
+import { TrendingUp, AlertTriangle, Award, RefreshCw, Loader2 } from 'lucide-react';
 import Card from '../common/Card';
+import axios from '../../api/axios';
 
 interface PerformanceMetric {
     overall_performance_score: number;
@@ -16,9 +17,56 @@ interface PerformanceMetric {
 
 interface PerformanceTabProps {
     performance: PerformanceMetric | null;
+    selectedInternId?: number | null;
+    onRefresh?: () => void;
 }
 
-const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance }) => {
+const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedInternId, onRefresh }) => {
+    const [recomputing, setRecomputing] = useState(false);
+    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    const handleRecompute = async () => {
+        if (!selectedInternId) {
+            setMessage({ type: 'error', text: 'Please select an intern first' });
+            setTimeout(() => setMessage(null), 3000);
+            return;
+        }
+
+        setRecomputing(true);
+        setMessage(null);
+
+        try {
+            // Get the current week's start date (Monday)
+            const today = new Date();
+            const dayOfWeek = today.getDay();
+            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const monday = new Date(today);
+            monday.setDate(today.getDate() + mondayOffset);
+            const periodStart = monday.toISOString().split('T')[0];
+
+            const response = await axios.post('/analytics/performance/compute/', {
+                intern_id: selectedInternId,
+                period_type: 'WEEKLY',
+                period_start: periodStart
+            });
+
+            if (response.status === 200 || response.status === 201) {
+                setMessage({ type: 'success', text: 'Performance metrics recomputed successfully!' });
+                if (onRefresh) {
+                    onRefresh();
+                }
+            }
+        } catch (error: any) {
+            console.error('Error recomputing performance:', error);
+            setMessage({
+                type: 'error',
+                text: error.response?.data?.error || 'Failed to recompute performance metrics'
+            });
+        } finally {
+            setRecomputing(false);
+            setTimeout(() => setMessage(null), 3000);
+        }
+    };
     const getRiskColor = (risk: string) => {
         const colors: Record<string, string> = {
             'LOW': 'bg-emerald-500',
@@ -30,10 +78,41 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance }) => {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-2xl font-bold text-white">Performance Analytics</h2>
-                <p className="text-slate-400 mt-1">Comprehensive performance insights</p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h2 className="text-2xl font-bold text-white">Performance Analytics</h2>
+                    <p className="text-slate-400 mt-1">Comprehensive performance insights</p>
+                </div>
+                <button
+                    onClick={handleRecompute}
+                    disabled={recomputing}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${recomputing
+                        ? 'bg-slate-700/50 text-slate-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/25'
+                        }`}
+                >
+                    {recomputing ? (
+                        <>
+                            <Loader2 size={18} className="animate-spin" />
+                            <span>Recomputing...</span>
+                        </>
+                    ) : (
+                        <>
+                            <RefreshCw size={18} />
+                            <span>Recompute</span>
+                        </>
+                    )}
+                </button>
             </div>
+
+            {message && (
+                <div className={`px-4 py-3 rounded-xl flex items-center gap-2 animate-slide-up ${message.type === 'success'
+                    ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+                    : 'bg-red-500/10 border border-red-500/30 text-red-400'
+                    }`}>
+                    {message.text}
+                </div>
+            )}
 
             {performance ? (
                 <>

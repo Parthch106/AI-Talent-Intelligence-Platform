@@ -315,7 +315,6 @@ class PerformanceMetrics(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='performance_metrics',
-        limit_choices_to={'role': 'INTERN'}
     )
     
     period_start = models.DateField()

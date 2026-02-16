@@ -211,7 +211,7 @@ const MonitoringDashboard: React.FC = () => {
             // Ensure data is always arrays/objects before setting state
             const tasks = Array.isArray(tasksRes.data.tasks) ? tasksRes.data.tasks : [];
             const attendance = Array.isArray(attendanceRes.data.attendance) ? attendanceRes.data.attendance : [];
-            const performance = performanceRes.data.performance_metrics || null;
+            const performance = Array.isArray(performanceRes.data.performance_metrics) ? performanceRes.data.performance_metrics[0] || null : null;
             const weeklyReports = Array.isArray(reportsRes.data.weekly_reports) ? reportsRes.data.weekly_reports : [];
 
             console.log('[fetchData] Processed data - tasks:', tasks.length, 'attendance:', attendance.length, 'reports:', weeklyReports.length);
@@ -452,7 +452,11 @@ const MonitoringDashboard: React.FC = () => {
                             />
                         )}
                         {activeTab === 'performance' && (
-                            <PerformanceTab performance={performance} />
+                            <PerformanceTab
+                                performance={performance}
+                                selectedInternId={selectedIntern}
+                                onRefresh={fetchData}
+                            />
                         )}
                         {activeTab === 'weekly-reports' && (
                             <WeeklyReportsTab
