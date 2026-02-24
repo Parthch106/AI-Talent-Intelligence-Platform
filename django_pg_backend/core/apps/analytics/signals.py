@@ -87,10 +87,72 @@ def connect_task_tracking_signals():
             
             if instance.status == 'COMPLETED':
                 _notify_task_completed(instance)
+                # Check if all tasks for the project are completed
+                _check_project_completion(instance)
             elif instance.status == 'IN_PROGRESS':
                 _notify_task_started(instance)
         except Exception as e:
             logger.error(f"Error in task status notification: {str(e)}")
+
+
+def _check_project_completion(task):
+    """
+    Check if all tasks for a project are completed and auto-mark project as PENDING_APPROVAL.
+    """
+    try:
+        if not task.project_assignment:
+            return
+        
+        project_assignment = task.project_assignment
+        
+        # Skip if project is already in a final state
+        if project_assignment.status in ['COMPLETED', 'DROPPED', 'PENDING_APPROVAL']:
+            return
+        
+        # Get all tasks for this project assignment
+        all_tasks = project_assignment.tasks.all()
+        total_tasks = all_tasks.count()
+        
+        if total_tasks == 0:
+            return
+        
+        # Check if all tasks are completed
+        completed_tasks = all_tasks.filter(status='COMPLETED').count()
+        
+        if completed_tasks == total_tasks and total_tasks > 0:
+            # All tasks completed - auto-mark project as PENDING_APPROVAL
+            old_status = project_assignment.status
+            project_assignment.status = 'PENDING_APPROVAL'
+            project_assignment.save()
+            
+            logger.info(f"Project {project_assignment.project.name} auto-marked as PENDING_APPROVAL - all {total_tasks} tasks completed")
+            
+            # Send notification to managers for approval
+            _notify_project_pending_approval(project_assignment)
+    except Exception as e:
+        logger.error(f"Error checking project completion: {str(e)}")
+
+
+def _notify_project_pending_approval(project_assignment):
+    """Send notification to managers when a project is pending approval."""
+    try:
+        from apps.notifications.models import Notification
+        from apps.accounts.models import User
+        
+        intern = project_assignment.intern
+        project_name = project_assignment.project.name
+        
+        # Notify all managers
+        managers = User.objects.filter(role__in=[User.Role.MANAGER, User.Role.ADMIN])
+        for manager in managers:
+            Notification.objects.create(
+                user=manager,
+                notification_type='PROJECT_PENDING_APPROVAL',
+                title='Project Pending Approval',
+                message=f'{intern.full_name}\'s project "{project_name}" is awaiting approval. All tasks have been completed.',
+            )
+    except Exception as e:
+        logger.error(f"Error sending project pending approval notification: {str(e)}")
 
 
 def _notify_task_completed(task):

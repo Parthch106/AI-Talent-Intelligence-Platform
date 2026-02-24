@@ -509,25 +509,20 @@ class ResumeParsingEngine:
             logger.warning("_parse_resume_text: raw_text is too short or empty")
             return parsed
         
-        print(f"_parse_resume_text: Text length = {len(raw_text)}")
-        print(f"Is markdown: {'## ' in raw_text or '# ' in raw_text}")
+        logger.info(f"_parse_resume_text: length={len(raw_text)} markdown={'## ' in raw_text or '# ' in raw_text}")
         
         # Check if it's markdown format
         is_markdown = '## ' in raw_text or '# ' in raw_text
         
-        print(f"is_markdown = {is_markdown}")
-        
         if is_markdown:
-            print("Using MARKDOWN parsing")
+            logger.info("Using MARKDOWN parsing")
             parsed = self._parse_markdown_resume(raw_text, parsed)
         else:
             # Try plain text parsing first
             is_plain_text = 'PERSONAL INFORMATION' in raw_text.upper() or 'OBJECTIVE' in raw_text.upper()
             
-            print(f"is_plain_text = {is_plain_text}")
-            
             if is_plain_text:
-                print("Using PLAIN TEXT parsing")
+                logger.info("Using PLAIN TEXT parsing")
                 parsed = self._parse_plain_text_resume(raw_text, parsed)
                 
                 # Check if plain text parsing produced any results
@@ -540,50 +535,15 @@ class ResumeParsingEngine:
                     parsed.get('professional_summary')
                 )
                 if not has_plain_text_results:
-                    print("Plain text parsing returned empty, falling back to INTELLIGENT parsing")
+                    logger.info("Plain text parsing returned empty, falling back to INTELLIGENT parsing")
                     parsed = self._intelligent_resume_parse(raw_text, parsed)
             else:
                 # Neither markdown nor plain text - do intelligent extraction
-                print("Using INTELLIGENT parsing")
+                logger.info("Using INTELLIGENT parsing")
                 parsed = self._intelligent_resume_parse(raw_text, parsed)
         
         # After parsing, populate all text fields from the extracted lists
         parsed = self._populate_text_fields(parsed)
-        
-        # Debug: Log and print the parsed data
-        print("\n" + "="*50)
-        print("RESUME PARSING RESULTS")
-        print("="*50)
-        
-        # Helper function to safely show truncated string
-        def show_truncated(s, limit=100):
-            s = s or ''
-            return s[:limit] + '...' if len(s) > limit else s
-        
-        print(f"professional_summary: {show_truncated(parsed.get('professional_summary', ''))}")
-        print(f"technical_skills: {show_truncated(parsed.get('technical_skills', ''), 200)}")
-        print(f"tools_technologies: {parsed.get('tools_technologies', '')}")
-        print(f"frameworks_libraries: {parsed.get('frameworks_libraries', '')}")
-        print(f"databases: {parsed.get('databases', '')}")
-        print(f"cloud_platforms: {parsed.get('cloud_platforms', '')}")
-        print(f"soft_skills: {parsed.get('soft_skills', '')}")
-        print(f"experience_titles: {parsed.get('experience_titles', '')}")
-        print(f"experience_descriptions: {show_truncated(parsed.get('experience_descriptions', ''), 200)}")
-        print(f"experience_duration_text: {parsed.get('experience_duration_text', '')}")
-        print(f"project_titles: {parsed.get('project_titles', '')}")
-        print(f"project_descriptions: {show_truncated(parsed.get('project_descriptions', ''), 200)}")
-        print(f"project_technologies: {parsed.get('project_technologies', '')}")
-        print(f"education_text: {parsed.get('education_text', '')}")
-        print(f"certifications_text: {parsed.get('certifications_text', '')}")
-        print(f"achievements_text: {show_truncated(parsed.get('achievements_text', ''), 100)}")
-        print(f"extracurriculars: {parsed.get('extracurriculars', '')}")
-        print(f"skills count: {len(parsed.get('skills', []))}")
-        print(f"experience count: {len(parsed.get('experience', []))}")
-        print(f"projects count: {len(parsed.get('projects', []))}")
-        print(f"education count: {len(parsed.get('education', []))}")
-        print(f"certifications count: {len(parsed.get('certifications', []))}")
-        print(f"achievements count: {len(parsed.get('achievements', []))}")
-        print("="*50 + "\n")
         
         logger.info("=== RESUME PARSING RESULTS ===")
         logger.info(f"professional_summary: {parsed.get('professional_summary', '')[:100]}...")
@@ -744,11 +704,7 @@ class ResumeParsingEngine:
         text = raw_text
         text_lower = text.lower()
         
-        print("\n" + "-"*50)
-        print("INTELLIGENT PARSING START")
-        print("-"*50)
-        print(f"Text length: {len(text)} characters")
-        print(f"First 200 chars of text: {text[:200]}")
+        logger.info(f"=== INTELLIGENT PARSING START (len={len(text)}) ===")
         
         logger.info("=== INTELLIGENT PARSING START ===")
         logger.info(f"Text length: {len(text)} characters")
@@ -757,29 +713,15 @@ class ResumeParsingEngine:
         # Extract skills using pattern matching
         parsed['skills'] = self._extract_skills_from_text(text)
         parsed['tools'] = self._extract_tools_from_text(text)
-        print(f"Extracted skills: {len(parsed['skills'])} items")
-        print(f"Extracted tools: {len(parsed['tools'])} items")
+        parsed['skills'] = self._extract_skills_from_text(text)
+        parsed['tools'] = self._extract_tools_from_text(text)
         logger.info(f"Extracted skills: {len(parsed['skills'])} items")
         logger.info(f"Extracted tools: {len(parsed['tools'])} items")
         
         # Extract education
         parsed['education'] = self._extract_education_from_text(text)
-        print(f"Extracted education: {len(parsed['education'])} entries")
-        logger.info(f"Extracted education: {len(parsed['education'])} entries")
-        
-        # Extract experience
-        parsed['experience'], parsed['total_experience_years'] = self._extract_experience_from_text(text)
-        print(f"Extracted experience: {len(parsed['experience'])} entries")
-        logger.info(f"Extracted experience: {len(parsed['experience'])} entries")
-        
-        # Extract projects
-        parsed['projects'] = self._extract_projects_from_text(text)
-        print(f"Extracted projects: {len(parsed['projects'])} entries")
-        logger.info(f"Extracted projects: {len(parsed['projects'])} entries")
-        
         # Extract certifications
         parsed['certifications'] = self._extract_certifications_from_text(text)
-        print(f"Extracted certifications: {len(parsed['certifications'])} items")
         logger.info(f"Extracted certifications: {len(parsed['certifications'])} items")
         
         # Try to detect and extract professional summary/objective
@@ -837,15 +779,10 @@ class ResumeParsingEngine:
         
         parsed['achievements'] = achievements[:10]
         parsed['certifications'] = certifications[:10]
-        print(f"Extracted achievements: {len(parsed['achievements'])} items")
-        print(f"Extracted certifications: {len(parsed['certifications'])} items")
-        print(f"Achievements: {parsed['achievements'][:3]}...")
-        logger.info(f"Extracted achievements: {len(parsed['achievements'])} items")
-        logger.info(f"Achievements: {parsed['achievements'][:3]}...")
-        
+        parsed['achievements'] = achievements[:10]
+        parsed['certifications'] = certifications[:10]
         # Extract extracurriculars (internships, leadership, etc.)
         extracurriculars = []
-        print(f"Extracted extracurriculars: {len(extracurriculars)} items")
         logger.info(f"Extracted extracurriculars: {len(extracurriculars)} items")
         # Look for internship keywords
         intern_patterns = [
@@ -859,10 +796,9 @@ class ResumeParsingEngine:
                     extracurriculars.append(f"Internship at {match.strip()}")
         if extracurriculars:
             parsed['extracurriculars'] = ' | '.join(extracurriculars)
-        print(f"Extracurriculars: {extracurriculars}")
-        logger.info(f"Extrracted extracurriculars: {extracurriculars}")
-        print(f"Extrracted extracurriculars: {len(extracurriculars)} items")
-        logger.info(f"Extracted extracurriculars: {len(extracurriculars)} items")
+        if extracurriculars:
+            parsed['extracurriculars'] = ' | '.join(extracurriculars)
+        logger.info(f"Extracted extracurriculars: {extracurriculars}")
         
         # Try to extract experience descriptions more intelligently
         # Look for patterns like "Company | Position | Duration"
@@ -919,10 +855,8 @@ class ResumeParsingEngine:
                         'role': ''
                     })
         
-        print(f"Final projects after intelligent extraction: {len(parsed['projects'])} entries")
-        print("-"*50)
-        print("INTELLIGENT PARSING END")
-        print("-"*50 + "\n")
+        logger.info(f"Final projects after intelligent extraction: {len(parsed['projects'])} entries")
+        logger.info("=== INTELLIGENT PARSING END ===")
         logger.info(f"Final projects after intelligent extraction: {len(parsed['projects'])} entries")
         logger.info("=== INTELLIGENT PARSING END ===")
         
@@ -1587,7 +1521,7 @@ class ResumeParsingEngine:
     
     def _extract_skills_from_text(self, text: str) -> List[str]:
         """Extract skills from raw text using pattern matching."""
-        print(f"_extract_skills_from_text: Starting with text length {len(text)}")
+        logger.info(f"_extract_skills_from_text: Starting with text length {len(text)}")
         text_lower = text.lower()
         found_skills = []
         
@@ -1598,7 +1532,7 @@ class ResumeParsingEngine:
                 if re.search(pattern, text_lower):
                     found_skills.append(skill)
         
-        print(f"_extract_skills_from_text: Found {len(found_skills)} skills: {found_skills[:10]}")
+        logger.info(f"_extract_skills_from_text: Found {len(found_skills)} skills: {found_skills[:10]}")
         
         # Remove duplicates while preserving order
         seen = set()
@@ -1625,7 +1559,7 @@ class ResumeParsingEngine:
     
     def _extract_education_from_text(self, text: str) -> List[Dict]:
         """Extract education information from raw text."""
-        print(f"_extract_education_from_text: Starting with text length {len(text)}")
+        logger.info(f"_extract_education_from_text: Starting with text length {len(text)}")
         education = []
         
         # If text looks like a dict string representation, try to parse it
@@ -1689,12 +1623,12 @@ class ResumeParsingEngine:
                     'gpa': ''
                 })
         
-        print(f"_extract_education_from_text: Found {len(education)} education entries: {education}")
+        logger.info(f"_extract_education_from_text: Found {len(education)} education entries")
         return education
     
     def _extract_experience_from_text(self, text: str) -> tuple:
         """Extract experience information from raw text."""
-        print(f"_extract_experience_from_text: Starting with text length {len(text)}")
+        logger.info(f"_extract_experience_from_text: Starting with text length {len(text)}")
         experience = []
         total_years = 0
         

@@ -90,6 +90,15 @@ class TaskTracking(models.Model):
     mentor_feedback = models.TextField(blank=True)
     rework_required = models.BooleanField(default=False)
     
+    # Project link (optional - can link a task to a specific project assignment)
+    project_assignment = models.ForeignKey(
+        'projects.ProjectAssignment',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tasks'
+    )
+    
     class Meta:
         ordering = ['-assigned_at']
     
@@ -789,6 +798,129 @@ class ResumeSection(models.Model):
     
     def __str__(self):
         return f"Sections for {self.application.intern.email}"
+
+
+class ResumeSkill(models.Model):
+    """
+    V2 NEW: Stores normalized skills with categories for granular analysis.
+    """
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        related_name='structured_skills'
+    )
+    name = models.CharField(max_length=100, help_text="Normalized skill name (e.g., Python)")
+    category = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="Skill category (e.g., programming_languages, frameworks_libraries)"
+    )
+    is_major = models.BooleanField(default=False, help_text="Whether this is a primary skill for the role")
+    
+    class Meta:
+        verbose_name = "Resume Skill"
+        verbose_name_plural = "Resume Skills"
+        unique_together = ['application', 'name', 'category']
+
+    def __str__(self):
+        return f"{self.name} ({self.category})"
+
+
+class ResumeExperience(models.Model):
+    """
+    V2 NEW: Stores structured work history with dates and quantified achievements.
+    """
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        related_name='structured_experience'
+    )
+    title = models.CharField(max_length=200)
+    company = models.CharField(max_length=200, blank=True, null=True)
+    location = models.CharField(max_length=200, blank=True, null=True)
+    start_date = models.CharField(max_length=50, blank=True, null=True, help_text="ISO format or text")
+    end_date = models.CharField(max_length=50, blank=True, null=True)
+    is_current = models.BooleanField(default=False)
+    is_internship = models.BooleanField(default=False)
+    description = models.TextField(blank=True)
+    technologies = models.JSONField(default=list, blank=True)
+    
+    class Meta:
+        verbose_name = "Resume Experience"
+        verbose_name_plural = "Resume Experiences"
+
+    def __str__(self):
+        return f"{self.title} at {self.company}"
+
+
+class ResumeProject(models.Model):
+    """
+    V2 NEW: Stores project details and tech stacks.
+    """
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        related_name='structured_projects'
+    )
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True, null=True)
+    technologies = models.JSONField(default=list, blank=True)
+    github_url = models.URLField(max_length=500, blank=True, null=True)
+    impact = models.TextField(blank=True, null=True, help_text="Quantified impact or key results")
+    
+    class Meta:
+        verbose_name = "Resume Project"
+        verbose_name_plural = "Resume Projects"
+
+    def __str__(self):
+        return self.name
+
+
+class ResumeEducation(models.Model):
+    """
+    V2 NEW: Stores structured education details.
+    """
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        related_name='structured_education'
+    )
+    degree = models.CharField(max_length=200)
+    field_of_study = models.CharField(max_length=200, blank=True, null=True)
+    institution = models.CharField(max_length=200)
+    start_year = models.IntegerField(null=True, blank=True)
+    end_year = models.IntegerField(null=True, blank=True)
+    gpa = models.FloatField(null=True, blank=True)
+    honors = models.TextField(blank=True, null=True)
+    
+    class Meta:
+        verbose_name = "Resume Education"
+        verbose_name_plural = "Resume Education Entries"
+
+    def __str__(self):
+        return f"{self.degree} from {self.institution}"
+
+
+class ResumeCertification(models.Model):
+    """
+    V2 NEW: Stores structured certification data.
+    """
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        related_name='structured_certifications'
+    )
+    name = models.CharField(max_length=255)
+    issuer = models.CharField(max_length=255, blank=True, null=True)
+    date = models.CharField(max_length=50, blank=True, null=True)
+    
+    class Meta:
+        verbose_name = "Resume Certification"
+        verbose_name_plural = "Resume Certifications"
+
+    def __str__(self):
+        return self.name
 
 
 class ResumeEmbedding(models.Model):

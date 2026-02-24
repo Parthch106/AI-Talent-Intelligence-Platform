@@ -18,6 +18,11 @@ from apps.analytics.models import (
     Application,
     StructuredFeature,
     ModelPrediction,
+    ResumeSkill,
+    ResumeExperience,
+    ResumeProject,
+    ResumeEducation,
+    ResumeCertification,
 )
 from apps.analytics.services.talent_intelligence_service import talent_intelligence_service
 
@@ -471,7 +476,7 @@ class LegacyIntelligenceView(APIView):
             if prediction.authenticity_score and prediction.authenticity_score < 0.5:
                 risk_flags.append({'type': 'AUTHENTICITY_CONCERN', 'message': 'Low resume authenticity - verify credentials'})
         
-        # Resume analysis details
+        # Build resume analysis details
         resume_analysis = {
             'applied_role': job_role.role_title if job_role else None,
             'suitability_score': prediction.suitability_score,
@@ -494,6 +499,21 @@ class LegacyIntelligenceView(APIView):
                 'technical_clarity_score': structured_feature.writing_clarity_score or 0,
             })
         
+        # Fetch structured data from normalized tables
+        structured_resume = {
+            'skills': list(ResumeSkill.objects.filter(application=application).values('name', 'category', 'is_major')),
+            'experience': list(ResumeExperience.objects.filter(application=application).values(
+                'title', 'company', 'location', 'start_date', 'end_date', 'is_current', 'is_internship', 'description', 'technologies'
+            )),
+            'projects': list(ResumeProject.objects.filter(application=application).values(
+                'name', 'description', 'technologies', 'github_url', 'impact'
+            )),
+            'education': list(ResumeEducation.objects.filter(application=application).values(
+                'degree', 'field_of_study', 'institution', 'start_year', 'end_year', 'gpa', 'honors'
+            )),
+            'certifications': list(ResumeCertification.objects.filter(application=application).values('name', 'issuer', 'date')),
+        }
+        
         return {
             'user_id': intern.id,
             'resume_document': resume_document,
@@ -504,6 +524,7 @@ class LegacyIntelligenceView(APIView):
             'recommendations': recommendations,
             'risk_flags': risk_flags,
             'resume_analysis': resume_analysis,
+            'structured_resume': structured_resume,
         }
 
 

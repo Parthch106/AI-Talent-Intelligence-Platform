@@ -47,6 +47,7 @@ class ProjectAssignment(models.Model):
     
     STATUS_CHOICES = [
         ('ACTIVE', 'Active'),
+        ('PENDING_APPROVAL', 'Pending Approval'),
         ('COMPLETED', 'Completed'),
         ('DROPPED', 'Dropped'),
     ]

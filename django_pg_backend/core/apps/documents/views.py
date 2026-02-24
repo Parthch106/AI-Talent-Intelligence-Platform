@@ -1,4 +1,5 @@
 from rest_framework import viewsets, status
+import logging
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -7,6 +8,8 @@ from .models import Document, ResumeData
 from .serializers import DocumentSerializer, ResumeDataSerializer
 from apps.analytics.services.resume_parsing_engine import resume_parsing_engine
 from apps.analytics.services import AnalyticsDashboardService
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentViewSet(viewsets.ModelViewSet):
@@ -42,11 +45,11 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 document.is_parsed = True
                 document.save()
             
-            print(f"Resume parsing completed for document {document_id}")
+            logger.info(f"Resume parsing completed for document {document_id}")
                  
         except Exception as e:
             # Log error but don't fail the upload
-            print(f"Error triggering resume parsing: {e}")
+            logger.error(f"Error triggering resume parsing for document {document_id}: {e}")
     
     def _trigger_feature_engineering(self, document_id: int):
         """
@@ -81,10 +84,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 # analytics_service = AnalyticsDashboardService()
                 # analytics_service.compute_intern_intelligence(resume_data.user_id)
                 
-                print(f"Feature engineering completed for document {document_id}")
+                logger.info(f"Feature engineering completed for document {document_id}")
                 
         except Exception as e:
-            print(f"Error in feature engineering: {e}")
+            logger.error(f"Error in feature engineering for document {document_id}: {e}")
     
     @action(detail=True, methods=['post'], url_path='parse-resume')
     def parse_resume(self, request, pk=None):

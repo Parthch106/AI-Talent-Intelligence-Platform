@@ -57,10 +57,9 @@ const InternList: React.FC = () => {
     const fetchAvailableInterns = async () => {
         try {
             const response = await api.get('/interns/available-interns/');
-            console.log('[DEBUG] Available interns response:', response.data);
             setAvailableInterns(response.data);
         } catch (err) {
-            console.error('[DEBUG] Error fetching available interns:', err);
+            console.error('Error fetching available interns:', err);
             setAvailableInterns([]);
         }
     };
@@ -91,15 +90,11 @@ const InternList: React.FC = () => {
 
     const fetchInterns = async () => {
         try {
-            console.log('[DEBUG] fetchInterns called, user:', user?.role, user?.department);
             let allInterns: InternProfile[] = [];
 
-            // For admins, fetch all interns grouped by department
             if (user?.role === 'ADMIN') {
-                console.log('[DEBUG] ADMIN mode - fetching all interns');
                 try {
                     const response = await api.get('/interns/all-by-department/');
-                    console.log('[DEBUG] Admin - All by department response:', response.data);
                     const byDepartment = response.data;
 
                     // Get all departments
@@ -119,16 +114,13 @@ const InternList: React.FC = () => {
                             });
                         });
                     });
-                    console.log('[DEBUG] Admin mode - Total interns:', allInterns.length);
                 } catch (e) {
                     console.error('Error fetching all interns by department:', e);
                 }
             } else if (user?.role === 'MANAGER' || user?.role === 'INTERN') {
                 // For managers and interns: fetch all interns in department
-                console.log('[DEBUG] MANAGER/INTERN mode - fetching department interns');
                 try {
                     const response = await api.get('/interns/department-interns/');
-                    console.log('[DEBUG] Department interns response:', response.data);
                     const deptInterns: any[] = Array.isArray(response.data) ? response.data : [];
 
                     // Fetch profile data for each intern
@@ -147,7 +139,6 @@ const InternList: React.FC = () => {
                             });
                         } catch (profileErr) {
                             // No profile exists, create a basic one using User data
-                            console.log('[DEBUG] No profile for intern:', intern.id, intern.full_name);
                             allInterns.push({
                                 id: intern.id,
                                 user: intern,
@@ -158,14 +149,12 @@ const InternList: React.FC = () => {
                             });
                         }
                     }
-                    console.log('[DEBUG] Final allInterns count:', allInterns.length);
                 } catch (e) {
                     console.error('Error fetching department interns:', e);
                 }
             }
 
             // Update state with all interns
-            console.log('[DEBUG] Setting interns state, count:', allInterns.length);
             setInterns(allInterns);
         } catch (error) {
             console.error("Failed to fetch interns", error);

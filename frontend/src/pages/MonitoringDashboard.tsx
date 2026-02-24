@@ -94,10 +94,11 @@ const MonitoringDashboard: React.FC = () => {
     const [activeModal, setActiveModal] = useState<ModalType>(null);
     const [success, setSuccess] = useState<string>('');
     const [showInternDropdown, setShowInternDropdown] = useState(false);
+    const [projects, setProjects] = useState<{id: number; project: {name: string}; intern: {full_name: string}}[]>([]);
 
     // Form states
     const [taskForm, setTaskForm] = useState({
-        title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0,
+        title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '',
     });
     const [attendanceForm, setAttendanceForm] = useState({
         date: new Date().toISOString().split('T')[0], status: 'PRESENT', check_in_time: '', check_out_time: '', notes: '',
@@ -137,18 +138,12 @@ const MonitoringDashboard: React.FC = () => {
 
     // Fetch data when tab changes or selectedIntern is set - with proper chaining
     useEffect(() => {
-        console.log('[useEffect] Running with selectedIntern:', selectedIntern, 'interns:', interns.length);
-
         // For managers, ensure an intern is selected
         if ((user?.role === 'ADMIN' || user?.role === 'MANAGER')) {
             if (interns.length > 0 && !selectedIntern) {
-                console.log('[useEffect] Setting first intern as selected');
                 setSelectedIntern(interns[0].id);
             } else if (selectedIntern) {
-                console.log('[useEffect] Intern selected, fetching data for:', selectedIntern);
                 fetchData();
-            } else {
-                console.log('[useEffect] No interns available or no intern selected yet');
             }
         } else if (user?.role === 'INTERN') {
             // For interns, always fetch data
@@ -173,54 +168,46 @@ const MonitoringDashboard: React.FC = () => {
             }
         }
     };
+    
+    const fetchProjects = async (): Promise<void> => {
+        try {
+            const response = await axios.get('/projects/assignments/');
+            const data = response.data.results || response.data;
+            // Filter to only show active projects
+            const activeProjects = data.filter((p: any) => p.status === 'ACTIVE');
+            setProjects(activeProjects);
+        } catch (err) {
+            console.error('Error fetching projects:', err);
+        }
+    };
 
     const fetchData = async (): Promise<void> => {
         setLoading(true);
 
         // For managers, require an intern to be selected
         if ((user?.role === 'ADMIN' || user?.role === 'MANAGER') && !selectedIntern) {
-            console.log('[fetchData] No intern selected for manager, skipping data fetch');
             setLoading(false);
             return;
         }
 
         const targetId = selectedIntern || user?.id;
-        console.log('===========================================');
-        console.log('[fetchData] targetId:', targetId);
-        console.log('[fetchData] selectedIntern:', selectedIntern);
-        console.log('[fetchData] user?.id:', user?.id);
-        console.log('===========================================');
 
         try {
-            console.log('[fetchData] Fetching tasks...');
-            const tasksRes = await axios.get('/analytics/tasks/', { params: { intern_id: targetId } });
-            console.log('[fetchData] Tasks response:', tasksRes.data);
-
-            console.log('[fetchData] Fetching attendance...');
-            const attendanceRes = await axios.get('/analytics/attendance/', { params: { intern_id: targetId } });
-            console.log('[fetchData] Attendance response:', attendanceRes.data);
-
-            console.log('[fetchData] Fetching performance...');
-            const performanceRes = await axios.get('/analytics/performance/', { params: { intern_id: targetId } });
-            console.log('[fetchData] Performance response:', performanceRes.data);
-
-            console.log('[fetchData] Fetching weekly reports...');
-            const reportsRes = await axios.get('/analytics/weekly-reports/', { params: { intern_id: targetId } });
-            console.log('[fetchData] Weekly reports response:', reportsRes.data);
-
-            // Ensure data is always arrays/objects before setting state
+            const [tasksRes, attendanceRes, performanceRes, reportsRes] = await Promise.all([
+                axios.get('/analytics/tasks/', { params: { intern_id: targetId } }),
+                axios.get('/analytics/attendance/', { params: { intern_id: targetId } }),
+                axios.get('/analytics/performance/', { params: { intern_id: targetId } }),
+                axios.get('/analytics/weekly-reports/', { params: { intern_id: targetId } })
+            ]);
             const tasks = Array.isArray(tasksRes.data.tasks) ? tasksRes.data.tasks : [];
             const attendance = Array.isArray(attendanceRes.data.attendance) ? attendanceRes.data.attendance : [];
             const performance = Array.isArray(performanceRes.data.performance_metrics) ? performanceRes.data.performance_metrics[0] || null : null;
             const weeklyReports = Array.isArray(reportsRes.data.weekly_reports) ? reportsRes.data.weekly_reports : [];
 
-            console.log('[fetchData] Processed data - tasks:', tasks.length, 'attendance:', attendance.length, 'reports:', weeklyReports.length);
-
             setTasks(tasks);
             setAttendance(attendance);
             setPerformance(performance);
             setWeeklyReports(weeklyReports);
-            console.log('[fetchData] State updated successfully');
         } catch (err: any) {
             console.error('[fetchData] Error fetching data:', err.message || err);
             if (err.response) {
@@ -251,16 +238,33 @@ const MonitoringDashboard: React.FC = () => {
         }
     };
 
-    const openModal = (modalType: ModalType): void => setActiveModal(modalType);
+    const openModal = (modalType: ModalType): void => {
+        if (modalType === 'task') {
+            fetchProjects();
+        }
+        setActiveModal(modalType);
+    };
     const closeModal = (): void => setActiveModal(null);
 
     const handleCreateTask = async (e: React.FormEvent): Promise<void> => {
         e.preventDefault();
         try {
-            await axios.post('/analytics/tasks/create/', { ...taskForm, intern_id: selectedIntern });
+            const taskPayload: any = {
+                title: taskForm.title,
+                description: taskForm.description,
+                priority: taskForm.priority,
+                due_date: taskForm.due_date,
+                estimated_hours: taskForm.estimated_hours,
+                intern_id: selectedIntern
+            };
+            // Only include project_assignment_id if it's not empty
+            if (taskForm.project_assignment_id) {
+                taskPayload.project_assignment_id = parseInt(taskForm.project_assignment_id);
+            }
+            await axios.post('/analytics/tasks/create/', taskPayload);
             setSuccess('Task created successfully!');
             closeModal();
-            setTaskForm({ title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0 });
+            setTaskForm({ title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '' });
             fetchData();
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
@@ -511,6 +515,23 @@ const MonitoringDashboard: React.FC = () => {
                                 <option value="CRITICAL">Critical</option>
                             </select>
                         </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Project (Optional)</label>
+                        <select
+                            value={taskForm.project_assignment_id}
+                            onChange={(e) => setTaskForm({ ...taskForm, project_assignment_id: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                        >
+                            <option value="">No Project</option>
+                            {projects
+                                .filter((p: any) => selectedIntern ? p.intern.id === selectedIntern : true)
+                                .map((p: any) => (
+                                <option key={p.id} value={p.id}>
+                                    {p.project.name}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-300 mb-2">Due Date</label>

@@ -18,7 +18,10 @@ Author: AI Talent Intelligence Platform v2.0
 """
 
 import numpy as np
+import logging
 from typing import Dict, List, Any, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 class SuitabilityScorer:
@@ -111,6 +114,11 @@ class SuitabilityScorer:
         result['confidence_score'] = round(confidence, 2)
         result['risk_flags'] = risk_flags
         result['top_strengths'] = top_strengths
+
+        logger.info(
+            f"SuitabilityScorer: score={result['suitability_score']} decision={decision} "
+            f"confidence={result['confidence_score']} risks={len(risk_flags)}"
+        )
         
         # Include v2-specific fields
         if embedding_results:

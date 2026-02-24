@@ -277,8 +277,6 @@ def _format_certifications(certifications: list) -> str:
         if parts:
             certs.append(", ".join(parts))
     return "\n".join(certs)
-
-
 def llm_parsed_to_resume_section(parsed: Dict) -> Dict[str, Any]:
     """
     Convert raw LLM JSON output → dict matching ResumeSection model field names.
@@ -297,13 +295,23 @@ def llm_parsed_to_resume_section(parsed: Dict) -> Dict[str, Any]:
         "certifications":   _format_certifications(parsed.get("certifications") or []),
         "achievements":     "\n".join(parsed.get("achievements") or []),
         "extracurriculars": "\n".join(parsed.get("extracurriculars") or []),
+        
+        # PRESERVE STRUCTURED DATA for Phase 4 normalized storage
+        "experience_list": parsed.get("experience") or [],
+        "projects_list":   parsed.get("projects") or [],
+        "education_list":  parsed.get("education") or [],
+        "certifications_raw": parsed.get("certifications") or [],
+        "raw_skills":      parsed.get("skills") or {},
     }
 
-    # Legacy list keys expected by feature engineering code
+    # Legacy keys for feature engineering & simple storage
     tech  = result.get("technical_skills", "")
     tools = result.get("tools_technologies", "")
     result["skills"]   = [s.strip() for s in tech.split(",")  if s.strip()]
     result["tools"]    = [s.strip() for s in tools.split(",") if s.strip()]
+    
+    # We keep 'experience' as a string for backward compatibility in feature engineering,
+    # but the new storage logic should use 'experience_list'.
     result["experience"]  = result.get("experience_descriptions", "")
     result["education"]   = result.get("education_text", "")
     result["projects"]    = [p.strip() for p in result.get("project_titles", "").split("|") if p.strip()]

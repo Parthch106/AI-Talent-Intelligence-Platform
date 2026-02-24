@@ -18,6 +18,11 @@ from apps.analytics.models import (
     ModelPrediction,
     HiringOutcome,
     JobRole,
+    ResumeSkill,
+    ResumeExperience,
+    ResumeProject,
+    ResumeEducation,
+    ResumeCertification,
 )
 from apps.documents.models import ResumeData
 from apps.documents.services.feature_engineering import FeatureEngineeringEngine
@@ -246,6 +251,21 @@ class AnalyticsDashboardService:
                 'years_of_education': resume_data.years_of_education if hasattr(resume_data, 'years_of_education') else 0,
                 'has_internship_experience': resume_data.has_internship_experience if hasattr(resume_data, 'has_internship_experience') else False,
             }
+            
+        # Add raw structured data from Phase 4 normalized tables
+        result['structured_resume'] = {
+            'skills': list(ResumeSkill.objects.filter(application=application).values('name', 'category', 'is_major')),
+            'experience': list(ResumeExperience.objects.filter(application=application).values(
+                'title', 'company', 'location', 'start_date', 'end_date', 'is_current', 'is_internship', 'description', 'technologies'
+            )),
+            'projects': list(ResumeProject.objects.filter(application=application).values(
+                'name', 'description', 'technologies', 'github_url', 'impact'
+            )),
+            'education': list(ResumeEducation.objects.filter(application=application).values(
+                'degree', 'field_of_study', 'institution', 'start_year', 'end_year', 'gpa', 'honors'
+            )),
+            'certifications': list(ResumeCertification.objects.filter(application=application).values('name', 'issuer', 'date')),
+        }
         
         return result
     

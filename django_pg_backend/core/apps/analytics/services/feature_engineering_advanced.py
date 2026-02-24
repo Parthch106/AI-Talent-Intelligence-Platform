@@ -386,6 +386,8 @@ class AdvancedFeatureEngine:
         if not skills or not raw_text:
             return results
         
+        logger.info(f"Detecting inflation: skills={len(skills)} words={len(raw_text.split())}")
+        
         # 1. Skill usage mismatch
         project_text = ' '.join([
             str(p.get('description', '')) + ' ' + str(p.get('technologies', ''))
@@ -441,6 +443,9 @@ class AdvancedFeatureEngine:
         results['inflation_detected'] = results['inflation_score'] > 0.4
         results['inflation_score'] = min(results['inflation_score'], 1.0)
         
+        if results['inflation_detected']:
+            logger.warning(f"Inflation detected: score={results['inflation_score']} flags={results['flags']}")
+        
         return results
     
     # =========================================================================
@@ -476,6 +481,7 @@ class AdvancedFeatureEngine:
             Final ML-ready feature vector
         """
         features = {}
+        logger.info(f"Building ML feature vector: skills={len(resume_skills or [])} projects={len(projects or [])}")
         
         # 1. TF-IDF similarity
         if resume_skills and required_skills:

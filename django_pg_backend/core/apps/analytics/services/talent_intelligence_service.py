@@ -13,9 +13,14 @@ This service handles the complete analysis pipeline.
 """
 
 import logging
+import os
+import json
 import numpy as np
+import pymupdf4llm
 from typing import Dict, Any, Optional, List
 from django.db import transaction
+from django.utils import timezone
+from django.conf import settings
 
 from apps.accounts.models import User
 from apps.documents.models import ResumeData
@@ -27,8 +32,14 @@ from apps.analytics.models import (
     HiringOutcome,
     GrowthTracking,
     ModelRegistry,
+    ResumeSection,
+    ResumeSkill,
+    ResumeExperience,
+    ResumeProject,
+    ResumeEducation,
+    ResumeCertification,
 )
-from .resume_parsing_engine import resume_parsing_engine
+from .resume_parsing_engine import ResumeParsingEngine
 from .simple_resume_parser import simple_resume_parser
 from .llm_resume_parser import llm_resume_parser
 from .feature_engineering_advanced import advanced_feature_engine
@@ -58,16 +69,12 @@ class TalentIntelligenceService:
     }
     
     def __init__(self):
-        import os
         # A/B switch: set USE_LLM_PARSER=true in your .env / environment to enable
         # the new gpt-4o-mini based parser. Falls back to simple_resume_parser on error.
         use_llm = os.environ.get('USE_LLM_PARSER', 'false').lower() == 'true'
-        if use_llm:
-            self.parsing_engine = llm_resume_parser
-            logger.info("TalentIntelligenceService: Using LLMResumeParser (gpt-4o-mini)")
-        else:
-            self.parsing_engine = simple_resume_parser
-            logger.info("TalentIntelligenceService: Using SimpleResumeParser (regex fallback)")
+        self.parsing_engine = llm_resume_parser  # Use LLM parser by default for V2
+        self.legacy_parser = ResumeParsingEngine()
+        logger.info(f"TalentIntelligenceService: Initialized with {type(self.parsing_engine).__name__}")
     
     # =========================================================================
     # HELPER: Extract resume sections for embedding
@@ -385,18 +392,32 @@ class TalentIntelligenceService:
         # 3. Create or get application
         application = None
         
-        # Get raw text from document
+        # Get raw text from document using layout-aware extraction
         resume_raw_text = ''
-        if document.raw_text:
-            resume_raw_text = document.raw_text
-        elif document.file:
+        if document.file:
             try:
-                if document.file:
-                    content = document.file.read() if hasattr(document.file, 'read') else b''
-                    # Decode and filter out NUL characters
-                    resume_raw_text = content.decode('utf-8', errors='ignore').replace('\x00', '')
-            except:
-                pass
+                # Use pymupdf4llm for layout-aware markdown extraction
+                # This preserves multi-column layout and section headers
+                file_path = document.file.path
+                resume_raw_text = pymupdf4llm.to_markdown(file_path)
+                logger.info(f"  Layout-aware extraction successful: {len(resume_raw_text)} chars")
+                
+                # Update document raw_text if empty
+                if not document.raw_text:
+                    document.raw_text = resume_raw_text
+                    document.save()
+            except Exception as e:
+                logger.warning(f"  Pymupdf4llm failed: {e}. Falling back to basic extraction.")
+                if document.raw_text:
+                    resume_raw_text = document.raw_text
+                else:
+                    try:
+                        content = document.file.read() if hasattr(document.file, 'read') else b''
+                        resume_raw_text = content.decode('utf-8', errors='ignore').replace('\x00', '')
+                        document.raw_text = resume_raw_text
+                        document.save()
+                    except:
+                        pass
         
         logger.info(f"  role_description: {job_role_obj.role_description[:120] if job_role_obj and job_role_obj.role_description else 'None'}...")
         
@@ -408,9 +429,10 @@ class TalentIntelligenceService:
             )
         
         logger.info(f"=== STEP: Parsing resume ({type(self.parsing_engine).__name__}) ===")
-        parsed = self.parsing_engine.parse(document.raw_text)
+        # Use the high-quality markdown text for parsing
+        parsed = self.parsing_engine.parse(resume_raw_text)
         raw_features = {'_parsed_data': parsed}
-        logger.info(f"  Parser output — skills: {len(parsed.get('skills', []))} | tech_skills: {parsed.get('technical_skills', '')[:80]} | projects: {len(parsed.get('projects', []))} | summary_len: {len(parsed.get('professional_summary') or '')}")
+        logger.info(f"  Parser output — skills: {len(parsed.get('skills', []))} | tech_skills: {parsed.get('technical_skills', '')[:80]} | projects: {len(parsed.get('projects', []))}")
         
         # 4b. Store parsed resume data directly to ResumeSection
         if application and raw_features and '_parsed_data' in raw_features:
@@ -589,82 +611,170 @@ class TalentIntelligenceService:
         
         return prediction
     
+    @transaction.atomic
     def _store_parsed_resume_sections(
         self,
         application: Optional[Application],
         parsed_data: Dict[str, Any]
-    ) -> Optional[Any]:
-        """Store parsed resume data directly to ResumeSection table."""
-        from apps.analytics.models import ResumeSection
-        
+    ) -> Optional[ResumeSection]:
+        """
+        Store parsed resume data.
+        1. Populates the legacy flat ResumeSection table (backward compatibility).
+        2. Populates new structured tables (ResumeSkill, ResumeExperience, etc.).
+        """
         logger.info(f"=== STEP: Storing parsed sections — app_id={application.id if application else None} ===")
         
         if not application or not parsed_data:
             logger.warning("  Skipping section storage — missing application or parsed_data")
             return None
         
-        # Helper function to format lists to comma-separated strings
+        # Helper: Convert lists to comma-separated strings for legacy fields
         def to_string(value):
             if isinstance(value, list):
                 return ', '.join(str(v) for v in value)
             return str(value) if value else ''
         
-        # Format experience as text
-        experience_list = parsed_data.get('experience', [])
-        experience_titles = ''
-        experience_descriptions = ''
-        experience_durations = ''
-        if experience_list and isinstance(experience_list[0], dict):
-            experience_titles = ', '.join([str(exp.get('position', '')) for exp in experience_list])
-            experience_descriptions = ' '.join([str(exp.get('description', '')) for exp in experience_list])
-            experience_durations = ', '.join([str(exp.get('duration', '')) for exp in experience_list])
+        # 1. LEGACY TABLE: ResumeSection (Flat Text)
+        # We use the flat strings generated by the parser mapper
+        experience_titles = parsed_data.get('experience_titles', '')
+        experience_descriptions = parsed_data.get('experience_descriptions', '')
+        experience_durations = parsed_data.get('experience_duration_text', '')
         
-        # Format projects as text
-        projects_list = parsed_data.get('projects', [])
-        project_titles = ''
-        project_descriptions = ''
-        project_technologies = ''
-        if projects_list and isinstance(projects_list[0], dict):
-            project_titles = ', '.join([str(proj.get('name', '')) for proj in projects_list])
-            project_descriptions = ' '.join([str(proj.get('description', '')) for proj in projects_list])
-            project_technologies = ', '.join([str(proj.get('technologies', '')) for proj in projects_list])
+        project_titles = parsed_data.get('project_titles', '')
+        project_descriptions = parsed_data.get('project_descriptions', '')
+        project_technologies = parsed_data.get('project_technologies', '')
         
-        # Format education as text
-        education_list = parsed_data.get('education', [])
-        education_text = ''
-        if education_list and isinstance(education_list[0], dict):
-            education_text = ' | '.join([f"{edu.get('degree', '')} at {edu.get('institution', '')} {edu.get('year', '')}" for edu in education_list])
-        
-        # Format certifications
-        certs = parsed_data.get('certifications', [])
-        certifications = to_string(certs) if certs else (parsed_data.get('certifications_text', '') or '')
-        
-        # Format achievements
-        achievements_list = parsed_data.get('achievements', [])
-        achievements = to_string(achievements_list) if achievements_list else (parsed_data.get('achievements_text', '') or '')
+        education_text = parsed_data.get('education_text', '')
+        cert_text = parsed_data.get('certifications', '')
+        achievements_text = parsed_data.get('achievements', '')
         
         section, _ = ResumeSection.objects.update_or_create(
             application=application,
             defaults={
                 'professional_summary': parsed_data.get('professional_summary', ''),
-                'technical_skills': parsed_data.get('technical_skills', '') or to_string(parsed_data.get('skills', [])),
-                'tools_technologies': parsed_data.get('tools_technologies', '') or to_string(parsed_data.get('tools', [])),
+                'technical_skills': parsed_data.get('technical_skills', ''),
+                'tools_technologies': parsed_data.get('tools_technologies', ''),
                 'frameworks_libraries': parsed_data.get('frameworks_libraries', ''),
                 'databases': parsed_data.get('databases', ''),
                 'cloud_platforms': parsed_data.get('cloud_platforms', ''),
                 'soft_skills': parsed_data.get('soft_skills', ''),
-                'experience_titles': parsed_data.get('experience_titles', '') or experience_titles,
-                'experience_descriptions': parsed_data.get('experience_descriptions', '') or experience_descriptions,
-                'experience_duration_text': parsed_data.get('experience_duration_text', '') or experience_durations,
-                'project_titles': parsed_data.get('project_titles', '') or project_titles,
-                'project_descriptions': parsed_data.get('project_descriptions', '') or project_descriptions,
-                'project_technologies': parsed_data.get('project_technologies', '') or project_technologies,
-                'education_text': parsed_data.get('education_text', '') or education_text,
-                'certifications': certifications,
-                'achievements': achievements,
+                'experience_titles': experience_titles,
+                'experience_descriptions': experience_descriptions,
+                'experience_duration_text': experience_durations,
+                'project_titles': project_titles,
+                'project_descriptions': project_descriptions,
+                'project_technologies': project_technologies,
+                'education_text': education_text,
+                'certifications': cert_text,
+                'achievements': achievements_text,
                 'extracurriculars': parsed_data.get('extracurriculars', ''),
             }
         )
+
+        # 2. NEW STRUCTURED TABLES (Normalized)
+        # Use the preserved structured data if it exists (from LLMResumeParser)
+        # Fallback to empty list if not present
+        experience_list = parsed_data.get('experience_list', [])
+        projects_list = parsed_data.get('projects_list', [])
+        education_list = parsed_data.get('education_list', [])
+        certs_raw = parsed_data.get('certifications_raw', [])
+        raw_skills_dict = parsed_data.get('raw_skills', {})
+        
+        # A. Skills
+        ResumeSkill.objects.filter(application=application).delete()
+        skills_to_create = []
+        
+        # Process categorized skills
+        for category, skill_list in raw_skills_dict.items():
+            if not isinstance(skill_list, list):
+                continue
+            for skill in skill_list:
+                name = skill if isinstance(skill, str) else skill.get('name', '')
+                if name:
+                    skills_to_create.append(ResumeSkill(
+                        application=application,
+                        name=name,
+                        category=category
+                    ))
+        
+        if skills_to_create:
+            ResumeSkill.objects.bulk_create(skills_to_create, ignore_conflicts=True)
+
+        # B. Experience
+        ResumeExperience.objects.filter(application=application).delete()
+        exp_objs = []
+        for exp in experience_list:
+            if not isinstance(exp, dict): continue
+            exp_objs.append(ResumeExperience(
+                application=application,
+                title=exp.get('title', ''),
+                company=exp.get('company', ''),
+                location=exp.get('location', ''),
+                start_date=exp.get('start_date', ''),
+                end_date=exp.get('end_date', ''),
+                is_current=exp.get('is_current', False),
+                is_internship=exp.get('is_internship', False),
+                description=exp.get('description', ''),
+                technologies=exp.get('technologies_used', [])
+            ))
+        if exp_objs:
+            ResumeExperience.objects.bulk_create(exp_objs)
+
+        # C. Projects
+        ResumeProject.objects.filter(application=application).delete()
+        proj_objs = []
+        for proj in projects_list:
+            if not isinstance(proj, dict): continue
+            proj_objs.append(ResumeProject(
+                application=application,
+                name=proj.get('name', ''),
+                description=proj.get('description', ''),
+                technologies=proj.get('technologies', []),
+                github_url=proj.get('github_url'),
+                impact=proj.get('impact', '')
+            ))
+        if proj_objs:
+            ResumeProject.objects.bulk_create(proj_objs)
+
+        # D. Education
+        ResumeEducation.objects.filter(application=application).delete()
+        edu_objs = []
+        for edu in education_list:
+            if not isinstance(edu, dict): continue
+            edu_objs.append(ResumeEducation(
+                application=application,
+                degree=edu.get('degree', ''),
+                field_of_study=edu.get('field_of_study', ''),
+                institution=edu.get('institution', ''),
+                start_year=edu.get('start_year'),
+                end_year=edu.get('end_year'),
+                gpa=edu.get('gpa'),
+                honors=edu.get('honors', '')
+            ))
+        if edu_objs:
+            ResumeEducation.objects.bulk_create(edu_objs)
+
+        # E. Certifications
+        ResumeCertification.objects.filter(application=application).delete()
+        cert_objs = []
+        for c in certs_raw:
+            if isinstance(c, str):
+                cert_objs.append(ResumeCertification(application=application, name=c))
+            elif isinstance(c, dict):
+                cert_objs.append(ResumeCertification(
+                    application=application,
+                    name=c.get('name', ''),
+                    issuer=c.get('issuer', ''),
+                    date=c.get('date', '')
+                ))
+        if cert_objs:
+            ResumeCertification.objects.bulk_create(cert_objs)
+
+        logger.info(
+            f"  Stored structured resume data for app_id={application.id} — "
+            f"Skills: {len(skills_to_create)}, Exp: {len(exp_objs)}, Projects: {len(proj_objs)}"
+        )
+        return section
         
         logger.info(
             f"  Stored ResumeSection — skills: '{(section.technical_skills or '')[:60]}' | "
@@ -680,15 +790,6 @@ class TalentIntelligenceService:
     ) -> Optional[Any]:
         """Store resume sections in database."""
         from apps.analytics.models import ResumeSection
-        
-        print("\n" + "="*50)
-        print("_store_resume_sections CALLED")
-        print("="*50)
-        print(f"application: {application}")
-        print(f"resume_sections keys: {list(resume_sections.keys()) if resume_sections else None}")
-        print(f"technical_skills: {resume_sections.get('technical_skills', '')[:100] if resume_sections else 'None'}...")
-        print(f"education_text: {resume_sections.get('education_text', '') if resume_sections else 'None'}")
-        print("="*50 + "\n")
         
         if not application or not resume_sections:
             return None

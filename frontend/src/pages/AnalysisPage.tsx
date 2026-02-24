@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, User, TrendingUp, Brain, Award, AlertTriangle, CheckCircle, ChevronDown, RefreshCw, FileText, Target, Shield, Zap, Mail, Building } from 'lucide-react';
+import { Search, User, TrendingUp, Brain, Award, AlertTriangle, CheckCircle, ChevronDown, RefreshCw, FileText, Target, Shield, Zap, Mail, Building, Briefcase, Code, GraduationCap, ExternalLink } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import Card from '../components/common/Card';
@@ -86,6 +86,41 @@ interface IntelligenceData {
         semantic_match_score?: number;
         confidence_score?: number;
     };
+    structured_resume?: {
+        skills: Array<{ name: string; category: string; is_major: boolean }>;
+        experience: Array<{
+            title: string;
+            company: string;
+            location: string;
+            start_date: string;
+            end_date: string;
+            is_current: boolean;
+            is_internship: boolean;
+            description: string;
+            technologies: string[];
+        }>;
+        projects: Array<{
+            name: string;
+            description: string;
+            technologies: string[];
+            github_url: string;
+            impact: string;
+        }>;
+        education: Array<{
+            degree: string;
+            field_of_study: string;
+            institution: string;
+            start_year: string;
+            end_year: string;
+            gpa: string;
+            honors: string;
+        }>;
+        certifications: Array<{
+            name: string;
+            issuer: string;
+            date: string;
+        }>;
+    };
 }
 
 const AnalysisPage: React.FC = () => {
@@ -109,7 +144,6 @@ const AnalysisPage: React.FC = () => {
             if (user?.role !== 'ADMIN' && user?.role !== 'MANAGER') return;
             try {
                 const response = await api.get('/accounts/users/?role=INTERN');
-                console.log('Interns API Response:', response.data);
                 setInterns(response.data.results || response.data);
             } catch (err) {
                 console.error('Error fetching interns:', err);
@@ -123,7 +157,6 @@ const AnalysisPage: React.FC = () => {
         const fetchJobRoles = async () => {
             try {
                 const response = await api.get('/analytics/job-roles/');
-                console.log('Job Roles API Response:', response.data);
                 setJobRoles(response.data.job_roles || []);
                 // Auto-select first job role if available
                 if (response.data.job_roles?.length > 0) {
@@ -155,8 +188,6 @@ const AnalysisPage: React.FC = () => {
                 params.append('job_role', selectedJobRole);
             }
             const response = await api.get(`/analytics/intelligence/?${params.toString()}`);
-            // Only log the v2 response
-            console.log('Intelligence Response (V2):', response.data);
             setIntelligence(response.data);
         } catch (err: any) {
             console.error('Intelligence API Error:', err);
@@ -172,12 +203,9 @@ const AnalysisPage: React.FC = () => {
         setError('');
         setSuccessMessage('');
         try {
-            console.log('Computing intelligence for intern:', internId, 'with job role:', selectedJobRole);
             const response = await api.post(`/analytics/intelligence/compute/${internId}/`, {
                 job_role: selectedJobRole
             });
-            // Only log the v2 response from POST (skip fetchIntelligence log to avoid duplicates)
-            console.log('Intelligence Response (V2):', response.data);
             setIntelligence(response.data);
             setSuccessMessage('Intelligence computed successfully!');
         } catch (err: any) {
@@ -622,6 +650,134 @@ const AnalysisPage: React.FC = () => {
                                 ))}
                             </div>
                         </Card>
+                    )}
+
+                    {/* Structured Resume Profile (New Phase 4 UI) */}
+                    {intelligence.structured_resume && (
+                        <div className="space-y-6 animate-slide-up">
+                            <div className="flex items-center gap-3">
+                                <div className="h-px flex-1 bg-slate-700"></div>
+                                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Candidate Profile</h3>
+                                <div className="h-px flex-1 bg-slate-700"></div>
+                            </div>
+
+                            {/* Skills Section */}
+                            <Card icon={<Code size={20} className="text-blue-400" />} title="Technical Skills">
+                                <div className="flex flex-wrap gap-2">
+                                    {intelligence.structured_resume.skills.map((skill, index) => (
+                                        <div key={index} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${skill.is_major ? 'bg-blue-500/10 border-blue-500/30' : 'bg-slate-800/50 border-slate-700'}`}>
+                                            <span className={`text-sm font-medium ${skill.is_major ? 'text-blue-300' : 'text-slate-300'}`}>{skill.name}</span>
+                                            {skill.category && <span className="text-[10px] px-1.5 py-0.5 bg-slate-700 rounded text-slate-400">{skill.category}</span>}
+                                        </div>
+                                    ))}
+                                    {intelligence.structured_resume.skills.length === 0 && <p className="text-slate-500 italic">No skills extracted</p>}
+                                </div>
+                            </Card>
+
+                            {/* Experience Section */}
+                            <Card icon={<Briefcase size={20} className="text-emerald-400" />} title="Work Experience">
+                                <div className="space-y-6">
+                                    {intelligence.structured_resume.experience.map((exp, index) => (
+                                        <div key={index} className="relative pl-6 border-l border-slate-700 last:border-0 pb-6 last:pb-0">
+                                            <div className="absolute top-0 -left-1.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900 shadow-lg shadow-emerald-500/20"></div>
+                                            <div className="flex flex-col md:flex-row md:justify-between gap-1 mb-2">
+                                                <div>
+                                                    <h4 className="font-bold text-white">{exp.title}</h4>
+                                                    <div className="flex items-center gap-2 text-sm text-slate-400">
+                                                        <span className="text-emerald-400 font-medium">{exp.company}</span>
+                                                        <span>•</span>
+                                                        <span>{exp.location}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-sm font-medium text-slate-500 bg-slate-800/50 px-2.5 py-1 rounded-md h-fit">
+                                                    {exp.start_date} — {exp.is_current ? 'Present' : exp.end_date}
+                                                </div>
+                                            </div>
+                                            <p className="text-sm text-slate-400 leading-relaxed mb-3 whitespace-pre-wrap">{exp.description}</p>
+                                            {exp.technologies && exp.technologies.length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {exp.technologies.map((tech, tIdx) => (
+                                                        <span key={tIdx} className="text-[10px] uppercase tracking-wider font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded">
+                                                            {tech}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                    {intelligence.structured_resume.experience.length === 0 && <p className="text-slate-500 italic">No experience record found</p>}
+                                </div>
+                            </Card>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* Projects Section */}
+                                <Card icon={<Zap size={20} className="text-amber-400" />} title="Key Projects">
+                                    <div className="space-y-4">
+                                        {intelligence.structured_resume.projects.map((project, index) => (
+                                            <div key={index} className="p-4 bg-slate-800/20 border border-slate-700/50 rounded-xl hover:bg-slate-800/40 transition-colors">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <h4 className="font-bold text-white">{project.name}</h4>
+                                                    {project.github_url && (
+                                                        <a href={project.github_url} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white">
+                                                            <ExternalLink size={16} />
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-slate-400 mb-2 line-clamp-2">{project.description}</p>
+                                                <div className="text-[11px] text-amber-400 font-medium mb-2">{project.impact}</div>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {project.technologies.map((tech, tIdx) => (
+                                                        <span key={tIdx} className="text-[9px] bg-slate-700/50 text-slate-300 px-1.5 py-0.5 rounded">
+                                                            {tech}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {intelligence.structured_resume.projects.length === 0 && <p className="text-slate-500 italic">No projects found</p>}
+                                    </div>
+                                </Card>
+
+                                {/* Education Section */}
+                                <Card icon={<GraduationCap size={20} className="text-purple-400" />} title="Education & Certs">
+                                    <div className="space-y-4">
+                                        {/* Education */}
+                                        {intelligence.structured_resume.education.map((edu, index) => (
+                                            <div key={index} className="p-4 bg-purple-500/5 border border-purple-500/10 rounded-xl">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 className="font-bold text-white text-sm">{edu.degree} in {edu.field_of_study}</h4>
+                                                        <p className="text-xs text-purple-400">{edu.institution}</p>
+                                                    </div>
+                                                    <div className="text-xs text-slate-500">{edu.start_year} - {edu.end_year}</div>
+                                                </div>
+                                                {edu.gpa && <div className="mt-2 text-xs font-medium text-slate-300">GPA: {edu.gpa}</div>}
+                                                {edu.honors && <p className="mt-1 text-[10px] text-slate-400 uppercase tracking-tight">{edu.honors}</p>}
+                                            </div>
+                                        ))}
+                                        
+                                        {/* Certifications */}
+                                        {intelligence.structured_resume.certifications.length > 0 && (
+                                            <div className="mt-4 pt-4 border-t border-slate-700">
+                                                <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Certifications</h5>
+                                                <div className="space-y-2">
+                                                    {intelligence.structured_resume.certifications.map((cert, index) => (
+                                                        <div key={index} className="flex justify-between text-xs">
+                                                            <span className="text-white font-medium">{cert.name}</span>
+                                                            <span className="text-slate-500">{cert.issuer} • {cert.date}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {intelligence.structured_resume.education.length === 0 && intelligence.structured_resume.certifications.length === 0 && (
+                                            <p className="text-slate-500 italic">No education records found</p>
+                                        )}
+                                    </div>
+                                </Card>
+                            </div>
+                        </div>
                     )}
 
                     {/* Risk Flags */}

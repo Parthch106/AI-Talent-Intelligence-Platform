@@ -1,6 +1,9 @@
 import re
 import uuid
+import logging
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -312,6 +315,7 @@ class TaskTrackingView(APIView):
             'id': task.id,
             'task_id': task.task_id,
             'title': task.title,
+            'description': task.description,
             'status': task.status,
             'priority': task.priority,
             'assigned_at': task.assigned_at,
@@ -322,6 +326,11 @@ class TaskTrackingView(APIView):
             'actual_hours': task.actual_hours,
             'quality_rating': task.quality_rating,
             'code_review_score': task.code_review_score,
+            'project': {
+                'id': task.project_assignment.id,
+                'name': task.project_assignment.project.name,
+                'status': task.project_assignment.status,
+            } if task.project_assignment else None,
         } for task in tasks]
 
         return Response({'tasks': data})
@@ -367,6 +376,7 @@ class TaskTrackingView(APIView):
             priority=task_data.get('priority', 'MEDIUM'),
             due_date=task_data.get('due_date'),
             estimated_hours=task_data.get('estimated_hours', 0.0),
+            project_assignment_id=task_data.get('project_assignment_id'),
         )
 
         return Response({
@@ -647,9 +657,11 @@ class AttendanceRecordView(APIView):
         intern_id = request.query_params.get('intern_id')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
+        status = request.query_params.get('status')
+        page = int(request.query_params.get('page', 1))
+        limit = int(request.query_params.get('limit', 15))
         
-        print(f"[Attendance API] User: {user.id} ({user.role})")
-        print(f"[Attendance API] intern_id param: {intern_id}")
+        logger.info(f"AttendanceRecordView.get: user_id={user.id} role={user.role} intern_id_param='{intern_id}'")
 
         # Determine target intern
         if intern_id:
@@ -659,26 +671,59 @@ class AttendanceRecordView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             target_id = int(intern_id)
-            print(f"[Attendance API] Manager viewing intern: {target_id}")
+            logger.info(f"  Manager/Admin viewing intern_id={target_id}")
             # Validate manager access to intern
             is_valid, error_response = validate_manager_access(user, target_id)
             if not is_valid:
-                print(f"[Attendance API] Access denied for intern: {target_id}")
+                logger.warning(f"  Access denied for target_id={target_id}")
                 return error_response
         else:
             target_id = user.id
-            print(f"[Attendance API] Viewing own attendance: {target_id}")
+            logger.info(f"  Intern viewing own records (id={target_id})")
 
         # Get attendance
-        print(f"[Attendance API] Querying AttendanceRecord for intern_id: {target_id}")
         attendance = AttendanceRecord.objects.filter(intern_id=target_id)
-        print(f"[Attendance API] Found records: {attendance.count()}")
+        total_records = attendance.count()
 
         if start_date:
             attendance = attendance.filter(date__gte=start_date)
         if end_date:
             attendance = attendance.filter(date__lte=end_date)
 
+        # Filter by date
+        if start_date:
+            attendance = attendance.filter(date__gte=start_date)
+        if end_date:
+            attendance = attendance.filter(date__lte=end_date)
+
+        # Get overall stats for the period (before status filter) - for the cards
+        overall_stats = {
+            'present': attendance.filter(status='PRESENT').count(),
+            'absent': attendance.filter(status='ABSENT').count(),
+            'late': attendance.filter(status__in=['LATE', 'HALF_DAY']).count(),
+            'wfh': attendance.filter(status='WORK_FROM_HOME').count(),
+            'total': attendance.count()
+        }
+        
+        # Filter by status if provided
+        if status:
+            # Handle multiple statuses (comma-separated like 'LATE,HALF_DAY')
+            status_list = [s.strip() for s in status.split(',')]
+            if len(status_list) > 1:
+                attendance = attendance.filter(status__in=status_list)
+            else:
+                attendance = attendance.filter(status=status)
+
+        # Get total filtered records for pagination
+        filtered_total = attendance.count()
+        
+        # Use overall stats for cards (always show period stats, not filtered)
+        stats = overall_stats
+        
+        # Apply pagination
+        offset = (page - 1) * limit
+        paginated_attendance = attendance[offset:offset + limit]
+        
         data = [{
             'id': record.id,
             'date': record.date,
@@ -687,11 +732,20 @@ class AttendanceRecordView(APIView):
             'check_out_time': record.check_out_time,
             'working_hours': record.working_hours,
             'notes': record.notes,
-        } for record in attendance]
+        } for record in paginated_attendance]
         
-        print(f"[Attendance API] Returning {len(data)} records")
+        logger.info(f"  Returning {len(data)} records (page {page}, total={filtered_total})")
 
-        return Response({'attendance': data})
+        return Response({
+            'attendance': data,
+            'pagination': {
+                'page': page,
+                'limit': limit,
+                'total_records': filtered_total,
+                'total_pages': (filtered_total + limit - 1) // limit if filtered_total > 0 else 1
+            },
+            'stats': stats
+        })
 
     def post(self, request):
         """Create or update attendance record."""
@@ -745,11 +799,12 @@ class MyAttendanceView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        print(f"[MyAttendance API] User: {user.id} ({user.name})")
+        logger.info(f"MyAttendanceView.get: user_id={user.id} full_name='{user.full_name}'")
         
         # Get attendance records for this intern
         attendance = AttendanceRecord.objects.filter(intern=user).order_by('-date')
-        print(f"[MyAttendance API] Found records: {attendance.count()}")
+        count = attendance.count()
+        logger.info(f"  Found {count} records")
         
         # Include intern details in response
         data = [{
@@ -767,7 +822,7 @@ class MyAttendanceView(APIView):
             'notes': record.notes,
         } for record in attendance]
         
-        print(f"[MyAttendance API] Returning {len(data)} records")
+        logger.info(f"  Returning {len(data)} records")
         
         return Response(data)
 
@@ -856,7 +911,7 @@ class WeeklyReportView(APIView):
         try:
             parsed_data = parse_weekly_report(pdf_file)
         except Exception as e:
-            print(f"[WeeklyReportView] Error parsing PDF: {e}")
+            logger.error(f"[WeeklyReportView] Error parsing PDF for user_id={user.id}: {e}")
             # Continue without parsed data - user can fill in manually
             parsed_data = {}
 

@@ -1,24 +1,9 @@
-"""
-Training Script for ML Talent Intelligence Models
-=================================================
-
-This script trains XGBoost models using the synthetic resume dataset.
-It trains separate models for:
-1. Suitability Classification (binary)
-2. Growth Score Regression
-3. Authenticity Classification (binary)
-4. Communication Score Prediction
-5. Leadership Classification (binary)
-
-Usage:
-    python train_ml_models.py
-"""
-
 import pandas as pd
 import numpy as np
 import os
 import pickle
 import json
+import logging
 from datetime import datetime
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import (
@@ -26,6 +11,13 @@ from sklearn.metrics import (
     roc_auc_score, mean_squared_error, r2_score, mean_absolute_error
 )
 from xgboost import XGBClassifier, XGBRegressor
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_PATH = 'django_pg_backend/core/docs/synthetic_resume_training_dataset.csv'
@@ -85,17 +77,21 @@ ROLE_WEIGHTS = {
 
 def load_data():
     """Load and preprocess training data."""
-    print("Loading training data...")
-    df = pd.read_csv(DATA_PATH)
-    print(f"Loaded {len(df)} samples with {len(df.columns)} columns")
-    
-    # Convert boolean columns
-    bool_cols = ['quantified_impact_presence', 'mandatory_skill_coverage']
-    for col in bool_cols:
-        if col in df.columns:
-            df[col] = df[col].map({True: 1, False: 0, 'True': 1, 'False': 0})
-    
-    return df
+    logger.info("Loading training data...")
+    try:
+        df = pd.read_csv(DATA_PATH)
+        logger.info(f"Loaded {len(df)} samples with {len(df.columns)} columns")
+        
+        # Convert boolean columns
+        bool_cols = ['quantified_impact_presence', 'mandatory_skill_coverage']
+        for col in bool_cols:
+            if col in df.columns:
+                df[col] = df[col].map({True: 1, False: 0, 'True': 1, 'False': 0})
+        
+        return df
+    except Exception as e:
+        logger.error(f"Failed to load training data from {DATA_PATH}: {e}")
+        raise
 
 
 def prepare_features(df):
@@ -110,9 +106,7 @@ def prepare_features(df):
 
 def train_suitability_model(X, y):
     """Train suitability classification model."""
-    print("\n" + "="*60)
-    print("Training Suitability Classification Model")
-    print("="*60)
+    logger.info("Training Suitability Classification Model")
     
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(
@@ -137,16 +131,17 @@ def train_suitability_model(X, y):
     y_pred = model.predict(X_test)
     y_prob = model.predict_proba(X_test)[:, 1]
     
-    print(f"\nTest Results:")
-    print(f"  Accuracy:  {accuracy_score(y_test, y_pred):.4f}")
-    print(f"  Precision: {precision_score(y_test, y_pred):.4f}")
-    print(f"  Recall:    {recall_score(y_test, y_pred):.4f}")
-    print(f"  F1 Score:  {f1_score(y_test, y_pred):.4f}")
-    print(f"  ROC-AUC:   {roc_auc_score(y_test, y_prob):.4f}")
+    logger.info(
+        f"Suitability Results: accuracy={accuracy_score(y_test, y_pred):.4f} "
+        f"precision={precision_score(y_test, y_pred):.4f} "
+        f"recall={recall_score(y_test, y_pred):.4f} "
+        f"f1={f1_score(y_test, y_pred):.4f} "
+        f"auc={roc_auc_score(y_test, y_prob):.4f}"
+    )
     
     # Cross-validation
     cv_scores = cross_val_score(model, X, y, cv=5, scoring='accuracy')
-    print(f"\nCross-Validation Accuracy: {cv_scores.mean():.4f} (+/- {cv_scores.std()*2:.4f})")
+    logger.info(f"Cross-Validation Accuracy: {cv_scores.mean():.4f} (+/- {cv_scores.std()*2:.4f})")
     
     # Feature importance
     importance = pd.DataFrame({
@@ -154,18 +149,16 @@ def train_suitability_model(X, y):
         'importance': model.feature_importances_
     }).sort_values('importance', ascending=False)
     
-    print(f"\nTop 10 Important Features:")
-    for i, row in importance.head(10).iterrows():
-        print(f"  {row['feature']}: {row['importance']:.4f}")
+    # Log top 5 features
+    top_5 = importance.head(5).to_dict('records')
+    logger.info(f"Top 5 Suitability Features: {top_5}")
     
     return model, importance
 
 
 def train_regression_model(X, y, target_name):
     """Train regression model for continuous targets."""
-    print("\n" + "="*60)
-    print(f"Training {target_name} Regression Model")
-    print("="*60)
+    logger.info(f"Training {target_name} Regression Model")
     
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(
@@ -187,19 +180,18 @@ def train_regression_model(X, y, target_name):
     # Evaluate
     y_pred = model.predict(X_test)
     
-    print(f"\nTest Results:")
-    print(f"  R² Score:    {r2_score(y_test, y_pred):.4f}")
-    print(f"  MAE:         {mean_absolute_error(y_test, y_pred):.4f}")
-    print(f"  RMSE:        {np.sqrt(mean_squared_error(y_test, y_pred)):.4f}")
+    logger.info(
+        f"{target_name} Results: r2={r2_score(y_test, y_pred):.4f} "
+        f"mae={mean_absolute_error(y_test, y_pred):.4f} "
+        f"rmse={np.sqrt(mean_squared_error(y_test, y_pred)):.4f}"
+    )
     
     return model
 
 
 def train_classification_model(X, y, target_name):
     """Train classification model for binary targets."""
-    print("\n" + "="*60)
-    print(f"Training {target_name} Classification Model")
-    print("="*60)
+    logger.info(f"Training {target_name} Classification Model")
     
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(
@@ -224,21 +216,20 @@ def train_classification_model(X, y, target_name):
     y_pred = model.predict(X_test)
     y_prob = model.predict_proba(X_test)[:, 1]
     
-    print(f"\nTest Results:")
-    print(f"  Accuracy:  {accuracy_score(y_test, y_pred):.4f}")
-    print(f"  Precision: {precision_score(y_test, y_pred):.4f}")
-    print(f"  Recall:    {recall_score(y_test, y_pred):.4f}")
-    print(f"  F1 Score:  {f1_score(y_test, y_pred):.4f}")
-    print(f"  ROC-AUC:   {roc_auc_score(y_test, y_prob):.4f}")
+    logger.info(
+        f"{target_name} Results: accuracy={accuracy_score(y_test, y_pred):.4f} "
+        f"precision={precision_score(y_test, y_pred):.4f} "
+        f"recall={recall_score(y_test, y_pred):.4f} "
+        f"f1={f1_score(y_test, y_pred):.4f} "
+        f"auc={roc_auc_score(y_test, y_prob):.4f}"
+    )
     
     return model
 
 
 def train_all_models(df):
     """Train all models."""
-    print("\n" + "="*60)
-    print("TRAINING ALL ML MODELS")
-    print("="*60)
+    logger.info("TRAINING ALL ML MODELS")
     
     # Prepare features
     X = prepare_features(df)
@@ -271,9 +262,7 @@ def train_all_models(df):
 
 def save_models(models, feature_importances):
     """Save trained models to disk."""
-    print("\n" + "="*60)
-    print("SAVING MODELS")
-    print("="*60)
+    logger.info("SAVING MODELS")
     
     # Create directory if not exists
     os.makedirs(MODEL_DIR, exist_ok=True)
@@ -283,13 +272,13 @@ def save_models(models, feature_importances):
         filepath = os.path.join(MODEL_DIR, f'{name}_model.pkl')
         with open(filepath, 'wb') as f:
             pickle.dump(model, f)
-        print(f"Saved {name} model to {filepath}")
+        logger.info(f"Saved {name} model to {filepath}")
     
     # Save feature importances
     for name, importance in feature_importances.items():
         filepath = os.path.join(MODEL_DIR, f'{name}_feature_importance.csv')
         importance.to_csv(filepath, index=False)
-        print(f"Saved {name} feature importance to {filepath}")
+        logger.info(f"Saved {name} feature importance to {filepath}")
     
     # Save metadata
     metadata = {
@@ -310,14 +299,12 @@ def save_models(models, feature_importances):
     metadata_path = os.path.join(MODEL_DIR, 'metadata.json')
     with open(metadata_path, 'w') as f:
         json.dump(metadata, f, indent=2)
-    print(f"Saved metadata to {metadata_path}")
+    logger.info(f"Saved metadata to {metadata_path}")
 
 
 def generate_model_report(models, feature_importances, df):
     """Generate a detailed model report."""
-    print("\n" + "="*60)
-    print("GENERATING MODEL REPORT")
-    print("="*60)
+    logger.info("GENERATING MODEL REPORT")
     
     report = []
     report.append("# ML Talent Intelligence Model Training Report")
@@ -371,24 +358,24 @@ def generate_model_report(models, feature_importances, df):
     with open(report_path, 'w') as f:
         f.write(report_text)
     
-    print(f"Saved model report to {report_path}")
+    logger.info(f"Saved model report to {report_path}")
     return report_text
 
 
 def main():
     """Main training function."""
-    print("="*60)
-    print("ML TALENT INTELLIGENCE - MODEL TRAINING")
-    print("="*60)
+    logger.info("ML TALENT INTELLIGENCE - MODEL TRAINING START")
     
     # Load data
     df = load_data()
     
     # Show data distribution
-    print("\nData Distribution:")
-    print(f"  Total samples: {len(df)}")
-    print(f"  Roles: {df['role'].value_counts().to_dict()}")
-    print(f"  Suitability labels: {df['suitability_label'].value_counts().to_dict()}")
+    distribution = {
+        'total_samples': len(df),
+        'roles': df['role'].value_counts().to_dict(),
+        'suitability': df['suitability_label'].value_counts().to_dict()
+    }
+    logger.info(f"Data Distribution: {distribution}")
     
     # Train models
     models, feature_importances = train_all_models(df)
@@ -397,12 +384,9 @@ def main():
     save_models(models, feature_importances)
     
     # Generate report
-    report = generate_model_report(models, feature_importances, df)
+    generate_model_report(models, feature_importances, df)
     
-    print("\n" + "="*60)
-    print("TRAINING COMPLETE!")
-    print("="*60)
-    print(f"\nModels saved to: {MODEL_DIR}")
+    logger.info("TRAINING COMPLETE! Models saved to: " + MODEL_DIR)
     
     return models, feature_importances
 
