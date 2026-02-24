@@ -8,6 +8,9 @@ from .models import Notification, SystemActivity
 from apps.accounts.models import User
 from apps.projects.models import ProjectAssignment
 from apps.analytics.models import TaskTracking, PerformanceMetrics
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class NotificationListView(APIView):
@@ -16,9 +19,13 @@ class NotificationListView(APIView):
     def get(self, request):
         """Get notifications for the current user."""
         user = request.user
+        logger.info(f"Fetching notifications for user: {user.email}, id: {user.id}")
+        
         notifications = Notification.objects.filter(user=user).order_by('-created_at')[:20]
         
         unread_count = Notification.objects.filter(user=user, is_read=False).count()
+        
+        logger.info(f"Found {notifications.count()} notifications for user {user.email}")
 
         data = [{
             'id': n.id,
@@ -230,3 +237,33 @@ def create_system_activity(activity_type, description, metadata=None):
         description=description,
         metadata=metadata or {},
     )
+
+
+class NotificationCreateTestView(APIView):
+    """Test view to create sample notifications."""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        """Create a test notification for the current user."""
+        user = request.user
+        logger.info(f"Creating test notification for user: {user.email}, id: {user.id}")
+        
+        # Create a test notification
+        notification = Notification.objects.create(
+            user=user,
+            notification_type='INFO',
+            title='Welcome to AI Talent Intelligence Platform',
+            message='This is a test notification to verify the notification system is working correctly.',
+        )
+        
+        logger.info(f"Created notification id: {notification.id} for user {user.email}")
+        
+        return Response({
+            'message': 'Test notification created',
+            'notification': {
+                'id': notification.id,
+                'type': notification.notification_type,
+                'title': notification.title,
+                'message': notification.message,
+            }
+        }, status=status.HTTP_201_CREATED)

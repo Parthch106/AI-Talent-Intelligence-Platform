@@ -46,11 +46,11 @@ class SimpleResumeParser:
     ]
     
     FRAMEWORKS = [
-        'django', 'flask', 'fastapi', 'spring', 'express', 'react', 
+        'django', 'flask', 'fastapi', 'spring', 'express', 'react',
         'angular', 'vue', 'next.js', 'nuxt.js', 'node.js', 'asp.net',
         'laravel', 'rails', 'nestjs', 'tensorflow', 'pytorch', 'keras',
-        'scikit-learn', 'flask', 'fastapi'
-    ]
+        'scikit-learn', 'huggingface', 'langchain', 'xgboost', 'lightgbm',
+    ]  # Note: no duplicates — flask/fastapi were previously listed twice
     
     DATABASES = [
         'sql', 'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch',

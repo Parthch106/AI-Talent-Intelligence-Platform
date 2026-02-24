@@ -26,16 +26,13 @@ logger = logging.getLogger(__name__)
 try:
     from sentence_transformers import SentenceTransformer
     SENTENCE_TRANSFORMERS_AVAILABLE = True
-    logger.info("SUCCESS: sentence_transformers imported successfully")
+    logger.info("sentence_transformers imported — transformer embeddings available")
 except ImportError as e:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
-    logger.warning(f"sentence-transformers not installed. Using fallback TF-IDF approach. Error: {e}")
+    logger.warning(f"sentence-transformers not installed — falling back to TF-IDF. ({e})")
 except Exception as e:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
     logger.error(f"Unexpected error importing sentence-transformers: {e}")
-
-# Log the final state
-logger.info(f"=== Module loaded: SENTENCE_TRANSFORMERS_AVAILABLE = {SENTENCE_TRANSFORMERS_AVAILABLE} ===")
 
 
 # ============================================================================
@@ -46,8 +43,10 @@ logger.info(f"=== Module loaded: SENTENCE_TRANSFORMERS_AVAILABLE = {SENTENCE_TRA
 class EmbeddingConfig:
     """Configuration for embedding generation."""
     # Model configuration
-    model_name: str = 'all-MiniLM-L6-v2'
-    embedding_dim: int = 384
+    # Upgraded from all-MiniLM-L6-v2 (384-dim) → bge-large-en-v1.5 (1024-dim)
+    # bge-large-en-v1.5 is ~20% stronger on technical retrieval & NLP benchmarks
+    model_name: str = 'BAAI/bge-large-en-v1.5'
+    embedding_dim: int = 1024
     
     # Section weights for resume vector combination
     weights: Dict[str, float] = None
@@ -55,11 +54,16 @@ class EmbeddingConfig:
     def __post_init__(self):
         if self.weights is None:
             self.weights = {
-                'experience': 0.30,
-                'projects': 0.30,
-                'skills': 0.20,
-                'summary': 0.10,
-                'education': 0.10,
+                # Experience most signal-dense for role matching
+                'experience': 0.40,
+                # Projects show applied ability
+                'projects':   0.25,
+                # Skills are explicit keyword matches
+                'skills':     0.20,
+                # Summary is useful context
+                'summary':    0.10,
+                # Education least predictive for job suitability
+                'education':  0.05,
             }
 
 
@@ -96,30 +100,24 @@ class EmbeddingEngine:
     @property
     def model(self):
         """Lazy load the model."""
-        logger.info(f"=== model property accessed === _is_initialized = {self._is_initialized}")
         if not self._is_initialized:
-            logger.info("Calling _initialize_model() from property")
             self._initialize_model()
         return self._model
     
     def _initialize_model(self):
         """Initialize the SentenceTransformer model."""
-        logger.info("=== _initialize_model called ===")
-        logger.info(f"SENTENCE_TRANSFORMERS_AVAILABLE = {SENTENCE_TRANSFORMERS_AVAILABLE}")
         if SENTENCE_TRANSFORMERS_AVAILABLE:
             try:
-                logger.info(f"Loading SentenceTransformer model: {self.config.model_name}")
+                logger.info(f"Loading embedding model: {self.config.model_name} (dim={self.config.embedding_dim})")
                 self._model = SentenceTransformer(self.config.model_name)
                 self._is_initialized = True
-                logger.info(f"SUCCESS: Loaded SentenceTransformer model: {self.config.model_name}")
+                logger.info(f"  Model loaded OK — {self.config.model_name}")
             except Exception as e:
-                logger.error(f"EXCEPTION: Failed to load SentenceTransformer: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
+                logger.error(f"  Failed to load SentenceTransformer '{self.config.model_name}': {e}")
                 self._model = None
                 self._is_initialized = False
         else:
-            logger.warning("SENTENCE_TRANSFORMERS_AVAILABLE is False")
+            logger.warning("sentence-transformers unavailable — embedding engine in fallback mode")
             self._is_initialized = False
     
     # =========================================================================
@@ -148,23 +146,16 @@ class EmbeddingEngine:
         Returns:
             Dictionary mapping section name to embedding vector
         """
-        logger.info(f"generate_section_embeddings: input sections = {list(resume_sections.keys())}")
-        logger.info(f"generate_section_embeddings: model initialized = {self._is_initialized}")
-        
         section_embeddings = {}
-        
+
         # Map resume sections to embedding categories
         embedding_mapping = {
             'summary': [
                 resume_sections.get('professional_summary', ''),
                 resume_sections.get('achievements', '')
             ],
-            'experience': [
-                resume_sections.get('experience_descriptions', ''),
-            ],
-            'projects': [
-                resume_sections.get('project_descriptions', ''),
-            ],
+            'experience': [resume_sections.get('experience_descriptions', '')],
+            'projects': [resume_sections.get('project_descriptions', '')],
             'skills': [
                 resume_sections.get('technical_skills', ''),
                 resume_sections.get('frameworks_libraries', ''),
@@ -175,35 +166,32 @@ class EmbeddingEngine:
                 resume_sections.get('certifications', ''),
             ],
         }
-        
-        logger.info(f"generate_section_embeddings: INPUT resume_sections = {resume_sections}")
-        logger.info(f"generate_section_embeddings: _is_initialized = {self._is_initialized}, _model = {self._model}")
-        
-        # Access the model property to trigger lazy initialization if needed
+
+        # Trigger lazy model initialization
         _ = self.model
-        
+
         if self._is_initialized and self._model is not None:
-            # Use SentenceTransformer
             for section_name, texts in embedding_mapping.items():
                 combined_text = ' '.join([t for t in texts if t])
-                logger.info(f"generate_section_embeddings: section={section_name}, text_length={len(combined_text)}")
                 if combined_text.strip():
                     try:
-                        embedding = self._model.encode(combined_text)
+                        # Document side — no BGE prefix needed
+                        embedding = self._model.encode(combined_text, normalize_embeddings=True)
                         section_embeddings[section_name] = embedding
-                        logger.info(f"generate_section_embeddings: generated embedding for {section_name}, shape={embedding.shape}")
                     except Exception as e:
-                        logger.error(f"Error generating embedding for {section_name}: {e}")
+                        logger.error(f"  Embedding failed for section '{section_name}': {e}")
                         section_embeddings[section_name] = np.zeros(self.config.embedding_dim)
                 else:
-                    logger.warning(f"generate_section_embeddings: empty text for {section_name}, using zeros")
                     section_embeddings[section_name] = np.zeros(self.config.embedding_dim)
+            logger.info(
+                f"  Section embeddings generated — "
+                + ", ".join(f"{k}: {len(embedding_mapping[k][0]) if embedding_mapping[k] else 0}ch" for k in section_embeddings)
+            )
         else:
-            # Fallback: return zero vectors (will use structured features if available)
-            logger.warning("generate_section_embeddings: model not initialized, using fallback")
-            for section_name in embedding_mapping.keys():
+            logger.warning("  Model not initialized — all section embeddings set to zeros (scores will be 0)")
+            for section_name in embedding_mapping:
                 section_embeddings[section_name] = np.zeros(self.config.embedding_dim)
-        
+
         return section_embeddings
     
     # =========================================================================
@@ -231,26 +219,18 @@ class EmbeddingEngine:
         Returns:
             Combined resume embedding vector
         """
-        logger.info(f"compute_resume_vector: section_embeddings keys = {list(section_embeddings.keys()) if section_embeddings else None}")
-        logger.info(f"compute_resume_vector: embedding_dim = {self.config.embedding_dim}, weights = {self.config.weights}")
-        
         weights = self.config.weights
         resume_vector = np.zeros(self.config.embedding_dim)
-        
+
         for section_name, weight in weights.items():
             if section_name in section_embeddings:
-                logger.info(f"compute_resume_vector: adding {section_name} with weight {weight}")
                 resume_vector += weight * section_embeddings[section_name]
-        
-        # Normalize the vector
+
+        # L2 normalise
         norm = np.linalg.norm(resume_vector)
-        logger.info(f"compute_resume_vector: norm before normalization = {norm}")
-        
         if norm > 0:
             resume_vector = resume_vector / norm
-            
-        logger.info(f"compute_resume_vector: final vector norm = {np.linalg.norm(resume_vector)}")
-        
+
         return resume_vector
     
     # =========================================================================
@@ -272,44 +252,33 @@ class EmbeddingEngine:
         Returns:
             Cosine similarity score (0-1)
         """
-        logger.info(f"compute_semantic_match: resume_vector is None = {resume_vector is None}, shape = {resume_vector.shape if hasattr(resume_vector, 'shape') else 'N/A'}")
-        logger.info(f"compute_semantic_match: role_embedding is None = {role_embedding is None}, shape = {role_embedding.shape if hasattr(role_embedding, 'shape') else 'N/A'}")
-        
         if resume_vector is None or role_embedding is None:
             return 0.0
-        
-        # Check if vectors are zeros
-        resume_norm = np.linalg.norm(resume_vector)
-        role_norm = np.linalg.norm(role_embedding)
-        logger.info(f"compute_semantic_match: resume_norm = {resume_norm}, role_norm = {role_norm}")
-        
-        # Cosine similarity
+
         dot_product = np.dot(resume_vector, role_embedding)
-        logger.info(f"compute_semantic_match: dot_product = {dot_product}")
-        
-        # Ensure bounded output
-        result = float(np.clip(dot_product, 0.0, 1.0))
-        logger.info(f"compute_semantic_match: final result = {result}")
-        
-        return result
+        return float(np.clip(dot_product, 0.0, 1.0))
     
     def generate_role_embedding(self, role_description: str) -> np.ndarray:
         """
         Generate embedding for job role description.
-        
+
+        BGE models require a query instruction prefix when embedding the
+        "query" side (i.e. the job description we are searching against).
+        Document side (resume sections) does NOT use this prefix.
+
         Args:
             role_description: Description of the job role
-            
+
         Returns:
             Role embedding vector
         """
         if self._is_initialized and self._model is not None and role_description:
             try:
-                embedding = self._model.encode(role_description)
-                # Normalize
-                norm = np.linalg.norm(embedding)
-                if norm > 0:
-                    embedding = embedding / norm
+                # BGE instruction prefix — required for query/retrieval tasks
+                bge_instruction = "Represent this job description for retrieving relevant candidates: "
+                query_text = bge_instruction + role_description
+                embedding = self._model.encode(query_text, normalize_embeddings=True)
+                # normalize_embeddings=True handles L2 norm inside the model
                 return embedding
             except Exception as e:
                 logger.error(f"Error generating role embedding: {e}")
@@ -377,10 +346,12 @@ class EmbeddingEngine:
             - role_embedding: Job role embedding
             - semantic_match_score: Cosine similarity score
         """
-        logger.info(f"process_resume: model initialized = {self._is_initialized}")
-        logger.info(f"process_resume: resume_sections keys = {list(resume_sections.keys()) if resume_sections else None}")
-        logger.info(f"process_resume: role_description = {role_description[:50] if role_description else None}")
-        
+        logger.info(
+            f"process_resume: model={'OK' if self._is_initialized else 'FALLBACK'} "
+            f"| sections={list(resume_sections.keys()) if resume_sections else []} "
+            f"| role='{role_description[:60] if role_description else ''}...'"
+        )
+
         # Apply bias mitigation if enabled
         processed_sections = {}
         if apply_bias_mitigation:
@@ -388,25 +359,25 @@ class EmbeddingEngine:
                 processed_sections[section_name] = self.remove_sensitive_info(text)
         else:
             processed_sections = resume_sections
-        
-        logger.info(f"process_resume: processed_sections keys = {list(processed_sections.keys())}")
-        
+
         # Generate section embeddings
         section_embeddings = self.generate_section_embeddings(processed_sections)
-        logger.info(f"process_resume: section_embeddings keys = {list(section_embeddings.keys()) if section_embeddings else None}")
-        
+
         # Compute resume vector
         resume_vector = self.compute_resume_vector(section_embeddings)
-        logger.info(f"process_resume: resume_vector shape = {resume_vector.shape if hasattr(resume_vector, 'shape') else len(resume_vector) if resume_vector else None}")
-        
-        # Generate role embedding
+
+        # Generate role embedding (BGE query-side prefix applied inside)
         role_embedding = self.generate_role_embedding(role_description)
-        logger.info(f"process_resume: role_embedding shape = {role_embedding.shape if hasattr(role_embedding, 'shape') else len(role_embedding) if role_embedding else None}")
-        
-        # Compute semantic match
+
+        # Cosine similarity score
         semantic_match_score = self.compute_semantic_match(resume_vector, role_embedding)
-        logger.info(f"process_resume: semantic_match_score = {semantic_match_score}")
-        
+
+        logger.info(
+            f"  process_resume result — semantic_match={semantic_match_score:.4f} "
+            f"| resume_dim={resume_vector.shape[0] if hasattr(resume_vector, 'shape') else len(resume_vector)} "
+            f"| model={'OK' if self._is_initialized else 'fallback'}"
+        )
+
         return {
             'section_embeddings': section_embeddings,
             'resume_vector': resume_vector.tolist() if isinstance(resume_vector, np.ndarray) else resume_vector,
@@ -424,24 +395,27 @@ class EmbeddingEngine:
 class TFIDFEmbeddingFallback:
     """
     Fallback TF-IDF based embedding when SentenceTransformer is not available.
-    
+
     This provides a degraded but functional experience.
+    Dimensionality matches bge-large-en-v1.5 output (1024) for schema compatibility.
     """
-    
+
+    FALLBACK_DIM = 1024
+
     def __init__(self):
         from sklearn.feature_extraction.text import TfidfVectorizer
-        self.vectorizer = TfidfVectorizer(max_features=384)
+        self.vectorizer = TfidfVectorizer(max_features=self.FALLBACK_DIM)
         self._is_fitted = False
-    
+
     def fit(self, texts: List[str]):
         """Fit TF-IDF vectorizer on corpus."""
         self.vectorizer.fit(texts)
         self._is_fitted = True
-    
+
     def transform(self, text: str) -> np.ndarray:
         """Transform text to TF-IDF vector."""
         if not self._is_fitted:
-            return np.zeros(384)
+            return np.zeros(self.FALLBACK_DIM)
         return self.vectorizer.transform([text]).toarray()[0]
 
 

@@ -27,6 +27,14 @@ const MyAttendance: React.FC = () => {
         try {
             const response = await axios.get('/analytics/attendance/my-attendance/');
             const data = response.data;
+            
+            // Check if response is an array or contains error
+            if (!Array.isArray(data)) {
+                console.error('Invalid response:', data);
+                setAttendance([]);
+                return;
+            }
+            
             setAttendance(data);
 
             // Calculate stats
@@ -34,8 +42,13 @@ const MyAttendance: React.FC = () => {
             const absent = data.filter((a: AttendanceRecord) => a.status === 'ABSENT').length;
             const late = data.filter((a: AttendanceRecord) => a.status === 'LATE' || a.status === 'HALF_DAY').length;
             setStats({ present, absent, late, total: data.length });
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error fetching attendance:', err);
+            // Show error message from server if available
+            if (err.response?.data?.error) {
+                alert('Error: ' + err.response.data.error);
+            }
+            setAttendance([]);
         } finally {
             setLoading(false);
         }

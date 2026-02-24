@@ -30,6 +30,7 @@ from apps.analytics.models import (
 )
 from .resume_parsing_engine import resume_parsing_engine
 from .simple_resume_parser import simple_resume_parser
+from .llm_resume_parser import llm_resume_parser
 from .feature_engineering_advanced import advanced_feature_engine
 from .embedding_engine import embedding_engine
 from .ml_models import ml_model_registry
@@ -57,8 +58,16 @@ class TalentIntelligenceService:
     }
     
     def __init__(self):
-        # Use simple resume parser instead of complex one
-        self.parsing_engine = simple_resume_parser
+        import os
+        # A/B switch: set USE_LLM_PARSER=true in your .env / environment to enable
+        # the new gpt-4o-mini based parser. Falls back to simple_resume_parser on error.
+        use_llm = os.environ.get('USE_LLM_PARSER', 'false').lower() == 'true'
+        if use_llm:
+            self.parsing_engine = llm_resume_parser
+            logger.info("TalentIntelligenceService: Using LLMResumeParser (gpt-4o-mini)")
+        else:
+            self.parsing_engine = simple_resume_parser
+            logger.info("TalentIntelligenceService: Using SimpleResumeParser (regex fallback)")
     
     # =========================================================================
     # HELPER: Extract resume sections for embedding
@@ -186,32 +195,16 @@ class TalentIntelligenceService:
         """
         sections = {}
         
-        logger.info(f"=== _extract_resume_sections START ===")
-        logger.info(f"_extract_resume_sections: raw_features type = {type(raw_features)}, is None = {raw_features is None}, is empty = {not raw_features}")
-        logger.info(f"_extract_resume_sections: document type = {type(document) if document else None}")
+        logger.info(f"=== STEP: _extract_resume_sections ===")
+        logger.info(f"  raw_features keys : {list(raw_features.keys()) if raw_features else '(empty)'}")
+        logger.info(f"  document          : {getattr(document, 'id', None) if document else None}")
         
         # Handle None or empty raw_features
         if not raw_features:
             logger.warning("_extract_resume_sections: raw_features is None or empty, using document fallback")
             raw_features = {}
         
-        logger.info(f"_extract_resume_sections: raw_features keys = {list(raw_features.keys()) if raw_features else None}")
-        logger.info(f"_extract_resume_sections: document = {document}, has parsed_data = {hasattr(document, 'parsed_data') if document else False}")
-        
-        # Try to get parsed data from raw_features
-        logger.info(f"_extract_resume_sections: checking for _parsed_data in raw_features: {'_parsed_data' in raw_features if raw_features else False}")
-        
-        print("\n" + "-"*50)
-        print("_extract_resume_sections: raw_features keys:")
-        if raw_features:
-            print(list(raw_features.keys()))
-            print(f"_parsed_data in raw_features: {'_parsed_data' in raw_features}")
-            if '_parsed_data' in raw_features:
-                print(f"_parsed_data type: {type(raw_features.get('_parsed_data'))}")
-                print(f"_parsed_data keys: {list(raw_features.get('_parsed_data', {}).keys())}")
-        else:
-            print("raw_features is None or empty")
-        print("-"*50 + "\n")
+
         
         # Handle case where document is None
         if not document:
@@ -220,15 +213,10 @@ class TalentIntelligenceService:
         
         if '_parsed_data' in raw_features:
             parsed_data = raw_features['_parsed_data']
-            logger.info(f"_extract_resume_sections: found _parsed_data with keys = {list(parsed_data.keys()) if parsed_data else None}")
-            
-            print("\n" + "="*50)
-            print("DEBUG _parsed_data in _extract_resume_sections:")
-            print(f"education: {parsed_data.get('education')}")
-            print(f"experience: {parsed_data.get('experience')}")
-            print(f"projects: {parsed_data.get('projects')}")
-            print(f"education_text: {parsed_data.get('education_text')}")
-            print("="*50 + "\n")
+            logger.info(f"  Found _parsed_data: {list(parsed_data.keys()) if parsed_data else '(empty)'}")
+            logger.debug(f"  education : {str(parsed_data.get('education', ''))[:120]}")
+            logger.debug(f"  experience: {str(parsed_data.get('experience', ''))[:120]}")
+            logger.debug(f"  projects  : {str(parsed_data.get('projects', ''))[:120]}")
             
             # Map parsed_data keys to section keys (v2 format)
             # First, try to use the pre-formatted text fields if available
@@ -296,21 +284,14 @@ class TalentIntelligenceService:
             sections['achievements'] = parsed_data.get('achievements_text', '') or ', '.join(parsed_data.get('achievements', []))
             sections['extracurriculars'] = parsed_data.get('extracurriculars', '')
             
-            logger.info(f"_extract_resume_sections: extracted sections - skills: {len(parsed_data.get('skills', []))}, experience: {len(parsed_data.get('experience', []))}, projects: {len(parsed_data.get('projects', []))}")
+            logger.info(f"  skills: {len(parsed_data.get('skills', []))} | experience: {len(parsed_data.get('experience', []))} | projects: {len(parsed_data.get('projects', []))}")  # noqa: E501
         else:
-            # No _parsed_data found - return empty sections
-            logger.warning("_extract_resume_sections: _parsed_data NOT found in raw_features")
+            logger.warning("  _parsed_data NOT found in raw_features — sections empty")
         
-        # Check if we have meaningful content
-        has_content = any(v.strip() for v in sections.values())
+        populated = [k for k, v in sections.items() if isinstance(v, str) and v.strip()]
+        logger.info(f"  populated sections: {populated}")
         
-        logger.info(f"_extract_resume_sections: has_content = {has_content}, sections with content = {[k for k, v in sections.items() if v.strip()]}")
-        
-        # Log each section for debugging
-        for key, value in sections.items():
-            logger.info(f"_extract_resume_sections: section '{key}' = '{value[:100]}..." if len(value) > 100 else f"_extract_resume_sections: section '{key}' = '{value}'")
-        
-        return sections if has_content else None
+        return sections if any(isinstance(v, str) and v.strip() for v in sections.values()) else None
     
     # =========================================================================
     # MAIN ANALYSIS METHODS
@@ -399,11 +380,7 @@ class TalentIntelligenceService:
                 job_role_obj.mandatory_skills = skills['mandatory']
                 job_role_obj.preferred_skills = skills['preferred']
                 job_role_obj.save()
-                logger.info(f"Updated JobRole {job_role.upper()} with description: {role_desc[:100]}...")
-                print(f"=== JOB ROLE UPDATED ===")
-                print(f"Role: {job_role.upper()}")
-                print(f"Description: {role_desc[:200]}...")
-                print(f"Mandatory Skills: {skills['mandatory']}")
+                logger.info(f"  JobRole '{job_role.upper()}' upserted — mandatory: {skills['mandatory']}")
         
         # 3. Create or get application
         application = None
@@ -421,10 +398,7 @@ class TalentIntelligenceService:
             except:
                 pass
         
-        # Print role description for debugging
-        print(f"=== ROLE DESCRIPTION DEBUG ===")
-        print(f"job_role_obj: {job_role_obj}")
-        print(f"job_role_obj.role_description: {job_role_obj.role_description[:200] if job_role_obj and job_role_obj.role_description else 'None'}")
+        logger.info(f"  role_description: {job_role_obj.role_description[:120] if job_role_obj and job_role_obj.role_description else 'None'}...")
         
         if create_application and job_role_obj:
             application, created = Application.objects.get_or_create(
@@ -433,18 +407,10 @@ class TalentIntelligenceService:
                 defaults={'resume_raw_text': resume_raw_text[:10000]}  # Limit text length
             )
         
-        # 4. Extract features - use simple parser
-        # The simple parser has .parse() method that takes raw text
+        logger.info(f"=== STEP: Parsing resume ({type(self.parsing_engine).__name__}) ===")
         parsed = self.parsing_engine.parse(document.raw_text)
         raw_features = {'_parsed_data': parsed}
-        
-        print("\n" + "="*50)
-        print("SIMPLE PARSER RESULT")
-        print("="*50)
-        for key, value in parsed.items():
-            if value:
-                print(f"{key}: {value[:80]}...")
-        print("="*50 + "\n")
+        logger.info(f"  Parser output — skills: {len(parsed.get('skills', []))} | tech_skills: {parsed.get('technical_skills', '')[:80]} | projects: {len(parsed.get('projects', []))} | summary_len: {len(parsed.get('professional_summary') or '')}")
         
         # 4b. Store parsed resume data directly to ResumeSection
         if application and raw_features and '_parsed_data' in raw_features:
@@ -472,58 +438,35 @@ class TalentIntelligenceService:
         
         logger.info(f"resume_sections extracted: {bool(resume_sections)}, keys: {list(resume_sections.keys()) if resume_sections else None}")
         
-        print("\n" + "="*50)
-        print("_extract_resume_sections RESULT")
-        print("="*50)
-        print(f"resume_sections is None: {resume_sections is None}")
-        if resume_sections:
-            print(f"technical_skills: {resume_sections.get('technical_skills', '')[:100]}...")
-            print(f"education_text: {resume_sections.get('education_text', '')}")
-            print(f"experience_titles: {resume_sections.get('experience_titles', '')}")
-            print(f"project_titles: {resume_sections.get('project_titles', '')}")
-        print("="*50 + "\n")
-        
+        logger.info(f"  resume sections populated: {[k for k,v in (resume_sections or {}).items() if isinstance(v,str) and v.strip()]}")
+
         embedding_results = None
         if resume_sections:
+            logger.info(f"=== STEP: Generating embeddings ====")
+            logger.info(f"  role_description  : {role_description[:120]}...")
+            logger.info(f"  resume sections   : {[k for k,v in resume_sections.items() if isinstance(v,str) and v.strip()]}")
             try:
-                logger.info(f"=== Calling embedding_engine.process_resume ===")
-                logger.info(f"role_description passed to embedding: {role_description[:200] if role_description else 'None'}...")
-                print(f"=== EMBEDDING DEBUG ===")
-                print(f"role_description: {role_description[:300]}...")
-                print(f"resume_sections keys: {list(resume_sections.keys())}")
-                
-                try:
-                    embedding_results = embedding_engine.process_resume(
-                        resume_sections=resume_sections,
-                        role_description=role_description,
-                        apply_bias_mitigation=True
-                    )
-                    logger.info(f"Generated embeddings with semantic_match_score: {embedding_results.get('semantic_match_score', 0)}")
-                    print(f"=== EMBEDDING RESULT ===")
-                    print(f"semantic_match_score: {embedding_results.get('semantic_match_score', 'Not found')}")
-                    if embedding_results:
-                        print(f"resume_vector length: {len(embedding_results.get('resume_vector', []))}")
-                        print(f"role_embedding length: {len(embedding_results.get('role_embedding', []))}")
-                except Exception as e:
-                    print(f"=== EMBEDDING ERROR ===")
-                    print(f"Error: {str(e)}")
-                    embedding_results = None
-                logger.info(f"embedding_results keys: {list(embedding_results.keys()) if embedding_results else None}")
-                logger.info(f"resume_vector shape: {len(embedding_results.get('resume_vector', [])) if embedding_results else 0}")
-                
-                # Store resume sections in database
-                self._store_resume_sections(application, resume_sections)
-                
-                # Store embeddings in database (use 'resume_vector' not 'combined_embedding')
+                embedding_results = embedding_engine.process_resume(
+                    resume_sections=resume_sections,
+                    role_description=role_description,
+                    apply_bias_mitigation=True
+                )
+                logger.info(
+                    f"  Embedding done — semantic_match: {embedding_results.get('semantic_match_score', 0):.4f} "
+                    f"| resume_vec_dim: {len(embedding_results.get('resume_vector', []))} "
+                    f"| model: {embedding_results.get('model_used', 'unknown')}"
+                )
+
+                # Store embeddings in database
                 if embedding_results and 'resume_vector' in embedding_results:
                     resume_vector = embedding_results['resume_vector']
-                    # Convert to numpy array if it's a list
                     if isinstance(resume_vector, list):
                         resume_vector = np.array(resume_vector)
                     self._store_embeddings(application, resume_vector)
-                    
+
             except Exception as e:
-                logger.warning(f"Embedding generation failed: {e}")
+                logger.error(f"  Embedding generation failed: {e}")
+
         
         # 6. Store features in database (V2: StructuredFeature)
         structured_feature = self._store_structured_features(
@@ -558,8 +501,13 @@ class TalentIntelligenceService:
             embedding_results=embedding_results
         )
         
-        logger.info(f"Analysis completed for user: {user.email}")
-        
+        logger.info(
+            f"=== ANALYSIS COMPLETE for '{user.email}' — "
+            f"decision: {analysis_result.get('decision', '?')} "
+            f"| suitability: {analysis_result.get('suitability_score', 0):.3f} "
+            f"| semantic_match: {analysis_result.get('embedding_results', {}).get('semantic_match_score', analysis_result.get('semantic_match_score', 0)):.3f}"
+            f" ==="
+        )
         return analysis_result
     
     @transaction.atomic
@@ -649,14 +597,10 @@ class TalentIntelligenceService:
         """Store parsed resume data directly to ResumeSection table."""
         from apps.analytics.models import ResumeSection
         
-        print("\n" + "="*50)
-        print("_store_parsed_resume_sections CALLED - STORING DIRECTLY")
-        print("="*50)
-        print(f"application: {application}")
-        print(f"parsed_data keys: {list(parsed_data.keys()) if parsed_data else None}")
+        logger.info(f"=== STEP: Storing parsed sections — app_id={application.id if application else None} ===")
         
         if not application or not parsed_data:
-            print("Skipping - no application or parsed_data")
+            logger.warning("  Skipping section storage — missing application or parsed_data")
             return None
         
         # Helper function to format lists to comma-separated strings
@@ -722,12 +666,11 @@ class TalentIntelligenceService:
             }
         )
         
-        print(f"Successfully stored ResumeSection for application {application.id}")
-        print(f"technical_skills: {section.technical_skills[:100]}..." if section.technical_skills else "technical_skills: (empty)")
-        print(f"education_text: {section.education_text}")
-        print("="*50 + "\n")
-        
-        logger.info(f"Stored parsed resume sections directly for application {application.id}")
+        logger.info(
+            f"  Stored ResumeSection — skills: '{(section.technical_skills or '')[:60]}' | "
+            f"edu: '{(section.education_text or '')[:60]}' | "
+            f"projects: '{(section.project_titles or '')[:60]}'"
+        )
         return section
     
     def _store_resume_sections(
@@ -747,10 +690,7 @@ class TalentIntelligenceService:
         print(f"education_text: {resume_sections.get('education_text', '') if resume_sections else 'None'}")
         print("="*50 + "\n")
         
-        logger.info(f"_store_resume_sections called with application={application}, resume_sections keys={list(resume_sections.keys()) if resume_sections else None}")
-        
         if not application or not resume_sections:
-            logger.warning(f"_store_resume_sections: skipping - application={bool(application)}, resume_sections={bool(resume_sections)}")
             return None
         
         section, _ = ResumeSection.objects.update_or_create(
@@ -776,7 +716,7 @@ class TalentIntelligenceService:
             }
         )
         
-        logger.info(f"Stored resume sections for application {application.id}")
+        logger.info(f"  Stored ResumeSection (via _store_resume_sections) for app_id={application.id}")
         return section
     
     def _store_embeddings(
@@ -787,23 +727,17 @@ class TalentIntelligenceService:
         """Store resume embeddings in database."""
         from apps.analytics.models import ResumeEmbedding
         
-        logger.info(f"_store_embeddings called with application={application}, embedding is None={embedding is None}")
-        
         if not application or embedding is None:
-            logger.warning(f"_store_embeddings: skipping - application={bool(application)}, embedding is None={embedding is None}")
+            logger.warning(f"  _store_embeddings: skipping — app={bool(application)} embedding=None")
             return None
         
-        # Convert numpy array to list for storage
         embedding_list = embedding.tolist() if hasattr(embedding, 'tolist') else list(embedding)
         
         resume_embedding, _ = ResumeEmbedding.objects.update_or_create(
             application=application,
-            defaults={
-                'combined_embedding': embedding_list,
-            }
+            defaults={'combined_embedding': embedding_list}
         )
-        
-        logger.info(f"Stored embeddings for application {application.id}")
+        logger.info(f"  Stored embedding vector (dim={len(embedding_list)}) for app_id={application.id}")
         return resume_embedding
     
     # =========================================================================
