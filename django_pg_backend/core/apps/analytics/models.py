@@ -3,89 +3,6 @@ from django.conf import settings
 
 
 # ============================================================================
-# Legacy Models - Intern Intelligence (used by analytics_service.py)
-# ============================================================================
-
-
-class InternIntelligence(models.Model):
-    """
-    Stores computed intelligence metrics for each intern.
-    Used for tracking technical scores, AI readiness, and risk assessment.
-    """
-    
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='intern_intelligence',
-        limit_choices_to={'role': 'INTERN'}
-    )
-    
-    # Core Scores
-    technical_score = models.FloatField(
-        default=0.0,
-        help_text='Technical skills proficiency score'
-    )
-    leadership_score = models.FloatField(
-        default=0.0,
-        help_text='Leadership and management potential score'
-    )
-    communication_score = models.FloatField(
-        default=0.0,
-        help_text='Communication skills score'
-    )
-    culture_fit_score = models.FloatField(
-        default=0.0,
-        help_text='Cultural fit assessment score'
-    )
-    ai_readiness_score = models.FloatField(
-        default=0.0,
-        help_text='Readiness for AI-assisted work score'
-    )
-    predicted_growth_score = models.FloatField(
-        default=0.0,
-        help_text='Predicted growth trajectory score'
-    )
-    
-    # Skill Analysis
-    skill_profile = models.JSONField(
-        default=dict,
-        help_text='Detailed skill breakdown by category'
-    )
-    domain_strengths = models.JSONField(
-        default=list,
-        help_text='List of strongest domain areas'
-    )
-    skill_gaps = models.JSONField(
-        default=list,
-        help_text='Identified skill gaps'
-    )
-    
-    # Recommendations
-    recommendations = models.JSONField(
-        default=list,
-        help_text='Personalized development recommendations'
-    )
-    
-    # Risk Assessment
-    risk_flags = models.JSONField(
-        default=list,
-        help_text='Risk indicators'
-    )
-    
-    # Metadata
-    calculated_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = 'Intern Intelligence'
-        verbose_name_plural = 'Intern Intelligence'
-        ordering = ['-calculated_at']
-    
-    def __str__(self):
-        return f"Intelligence: {self.user.email}"
-
-
-# ============================================================================
 # PHASE 2 - PART 2: During Internship Monitoring Models
 # ============================================================================
 
@@ -649,14 +566,17 @@ class MonthlyEvaluationReport(models.Model):
 
 
 # ============================================================================
-# NEW ANALYTICS SCHEMA - ML Pipeline Models (see INTERN_ANALYSIS_SCHEMA.md)
+# V2 ANALYTICS SCHEMA - Hybrid AI ML Pipeline Models
+# (see INTERN_ANALYSIS_SCHEMA_V2.md)
+# Supports: SentenceTransformer embeddings, Structured ML features,
+#           Multi-output scoring, Role-aware matching, Model versioning
 # ============================================================================
 
 
 class JobRole(models.Model):
     """
     Defines job roles and their skill requirements.
-    Replaces the old RoleRequirement model.
+    V2: Added role_embedding for semantic role matching (pgvector).
     """
     
     role_title = models.CharField(
@@ -679,6 +599,14 @@ class JobRole(models.Model):
         help_text="List of preferred/nice-to-have skills"
     )
     
+    # V2: Role embedding for semantic matching (stored as JSON list of floats)
+    # Use pgvector VECTOR type in raw SQL; Django stores as JSONField fallback
+    role_embedding = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Role embedding vector for semantic matching (pgvector compatible)"
+    )
+    
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -695,7 +623,8 @@ class JobRole(models.Model):
 class Application(models.Model):
     """
     Links candidates (interns from accounts.User) to job roles.
-    Each application = Intern × Role
+    Each application = Intern × Role.
+    V2: Renamed fields (resume_text → resume_raw_text, status → application_status).
     """
     
     STATUS_CHOICES = [
@@ -724,86 +653,223 @@ class Application(models.Model):
         related_name='applications'
     )
     
-    # Application Details
-    resume_text = models.TextField(
+    # V2: Renamed from resume_text → resume_raw_text
+    resume_raw_text = models.TextField(
         blank=True,
-        help_text="Parsed resume text"
+        help_text="Raw resume text before parsing"
     )
-    status = models.CharField(
+    # V2: Renamed from status → application_status
+    application_status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         default='APPLIED'
     )
-    application_date = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         verbose_name = "Application"
         verbose_name_plural = "Applications"
-        ordering = ['-application_date']
+        ordering = ['-created_at']
         # One application per intern per role
         unique_together = ['intern', 'job_role']
+        indexes = [
+            models.Index(fields=['intern'], name='idx_application_candidate'),
+            models.Index(fields=['job_role'], name='idx_application_role'),
+        ]
     
     def __str__(self):
         return f"{self.intern.email} - {self.job_role.role_title}"
 
 
-class ResumeFeature(models.Model):
+# ============================================================================
+# V2: Resume data split into 3 tables (was single ResumeFeature in V1)
+# 1. ResumeSection - Parsed text sections for transformer modeling
+# 2. ResumeEmbedding - Vector embeddings for semantic similarity
+# 3. StructuredFeature - Numerical features for XGBoost/LightGBM
+# ============================================================================
+
+
+class ResumeSection(models.Model):
     """
-    ML Input Features - Feature store for model training and inference.
-    Stores computed features from resume data.
+    V2 NEW: Stores structured resume sections for transformer-based modeling.
+    Parsed text from resume, organized by section type.
     """
     
     application = models.OneToOneField(
         Application,
         on_delete=models.CASCADE,
-        related_name='resume_features'
+        related_name='resume_sections'
     )
     
-    # Skill & Role Matching
+    # Professional Summary
+    professional_summary = models.TextField(
+        blank=True,
+        help_text="Professional summary / objective section"
+    )
+    
+    # Skills Breakdown
+    technical_skills = models.TextField(
+        blank=True,
+        help_text="Technical skills text"
+    )
+    tools_technologies = models.TextField(
+        blank=True,
+        help_text="Tools and technologies used"
+    )
+    frameworks_libraries = models.TextField(
+        blank=True,
+        help_text="Frameworks and libraries"
+    )
+    databases = models.TextField(
+        blank=True,
+        help_text="Database technologies"
+    )
+    cloud_platforms = models.TextField(
+        blank=True,
+        help_text="Cloud platforms experience"
+    )
+    soft_skills = models.TextField(
+        blank=True,
+        help_text="Soft skills mentioned"
+    )
+    
+    # Experience
+    experience_titles = models.TextField(
+        blank=True,
+        help_text="Job/internship titles"
+    )
+    experience_descriptions = models.TextField(
+        blank=True,
+        help_text="Experience descriptions and responsibilities"
+    )
+    experience_duration_text = models.TextField(
+        blank=True,
+        help_text="Duration text for each experience"
+    )
+    
+    # Projects
+    project_titles = models.TextField(
+        blank=True,
+        help_text="Project titles"
+    )
+    project_descriptions = models.TextField(
+        blank=True,
+        help_text="Project descriptions"
+    )
+    project_technologies = models.TextField(
+        blank=True,
+        help_text="Technologies used in projects"
+    )
+    
+    # Education & Achievements
+    education_text = models.TextField(
+        blank=True,
+        help_text="Education details"
+    )
+    certifications = models.TextField(
+        blank=True,
+        help_text="Certifications obtained"
+    )
+    achievements = models.TextField(
+        blank=True,
+        help_text="Awards and achievements"
+    )
+    extracurriculars = models.TextField(
+        blank=True,
+        help_text="Extracurricular activities"
+    )
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Resume Section"
+        verbose_name_plural = "Resume Sections"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Sections for {self.application.intern.email}"
+
+
+class ResumeEmbedding(models.Model):
+    """
+    V2 NEW: Stores transformer embeddings for semantic similarity.
+    Embeddings stored as JSON arrays (pgvector VECTOR type in raw SQL).
+    """
+    
+    application = models.OneToOneField(
+        Application,
+        on_delete=models.CASCADE,
+        related_name='resume_embeddings'
+    )
+    
+    # Section-level embeddings (stored as JSON list of floats)
+    summary_embedding = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Embedding vector for professional summary"
+    )
+    experience_embedding = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Embedding vector for experience section"
+    )
+    project_embedding = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Embedding vector for projects section"
+    )
+    skills_embedding = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Embedding vector for skills section"
+    )
+    combined_embedding = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Combined embedding vector for full resume"
+    )
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Resume Embedding"
+        verbose_name_plural = "Resume Embeddings"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Embeddings for {self.application.intern.email}"
+
+
+class StructuredFeature(models.Model):
+    """
+    V2: Stores numerical features derived from resume analysis.
+    Reduced feature set compared to V1 ResumeFeature (relies on embeddings
+    for semantic features instead of hand-crafted ones).
+    """
+    
+    application = models.OneToOneField(
+        Application,
+        on_delete=models.CASCADE,
+        related_name='structured_features'
+    )
+    
+    # Role Matching
     skill_match_ratio = models.FloatField(
         default=0.0,
         help_text="Ratio of matched skills to required skills (0-1)"
     )
-    mandatory_skill_coverage = models.BooleanField(
-        default=False,
-        help_text="Whether all mandatory skills are present"
-    )
     domain_similarity_score = models.FloatField(
         default=0.0,
         help_text="Similarity between candidate domain and job domain (0-1)"
-    )
-    skill_depth_score = models.FloatField(
-        default=0.0,
-        help_text="Depth/level of each skill (0-1)"
-    )
-    skill_project_consistency = models.FloatField(
-        default=0.0,
-        help_text="Consistency between skills and projects (0-1)"
     )
     critical_skill_gap_count = models.IntegerField(
         default=0,
         help_text="Number of critical skills missing"
     )
     
-    # Education
-    degree_level_encoded = models.IntegerField(
-        default=1,
-        help_text="1=High School, 2=Bachelor, 3=Masters+"
-    )
-    gpa_normalized = models.FloatField(
-        default=0.0,
-        help_text="Normalized GPA score (0-1)"
-    )
-    university_tier_score = models.FloatField(
-        default=0.0,
-        help_text="University ranking score (0-1)"
-    )
-    coursework_relevance_score = models.FloatField(
-        default=0.0,
-        help_text="Relevance of coursework to role (0-1)"
-    )
-    
-    # Experience
+    # Experience Strength
     experience_duration_months = models.IntegerField(
         default=0,
         help_text="Total experience in months"
@@ -812,66 +878,37 @@ class ResumeFeature(models.Model):
         default=0.0,
         help_text="Relevance of internship experience (0-1)"
     )
-    open_source_score = models.FloatField(
-        default=0.0,
-        help_text="Open source contribution score (0-1)"
-    )
-    hackathon_count = models.IntegerField(
-        default=0,
-        help_text="Number of hackathons attended"
-    )
-    
-    # Projects
-    project_count = models.IntegerField(
-        default=0,
-        help_text="Number of projects"
-    )
     project_complexity_score = models.FloatField(
         default=0.0,
         help_text="Complexity of projects (0-1)"
     )
-    quantified_impact_presence = models.BooleanField(
-        default=False,
-        help_text="Whether projects have quantifiable impact"
+    
+    # Education
+    degree_level_encoded = models.IntegerField(
+        default=1,
+        help_text="1=High School, 2=Bachelor, 3=Masters, 4=PhD"
     )
-    production_tools_usage_score = models.FloatField(
+    gpa_normalized = models.FloatField(
         default=0.0,
-        help_text="Usage of production tools (0-1)"
-    )
-    github_activity_score = models.FloatField(
-        default=0.0,
-        help_text="GitHub activity level (0-1)"
+        help_text="Normalized GPA score (0-1)"
     )
     
-    # Resume Quality
-    keyword_stuffing_ratio = models.FloatField(
-        default=0.0,
-        help_text="Ratio of keywords to content (0-1)"
+    # Resume Authenticity
+    quantified_impact_presence = models.BooleanField(
+        default=False,
+        help_text="Whether resume contains quantifiable impact statements"
     )
     writing_clarity_score = models.FloatField(
         default=0.0,
         help_text="Clarity of writing (0-1)"
     )
-    action_verb_density = models.FloatField(
-        default=0.0,
-        help_text="Density of action verbs (0-1)"
-    )
-    resume_consistency_score = models.FloatField(
-        default=0.0,
-        help_text="Overall consistency (0-1)"
-    )
-    resume_length_normalized = models.FloatField(
-        default=0.0,
-        help_text="Normalized resume length (0-1)"
-    )
     
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        verbose_name = "Resume Feature"
-        verbose_name_plural = "Resume Features"
+        verbose_name = "Structured Feature"
+        verbose_name_plural = "Structured Features"
         ordering = ['-created_at']
     
     def __str__(self):
@@ -880,7 +917,9 @@ class ResumeFeature(models.Model):
 
 class ModelPrediction(models.Model):
     """
-    ML Model Outputs - Stores predictions for each application.
+    V2: Stores inference results from hybrid models.
+    Changed from V1: Renamed scores, removed communication/leadership,
+    added semantic_match_score and model_type.
     """
     
     DECISION_CHOICES = [
@@ -896,30 +935,27 @@ class ModelPrediction(models.Model):
         related_name='prediction'
     )
     
-    # ML Scores
+    # V2 ML Scores (5 scores instead of V1's 6)
     suitability_score = models.FloatField(
         default=0.0,
         help_text="Overall suitability (0-1)"
     )
-    technical_competency_score = models.FloatField(
+    technical_score = models.FloatField(
         default=0.0,
-        help_text="Technical skills (0-1)"
+        help_text="Technical skills score (0-1)"
     )
-    growth_potential_score = models.FloatField(
+    growth_score = models.FloatField(
         default=0.0,
-        help_text="Growth potential (0-1)"
+        help_text="Growth potential score (0-1)"
     )
-    resume_authenticity_score = models.FloatField(
+    authenticity_score = models.FloatField(
         default=0.0,
-        help_text="Resume authenticity (0-1)"
+        help_text="Resume authenticity score (0-1)"
     )
-    communication_score = models.FloatField(
+    # V2 NEW: Semantic match score from transformer embeddings
+    semantic_match_score = models.FloatField(
         default=0.0,
-        help_text="Communication skills (0-1)"
-    )
-    leadership_score = models.FloatField(
-        default=0.0,
-        help_text="Leadership potential (0-1)"
+        help_text="Semantic similarity match score (0-1)"
     )
     
     # Decision
@@ -930,7 +966,12 @@ class ModelPrediction(models.Model):
         help_text="ML prediction decision"
     )
     
-    # Model Metadata
+    # V2: Added model_type for hybrid model tracking
+    model_type = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Type of model used (e.g., XGBoost, LightGBM, Transformer)"
+    )
     model_version = models.CharField(
         max_length=50,
         blank=True,
@@ -956,6 +997,7 @@ class ModelPrediction(models.Model):
 class HiringOutcome(models.Model):
     """
     Hiring Outcomes - Training Labels for model retraining.
+    Unchanged from V1.
     """
     
     application = models.OneToOneField(
@@ -1015,6 +1057,7 @@ class HiringOutcome(models.Model):
 class GrowthTracking(models.Model):
     """
     Growth Tracking - Post-hire performance monitoring.
+    Unchanged from V1.
     """
     
     # Reference to the intern (User)
@@ -1067,55 +1110,16 @@ class GrowthTracking(models.Model):
         return f"Growth: {self.intern.email} - {self.months_since_joining} months"
 
 
-class AuthenticityReview(models.Model):
-    """
-    Resume Authenticity Review - Manual review results.
-    """
-    
-    application = models.OneToOneField(
-        Application,
-        on_delete=models.CASCADE,
-        related_name='authenticity_review'
-    )
-    
-    # Review Metrics
-    skill_project_mismatch_ratio = models.FloatField(
-        default=0.0,
-        help_text="Mismatch ratio between skills and projects (0-1)"
-    )
-    excessive_skill_listing_flag = models.BooleanField(
-        default=False,
-        help_text="Too many skills flag"
-    )
-    duplicate_bullet_pattern_flag = models.BooleanField(
-        default=False,
-        help_text="Duplicate patterns flag"
-    )
-    authenticity_label = models.BooleanField(
-        default=True,
-        help_text="Is resume authentic"
-    )
-    
-    # Reviewer Info
-    reviewed_by = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Reviewer name"
-    )
-    reviewed_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        verbose_name = "Authenticity Review"
-        verbose_name_plural = "Authenticity Reviews"
-        ordering = ['-reviewed_at']
-    
-    def __str__(self):
-        return f"Review for {self.application.intern.email}: Authentic={self.authenticity_label}"
+# V2: AuthenticityReview table REMOVED
+# Authenticity is now handled by:
+# - authenticity_score in ModelPrediction
+# - writing_clarity_score + quantified_impact_presence in StructuredFeature
 
 
 class ModelRegistry(models.Model):
     """
     Model Registry - Version tracking and model performance metrics.
+    Unchanged from V1.
     """
     
     model_name = models.CharField(

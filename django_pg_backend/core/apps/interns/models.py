@@ -4,6 +4,7 @@ from apps.accounts.models import User
 class InternProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='intern_profile')
     phone_number = models.CharField(max_length=15, blank=True)
+    location = models.CharField(max_length=255, blank=True, help_text="Candidate location/city")
     university = models.CharField(max_length=255, blank=True)
     gpa = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
     graduation_year = models.IntegerField(null=True, blank=True)

@@ -1,0 +1,33 @@
+{
+  "training_date": "2026-02-17T13:58:37.953609",
+  "dataset_path": "E:\\CSU Internship\\AI-Talent-Intelligence-Platform\\django_pg_backend\\core\\docs\\synthetic_resume_dataset_20000_advanced.csv",
+  "dataset_size": 20000,
+  "embedding_dim": 384,
+  "metrics": {
+    "suitability": {
+      "accuracy": 0.74875,
+      "precision": 0.74875,
+      "recall": 1.0,
+      "f1_score": 0.856325947105075,
+      "roc_auc": 0.5,
+      "cv_scores": [
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "cv_mean": 0.5,
+      "cv_std": 0.0
+    },
+    "growth": {
+      "r2_score": -1.0251998901367188e-05
+    },
+    "authenticity": {
+      "precision": 0.74875
+    },
+    "embedding_dim": 384,
+    "dataset_size": 20000
+  },
+  "model_version": "transformer_xgb_v2"
+}

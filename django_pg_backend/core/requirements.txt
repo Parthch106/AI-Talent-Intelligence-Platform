@@ -35,3 +35,8 @@ email-validator>=2.1.0
 
 # Additional Utilities
 pytz>=2023.3
+
+# ML/AI - Sentence Transformers for v2 Embeddings
+sentence-transformers>=2.2.0
+torch>=2.0.0
+scikit-learn>=1.3.0

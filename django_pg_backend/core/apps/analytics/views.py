@@ -231,30 +231,42 @@ class SkillGapAnalysisView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        from django.db.models import Count
+        from django.db.models import Count, Avg
+        from apps.analytics.models import StructuredFeature
         
-        # Get all interns with skill gaps
+        # V2: Use StructuredFeature for skill gap analysis
         interns = User.objects.filter(role='INTERN')
-        intelligence_qs = InternIntelligence.objects.filter(user__in=interns)
+        features_qs = StructuredFeature.objects.filter(
+            application__intern__in=interns
+        )
         
-        # Aggregate skill gaps
-        all_gaps = []
-        for intel in intelligence_qs:
-            all_gaps.extend(intel.skill_gaps or [])
+        # Aggregate skill gap counts
+        avg_metrics = features_qs.aggregate(
+            avg_skill_match=Avg('skill_match_ratio'),
+            avg_domain_similarity=Avg('domain_similarity_score'),
+            total_critical_gaps=Count('id', filter=Q(critical_skill_gap_count__gt=0)),
+        )
         
-        gap_counts = {}
-        for gap in all_gaps:
-            gap_counts[gap] = gap_counts.get(gap, 0) + 1
+        # Get interns with most critical skill gaps
+        high_gap_features = features_qs.filter(
+            critical_skill_gap_count__gt=0
+        ).order_by('-critical_skill_gap_count')[:15]
         
-        # Sort by frequency
-        common_gaps = sorted(gap_counts.items(), key=lambda x: x[1], reverse=True)[:15]
+        gap_details = [
+            {
+                'intern': f.application.intern.email,
+                'critical_skill_gap_count': f.critical_skill_gap_count,
+                'skill_match_ratio': round(f.skill_match_ratio, 2),
+            }
+            for f in high_gap_features
+        ]
         
         return Response({
-            'common_gaps': [
-                {'skill': gap, 'count': count}
-                for gap, count in common_gaps
-            ],
-            'total_interns_analyzed': intelligence_qs.count(),
+            'avg_skill_match_ratio': round(avg_metrics['avg_skill_match'] or 0, 2),
+            'avg_domain_similarity': round(avg_metrics['avg_domain_similarity'] or 0, 2),
+            'interns_with_critical_gaps': avg_metrics['total_critical_gaps'],
+            'gap_details': gap_details,
+            'total_interns_analyzed': features_qs.count(),
         })
 
 

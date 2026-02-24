@@ -30,6 +30,11 @@ interface IntelligenceData {
         culture_fit: number;
         ai_readiness: number;
         predicted_growth: number;
+        // v2.0 new fields
+        suitability: number;
+        growth: number;
+        authenticity: number;
+        semantic_match: number;
     };
     skill_profile: Record<string, number>;
     domain_strengths: string[];
@@ -74,6 +79,12 @@ interface IntelligenceData {
         suitability_score?: number;
         decision?: string;
         decision_flags?: string[];
+        // v2.0 new fields
+        model_type?: string;
+        growth_score?: number;
+        authenticity_score?: number;
+        semantic_match_score?: number;
+        confidence_score?: number;
     };
 }
 
@@ -131,14 +142,21 @@ const AnalysisPage: React.FC = () => {
         } else {
             setIntelligence(null);
         }
-    }, [selectedInternId]);
+    }, [selectedInternId, selectedJobRole]);
 
     const fetchIntelligence = async (internId: number) => {
         setLoading(true);
         setError('');
         try {
-            const response = await api.get(`/analytics/intelligence/?intern_id=${internId}`);
-            console.log('Intelligence API Response:', response.data);
+            // Include job_role in query params to get the correct application
+            const params = new URLSearchParams();
+            params.append('intern_id', internId.toString());
+            if (selectedJobRole) {
+                params.append('job_role', selectedJobRole);
+            }
+            const response = await api.get(`/analytics/intelligence/?${params.toString()}`);
+            // Only log the v2 response
+            console.log('Intelligence Response (V2):', response.data);
             setIntelligence(response.data);
         } catch (err: any) {
             console.error('Intelligence API Error:', err);
@@ -158,9 +176,10 @@ const AnalysisPage: React.FC = () => {
             const response = await api.post(`/analytics/intelligence/compute/${internId}/`, {
                 job_role: selectedJobRole
             });
-            console.log('Compute Intelligence Response:', response.data);
+            // Only log the v2 response from POST (skip fetchIntelligence log to avoid duplicates)
+            console.log('Intelligence Response (V2):', response.data);
+            setIntelligence(response.data);
             setSuccessMessage('Intelligence computed successfully!');
-            await fetchIntelligence(internId);
         } catch (err: any) {
             console.error('Compute Intelligence Error:', err);
             setError(err.response?.data?.error || 'Failed to compute intelligence');
@@ -206,6 +225,7 @@ const AnalysisPage: React.FC = () => {
     const getDecisionBadge = (decision?: string) => {
         switch (decision) {
             case 'INTERVIEW_SHORTLIST': return <Badge variant="success" withDot>Interview Shortlist</Badge>;
+            case 'TECHNICAL_ASSIGNMENT': return <Badge variant="purple" withDot>Technical Assignment</Badge>;
             case 'MANUAL_REVIEW': return <Badge variant="warning" withDot>Manual Review</Badge>;
             case 'REJECT': return <Badge variant="danger" withDot>Not Suitable</Badge>;
             case 'NEEDS_IMPROVEMENT': return <Badge variant="purple" withDot>Needs Improvement</Badge>;
@@ -234,15 +254,24 @@ const AnalysisPage: React.FC = () => {
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Page Header */}
-            <div>
-                <h1 className="text-3xl font-bold text-white mb-2">
-                    Intern <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Analysis</span>
-                </h1>
-                <p className="text-slate-400">
-                    {user?.role === 'ADMIN'
-                        ? 'View analytics for all interns across the organization'
-                        : `View analytics for interns in your department (${user?.department})`}
-                </p>
+            <div className="flex justify-between items-start">
+                <div>
+                    <h1 className="text-3xl font-bold text-white mb-2">
+                        Intern <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Analysis</span>
+                    </h1>
+                    <p className="text-slate-400">
+                        {user?.role === 'ADMIN'
+                            ? 'View analytics for all interns across the organization'
+                            : `View analytics for interns in your department (${user?.department})`}
+                    </p>
+                </div>
+                {/* Model Version Badge - v2.0 */}
+                {intelligence && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-violet-500/20 to-purple-500/20 border border-violet-500/30 rounded-full">
+                        <Brain size={14} className="text-violet-400" />
+                        <span className="text-sm font-medium text-violet-300">Transformer XGB v2</span>
+                    </div>
+                )}
             </div>
 
             {/* Intern Selection */}
@@ -405,13 +434,13 @@ const AnalysisPage: React.FC = () => {
                         </Card>
                     )}
 
-                    {/* Score Cards */}
+                    {/* Score Cards - v2.0 with Transformer Embeddings */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {[
-                            { label: 'Technical', score: intelligence.scores.technical, icon: TrendingUp, color: 'from-purple-500 to-indigo-500' },
-                            { label: 'AI Readiness', score: intelligence.scores.ai_readiness, icon: Brain, color: 'from-violet-500 to-purple-500' },
-                            { label: 'Growth Potential', score: intelligence.scores.predicted_growth, icon: Award, color: 'from-amber-500 to-orange-500' },
-                            { label: 'Leadership', score: intelligence.scores.leadership, icon: User, color: 'from-cyan-500 to-blue-500' },
+                            { label: 'Suitability', score: intelligence.scores.suitability || intelligence.resume_analysis?.suitability_score || 0, icon: Target, color: 'from-emerald-500 to-teal-500' },
+                            { label: 'Semantic Match', score: intelligence.scores.semantic_match || intelligence.resume_analysis?.semantic_match_score || 0, icon: Brain, color: 'from-violet-500 to-purple-500' },
+                            { label: 'Growth Potential', score: intelligence.scores.growth || intelligence.resume_analysis?.growth_score || intelligence.scores.predicted_growth || 0, icon: Award, color: 'from-amber-500 to-orange-500' },
+                            { label: 'Authenticity', score: intelligence.scores.authenticity || intelligence.resume_analysis?.authenticity_score || intelligence.resume_analysis?.resume_authenticity_score || 0, icon: Shield, color: 'from-cyan-500 to-blue-500' },
                         ].map((item) => (
                             <Card key={item.label} hover className="group">
                                 <div className="flex items-center gap-2 mb-3">
@@ -436,11 +465,11 @@ const AnalysisPage: React.FC = () => {
                         ))}
                     </div>
 
-                    {/* Additional Scores */}
+                    {/* Additional Scores - v2.0 */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {[
-                            { label: 'Communication', score: intelligence.scores.communication },
-                            { label: 'Culture Fit', score: intelligence.scores.culture_fit },
+                            { label: 'Confidence Score', score: intelligence.resume_analysis?.confidence_score || 0 },
+                            { label: 'Technical', score: intelligence.scores?.technical || 0 },
                         ].map((item) => (
                             <Card key={item.label} className="flex items-center justify-between">
                                 <span className="text-slate-300">{item.label}</span>
@@ -472,22 +501,22 @@ const AnalysisPage: React.FC = () => {
                                     <div>
                                         <p className="text-sm text-slate-400 mb-2">Suitability Score</p>
                                         <div className="flex items-baseline gap-2">
-                                            <span className={`text-4xl font-bold ${getSuitabilityColor((intelligence.resume_analysis.suitability_score || 0) * 100)}`}>
-                                                {((intelligence.resume_analysis.suitability_score || 0) * 100).toFixed(0)}
+                                            <span className={`text-4xl font-bold ${getSuitabilityColor((intelligence.resume_analysis?.suitability_score || 0) * 100)}`}>
+                                                {((intelligence.resume_analysis?.suitability_score || 0) * 100).toFixed(0)}
                                             </span>
                                             <span className="text-xl text-slate-500">/100</span>
                                         </div>
                                         <div className="mt-3 h-3 bg-slate-700 rounded-full overflow-hidden">
                                             <div
-                                                className={`h-full ${getScoreBgColor((intelligence.resume_analysis.suitability_score || 0))} transition-all`}
-                                                style={{ width: `${(intelligence.resume_analysis.suitability_score || 0) * 100}%` }}
+                                                className={`h-full ${getScoreBgColor((intelligence.resume_analysis?.suitability_score || 0))} transition-all`}
+                                                style={{ width: `${(intelligence.resume_analysis?.suitability_score || 0) * 100}%` }}
                                             />
                                         </div>
                                     </div>
                                     <div>
                                         <p className="text-sm text-slate-400 mb-2">Decision</p>
                                         <div className="flex items-center gap-3">
-                                            {getDecisionBadge(intelligence.resume_analysis.decision)}
+                                            {getDecisionBadge(intelligence.resume_analysis?.decision)}
                                         </div>
                                     </div>
                                 </div>
@@ -497,10 +526,10 @@ const AnalysisPage: React.FC = () => {
                             <Card icon={<Target size={20} />} title="Skill-to-Role Matching">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {[
-                                        { label: 'Skill Match', value: `${intelligence.resume_analysis.skill_match_percentage?.toFixed(0) || 0}%` },
-                                        { label: 'Core Skills', value: `${((intelligence.resume_analysis.core_skill_match_score || 0) * 100).toFixed(0)}%` },
-                                        { label: 'Critical Gaps', value: intelligence.resume_analysis.critical_skill_gap_count || 0, highlight: true },
-                                        { label: 'Domain Relevance', value: `${((intelligence.resume_analysis.domain_relevance_score || 0) * 100).toFixed(0)}%` },
+                                        { label: 'Skill Match', value: `${intelligence.resume_analysis?.skill_match_percentage?.toFixed(0) || 0}%` },
+                                        { label: 'Core Skills', value: `${((intelligence.resume_analysis?.core_skill_match_score || 0) * 100).toFixed(0)}%` },
+                                        { label: 'Critical Gaps', value: intelligence.resume_analysis?.critical_skill_gap_count || 0, highlight: true },
+                                        { label: 'Domain Relevance', value: `${((intelligence.resume_analysis?.domain_relevance_score || 0) * 100).toFixed(0)}%` },
                                     ].map((item) => (
                                         <div key={item.label} className="p-3 bg-slate-800/30 rounded-xl">
                                             <p className="text-xs text-slate-400 mb-1">{item.label}</p>
@@ -511,28 +540,28 @@ const AnalysisPage: React.FC = () => {
                             </Card>
 
                             {/* Production Tools (Optional - doesn't affect suitability) */}
-                            {intelligence.resume_analysis.production_tools_percentage && intelligence.resume_analysis.production_tools_percentage.percentage !== undefined && (
+                            {intelligence.resume_analysis?.production_tools_percentage && intelligence.resume_analysis?.production_tools_percentage?.percentage !== undefined && (
                                 <Card icon={<Zap size={20} />} title="Production Tools Usage">
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         <div className="p-3 bg-slate-800/30 rounded-xl">
                                             <p className="text-xs text-slate-400 mb-1">Overall Score</p>
                                             <p className="text-xl font-bold text-white">
-                                                {intelligence.resume_analysis.production_tools_percentage.percentage.toFixed(0)}%
+                                                {intelligence.resume_analysis?.production_tools_percentage?.percentage?.toFixed(0) || 0}%
                                             </p>
                                         </div>
                                         <div className="p-3 bg-slate-800/30 col-span-2">
                                             <p className="text-xs text-slate-400 mb-1">Tools Found</p>
                                             <p className="text-sm font-medium text-white">
-                                                {(intelligence.resume_analysis.production_tools_percentage.tools_found?.length ?? 0) > 0
-                                                    ? (intelligence.resume_analysis.production_tools_percentage.tools_found ?? []).join(', ')
+                                                {(intelligence.resume_analysis?.production_tools_percentage?.tools_found?.length ?? 0) > 0
+                                                    ? (intelligence.resume_analysis?.production_tools_percentage?.tools_found ?? []).join(', ')
                                                     : 'None'}
                                             </p>
                                         </div>
                                     </div>
                                     {/* Tool Categories Breakdown */}
-                                    {intelligence.resume_analysis.production_tools_percentage.tool_categories && (
+                                    {intelligence.resume_analysis?.production_tools_percentage?.tool_categories && (
                                         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
-                                            {Object.entries(intelligence.resume_analysis.production_tools_percentage.tool_categories).map(([category, tools]) => (
+                                            {Object.entries(intelligence.resume_analysis?.production_tools_percentage?.tool_categories || {}).map(([category, tools]) => (
                                                 tools.length > 0 && (
                                                     <div key={category} className="p-2 bg-purple-500/10 rounded-lg border border-purple-500/20">
                                                         <p className="text-xs text-purple-400 capitalize">{category.replace('_', ' ')}</p>
@@ -549,9 +578,9 @@ const AnalysisPage: React.FC = () => {
                             <Card icon={<Shield size={20} />} title="Resume Quality Indicators">
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     {[
-                                        { label: 'Authenticity', value: intelligence.resume_analysis.resume_authenticity_score },
-                                        { label: 'Role Alignment', value: intelligence.resume_analysis.role_alignment_score },
-                                        { label: 'Technical Clarity', value: intelligence.resume_analysis.technical_clarity_score },
+                                        { label: 'Authenticity', value: intelligence.resume_analysis?.resume_authenticity_score },
+                                        { label: 'Role Alignment', value: intelligence.resume_analysis?.role_alignment_score },
+                                        { label: 'Technical Clarity', value: intelligence.resume_analysis?.technical_clarity_score },
                                     ].map((item) => (
                                         <div key={item.label} className="p-3 bg-slate-800/30 rounded-xl">
                                             <p className="text-xs text-slate-400 mb-1">{item.label}</p>
@@ -559,16 +588,16 @@ const AnalysisPage: React.FC = () => {
                                         </div>
                                     ))}
                                     {/* Optional: Achievement Oriented */}
-                                    {intelligence.resume_analysis.achievement_orientation_score !== undefined && (
+                                    {intelligence.resume_analysis?.achievement_orientation_score !== undefined && (
                                         <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
                                             <p className="text-xs text-purple-400 mb-1">
                                                 Achievement Oriented <span className="text-slate-500">(Optional)</span>
                                             </p>
-                                            <p className="text-xl font-bold text-white">{((intelligence.resume_analysis.achievement_orientation_score || 0) * 100).toFixed(0)}%</p>
+                                            <p className="text-xl font-bold text-white">{((intelligence.resume_analysis?.achievement_orientation_score || 0) * 100).toFixed(0)}%</p>
                                         </div>
                                     )}
                                 </div>
-                                {intelligence.resume_analysis.keyword_stuffing_flag && (
+                                {intelligence.resume_analysis?.keyword_stuffing_flag && (
                                     <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 flex items-center gap-2">
                                         <AlertTriangle size={16} />
                                         Warning: Potential keyword stuffing detected
@@ -603,10 +632,18 @@ const AnalysisPage: React.FC = () => {
                                 <h3 className="text-lg font-semibold text-red-400">Risk Flags</h3>
                             </div>
                             <div className="space-y-2">
-                                {intelligence.risk_flags.map((flag, index) => (
+                                {intelligence.risk_flags.map((flag: any, index: number) => (
                                     <div key={index} className="p-3 bg-red-500/10 rounded-xl">
-                                        <p className="font-medium text-white capitalize">{flag.type.replace(/_/g, ' ')}</p>
-                                        <p className="text-sm text-slate-400">{flag.message}</p>
+                                        <p className="font-medium text-white capitalize">
+                                            {typeof flag === 'string' 
+                                                ? flag.replace(/_/g, ' ').split(':')[0] 
+                                                : (flag.type || '').replace(/_/g, ' ')}
+                                        </p>
+                                        <p className="text-sm text-slate-400">
+                                            {typeof flag === 'string' 
+                                                ? (flag.split(':')[1] || '').trim() 
+                                                : (flag.message || '')}
+                                        </p>
                                     </div>
                                 ))}
                             </div>

@@ -16,7 +16,7 @@ from apps.documents.models import ResumeData, Document
 from apps.analytics.models import (
     JobRole,
     Application,
-    ResumeFeature,
+    StructuredFeature,
     ModelPrediction,
 )
 from apps.analytics.services.talent_intelligence_service import talent_intelligence_service
@@ -180,10 +180,17 @@ class GetInternAnalysisView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Get application
-        application = Application.objects.filter(
-            intern=intern
-        ).select_related('job_role').first()
+        # Get application - filter by job_role if provided
+        job_role_filter = request.query_params.get('job_role')
+        
+        application_filter = Application.objects.filter(intern=intern)
+        
+        if job_role_filter:
+            application_filter = application_filter.filter(
+                job_role__role_title=job_role_filter.upper()
+            )
+        
+        application = application_filter.select_related('job_role').first()
         
         if not application:
             return Response(
@@ -266,8 +273,8 @@ class ApplicationListView(APIView):
                 'intern_name': app.intern.full_name,
                 'intern_email': app.intern.email,
                 'job_role': app.job_role.role_title if app.job_role else None,
-                'status': app.status,
-                'application_date': app.application_date.isoformat() if app.application_date else None,
+                'status': app.application_status,
+                'application_date': app.created_at.isoformat() if app.created_at else None,
                 'suitability_score': prediction.suitability_score if prediction else None,
                 'decision': prediction.decision if prediction else None,
             })
@@ -324,10 +331,17 @@ class LegacyIntelligenceView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Get application
-        application = Application.objects.filter(
-            intern=intern
-        ).select_related('job_role').first()
+        # Get application - filter by job_role if provided
+        job_role_filter = request.query_params.get('job_role')
+        
+        application_filter = Application.objects.filter(intern=intern)
+        
+        if job_role_filter:
+            application_filter = application_filter.filter(
+                job_role__role_title=job_role_filter.upper()
+            )
+        
+        application = application_filter.select_related('job_role').first()
         
         if not application:
             return Response(
@@ -346,8 +360,8 @@ class LegacyIntelligenceView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Get resume features
-        resume_feature = ResumeFeature.objects.filter(
+        # Get structured features (V2)
+        structured_feature = StructuredFeature.objects.filter(
             application=application
         ).first()
         
@@ -356,13 +370,13 @@ class LegacyIntelligenceView(APIView):
             intern=intern,
             application=application,
             prediction=prediction,
-            resume_feature=resume_feature
+            structured_feature=structured_feature
         )
         
         return Response(response_data, status=status.HTTP_200_OK)
     
-    def _build_intelligence_response(self, intern, application, prediction, resume_feature):
-        """Build intelligence response in format expected by frontend."""
+    def _build_intelligence_response(self, intern, application, prediction, structured_feature):
+        """Build intelligence response in format expected by frontend (V2)."""
         
         # Get job role
         job_role = application.job_role
@@ -384,59 +398,58 @@ class LegacyIntelligenceView(APIView):
         except Exception as e:
             pass  # If document lookup fails, continue without it
         
-        # Build scores
+        # Build scores (V2 field names)
         scores = {
-            'technical': prediction.technical_competency_score or 0,
-            'leadership': prediction.leadership_score or 0,
-            'communication': prediction.communication_score or 0,
-            'culture_fit': prediction.growth_potential_score or 0,  # Using growth as culture fit proxy
-            'ai_readiness': prediction.suitability_score or 0,
-            'predicted_growth': prediction.growth_potential_score or 0,
+            'technical': prediction.technical_score or 0,
+            'suitability': prediction.suitability_score or 0,
+            'growth': prediction.growth_score or 0,
+            'authenticity': prediction.authenticity_score or 0,
+            'semantic_match': prediction.semantic_match_score or 0,
         }
         
-        # Build skill profile
+        # Build skill profile from structured features
         skill_profile = {}
-        if resume_feature:
-            if resume_feature.skill_match_ratio:
-                skill_profile['Skill Match'] = resume_feature.skill_match_ratio
-            if resume_feature.domain_similarity_score:
-                skill_profile['Domain Similarity'] = resume_feature.domain_similarity_score
-            if resume_feature.project_complexity_score:
-                skill_profile['Project Complexity'] = resume_feature.project_complexity_score
-            if resume_feature.internship_relevance_score:
-                skill_profile['Internship Relevance'] = resume_feature.internship_relevance_score
+        if structured_feature:
+            if structured_feature.skill_match_ratio:
+                skill_profile['Skill Match'] = structured_feature.skill_match_ratio
+            if structured_feature.domain_similarity_score:
+                skill_profile['Domain Similarity'] = structured_feature.domain_similarity_score
+            if structured_feature.project_complexity_score:
+                skill_profile['Project Complexity'] = structured_feature.project_complexity_score
+            if structured_feature.internship_relevance_score:
+                skill_profile['Internship Relevance'] = structured_feature.internship_relevance_score
         
-        # Top strengths from prediction (derived from resume features)
+        # Top strengths
         domain_strengths = []
-        if resume_feature:
-            if resume_feature.skill_match_ratio and resume_feature.skill_match_ratio >= 0.6:
+        if structured_feature:
+            if structured_feature.skill_match_ratio and structured_feature.skill_match_ratio >= 0.6:
                 domain_strengths.append("Strong skill alignment with role requirements")
-            if resume_feature.domain_similarity_score and resume_feature.domain_similarity_score >= 0.6:
+            if structured_feature.domain_similarity_score and structured_feature.domain_similarity_score >= 0.6:
                 domain_strengths.append("Domain expertise matches job requirements")
-            if resume_feature.project_complexity_score and resume_feature.project_complexity_score >= 0.6:
+            if structured_feature.project_complexity_score and structured_feature.project_complexity_score >= 0.6:
                 domain_strengths.append("Complex project experience demonstrated")
-            if resume_feature.internship_relevance_score and resume_feature.internship_relevance_score >= 0.6:
+            if structured_feature.internship_relevance_score and structured_feature.internship_relevance_score >= 0.6:
                 domain_strengths.append("Relevant internship experience")
-            if prediction.resume_authenticity_score and prediction.resume_authenticity_score >= 0.7:
+            if prediction.authenticity_score and prediction.authenticity_score >= 0.7:
                 domain_strengths.append("High resume authenticity score")
         
-        # Skill gaps (derived from resume features)
+        # Skill gaps
         skill_gaps = []
-        if resume_feature:
-            if resume_feature.skill_match_ratio and resume_feature.skill_match_ratio < 0.5:
+        if structured_feature:
+            if structured_feature.skill_match_ratio and structured_feature.skill_match_ratio < 0.5:
                 skill_gaps.append("Skill match below target threshold")
-            if resume_feature.critical_skill_gap_count and resume_feature.critical_skill_gap_count > 0:
-                skill_gaps.append(f"{resume_feature.critical_skill_gap_count} critical skill gaps identified")
-            if resume_feature.domain_similarity_score and resume_feature.domain_similarity_score < 0.5:
+            if structured_feature.critical_skill_gap_count and structured_feature.critical_skill_gap_count > 0:
+                skill_gaps.append(f"{structured_feature.critical_skill_gap_count} critical skill gaps identified")
+            if structured_feature.domain_similarity_score and structured_feature.domain_similarity_score < 0.5:
                 skill_gaps.append("Domain alignment needs improvement")
         
-        # Recommendations (build from available data)
+        # Recommendations
         recommendations = []
-        if resume_feature:
-            if resume_feature.skill_match_ratio:
-                if resume_feature.skill_match_ratio > 0.7:
+        if structured_feature:
+            if structured_feature.skill_match_ratio:
+                if structured_feature.skill_match_ratio > 0.7:
                     recommendations.append("Strong skill match - highlight these in interviews")
-                elif resume_feature.skill_match_ratio < 0.4:
+                elif structured_feature.skill_match_ratio < 0.4:
                     recommendations.append("Consider developing required skills")
             
             if prediction.suitability_score:
@@ -445,19 +458,17 @@ class LegacyIntelligenceView(APIView):
                 elif prediction.suitability_score < 0.4:
                     recommendations.append("Consider additional skill development before re-evaluation")
             
-            if prediction.growth_potential_score:
-                if prediction.growth_potential_score > 0.7:
+            if prediction.growth_score:
+                if prediction.growth_score > 0.7:
                     recommendations.append("High growth potential - invest in training")
         
-        # Risk flags (derived from prediction and resume features)
+        # Risk flags
         risk_flags = []
-        if resume_feature:
-            if resume_feature.keyword_stuffing_ratio and resume_feature.keyword_stuffing_ratio > 0.3:
-                risk_flags.append({'type': 'KEYWORD_STUFFING', 'message': 'Possible keyword stuffing detected'})
-            if resume_feature.resume_consistency_score and resume_feature.resume_consistency_score < 0.4:
-                risk_flags.append({'type': 'LOW_CONSISTENCY', 'message': 'Low resume consistency - verify information'})
+        if structured_feature:
+            if structured_feature.writing_clarity_score and structured_feature.writing_clarity_score < 0.3:
+                risk_flags.append({'type': 'LOW_CLARITY', 'message': 'Low writing clarity - verify resume quality'})
         if prediction:
-            if prediction.resume_authenticity_score and prediction.resume_authenticity_score < 0.5:
+            if prediction.authenticity_score and prediction.authenticity_score < 0.5:
                 risk_flags.append({'type': 'AUTHENTICITY_CONCERN', 'message': 'Low resume authenticity - verify credentials'})
         
         # Resume analysis details
@@ -465,21 +476,22 @@ class LegacyIntelligenceView(APIView):
             'applied_role': job_role.role_title if job_role else None,
             'suitability_score': prediction.suitability_score,
             'decision': prediction.decision,
+            'model_type': prediction.model_type,
             'decision_flags': [],
         }
         
-        # Add resume feature details if available
-        if resume_feature:
+        # Add structured feature details if available
+        if structured_feature:
             resume_analysis.update({
-                'has_internship_experience': resume_feature.internship_relevance_score > 0 if resume_feature.internship_relevance_score else False,
-                'skill_match_percentage': resume_feature.skill_match_ratio * 100 if resume_feature.skill_match_ratio else 0,
-                'core_skill_match_score': resume_feature.skill_match_ratio or 0,
-                'critical_skill_gap_count': resume_feature.critical_skill_gap_count or 0,
-                'domain_relevance_score': resume_feature.domain_similarity_score or 0,
-                'internship_relevance_score': resume_feature.internship_relevance_score or 0,
-                'resume_authenticity_score': prediction.resume_authenticity_score or 0,
-                'role_alignment_score': resume_feature.skill_match_ratio or 0,
-                'technical_clarity_score': resume_feature.writing_clarity_score or 0,
+                'has_internship_experience': structured_feature.internship_relevance_score > 0 if structured_feature.internship_relevance_score else False,
+                'skill_match_percentage': structured_feature.skill_match_ratio * 100 if structured_feature.skill_match_ratio else 0,
+                'core_skill_match_score': structured_feature.skill_match_ratio or 0,
+                'critical_skill_gap_count': structured_feature.critical_skill_gap_count or 0,
+                'domain_relevance_score': structured_feature.domain_similarity_score or 0,
+                'internship_relevance_score': structured_feature.internship_relevance_score or 0,
+                'authenticity_score': prediction.authenticity_score or 0,
+                'role_alignment_score': structured_feature.skill_match_ratio or 0,
+                'technical_clarity_score': structured_feature.writing_clarity_score or 0,
             })
         
         return {
@@ -534,17 +546,52 @@ class LegacyComputeIntelligenceView(APIView):
         job_role = request.data.get('job_role')
         
         try:
-            # Run analysis using new ML pipeline
+            # Run analysis using new ML pipeline (v2.0 with embeddings)
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Starting analysis for intern {intern.id} with job_role: {job_role}")
+            
             result = talent_intelligence_service.analyze_resume(
                 user=intern,
                 job_role=job_role,
                 create_application=True
             )
             
+            logger.info(f"Analysis complete. Result: {result}")
+            
+            # Return full v2 response for frontend compatibility
             return Response({
                 'message': 'Intelligence computed successfully!',
+                'model_version': 'transformer_xgb_v2',
+                # For frontend compatibility - wrap in scores object
+                'scores': {
+                    'suitability': result.get('suitability_score', 0),
+                    'semantic_match': result.get('semantic_match_score', 0),
+                    'growth': result.get('growth_score', 0),
+                    'authenticity': result.get('authenticity_score', 0),
+                    'technical': result.get('technical_competency_score', 0),
+                },
+                # Primary scores (also at top level for v2)
                 'suitability_score': result.get('suitability_score'),
                 'decision': result.get('decision'),
+                # V2 additional scores
+                'semantic_match_score': result.get('semantic_match_score'),
+                'growth_score': result.get('growth_score'),
+                'authenticity_score': result.get('authenticity_score'),
+                'confidence_score': result.get('confidence_score'),
+                # Resume analysis for frontend
+                'resume_analysis': {
+                    'applied_role': job_role,
+                    'suitability_score': result.get('suitability_score', 0),
+                    'decision': result.get('decision', 'MANUAL_REVIEW'),
+                    'confidence_score': result.get('confidence_score', 0),
+                },
+                # Additional info
+                'top_strengths': result.get('top_strengths', []),
+                'risk_flags': result.get('risk_flags', []),
+                # Add skill_gaps and recommendations for frontend
+                'skill_gaps': result.get('skill_gaps', []),
+                'recommendations': result.get('recommendations', []),
             }, status=status.HTTP_200_OK)
             
         except ValueError as e:

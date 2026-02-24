@@ -6,14 +6,15 @@ from .models import (
     WeeklyReport,
     PerformanceMetrics,
     MonthlyEvaluationReport,
-    # New ML Pipeline Models
+    # V2 ML Pipeline Models
     JobRole,
     Application,
-    ResumeFeature,
+    ResumeSection,
+    ResumeEmbedding,
+    StructuredFeature,
     ModelPrediction,
     HiringOutcome,
     GrowthTracking,
-    AuthenticityReview,
     ModelRegistry,
 )
 
@@ -78,7 +79,7 @@ class MonthlyEvaluationReportAdmin(admin.ModelAdmin):
 
 
 # ============================================================================
-# New ML Pipeline Models
+# V2 ML Pipeline Models
 # ============================================================================
 
 @admin.register(JobRole)
@@ -89,13 +90,25 @@ class JobRoleAdmin(admin.ModelAdmin):
 
 @admin.register(Application)
 class ApplicationAdmin(admin.ModelAdmin):
-    list_display = ('intern', 'job_role', 'status', 'application_date')
-    list_filter = ('status', 'job_role')
+    list_display = ('intern', 'job_role', 'application_status', 'created_at')
+    list_filter = ('application_status', 'job_role')
     search_fields = ('intern__full_name', 'intern__email')
 
 
-@admin.register(ResumeFeature)
-class ResumeFeatureAdmin(admin.ModelAdmin):
+@admin.register(ResumeSection)
+class ResumeSectionAdmin(admin.ModelAdmin):
+    list_display = ('application', 'created_at')
+    search_fields = ('application__intern__full_name',)
+
+
+@admin.register(ResumeEmbedding)
+class ResumeEmbeddingAdmin(admin.ModelAdmin):
+    list_display = ('application', 'created_at')
+    search_fields = ('application__intern__full_name',)
+
+
+@admin.register(StructuredFeature)
+class StructuredFeatureAdmin(admin.ModelAdmin):
     list_display = ('application', 'skill_match_ratio', 'critical_skill_gap_count', 'created_at')
     list_filter = ('created_at',)
     search_fields = ('application__intern__full_name',)
@@ -103,8 +116,8 @@ class ResumeFeatureAdmin(admin.ModelAdmin):
 
 @admin.register(ModelPrediction)
 class ModelPredictionAdmin(admin.ModelAdmin):
-    list_display = ('application', 'decision', 'suitability_score', 'confidence_score', 'created_at')
-    list_filter = ('decision', 'model_version')
+    list_display = ('application', 'decision', 'suitability_score', 'semantic_match_score', 'confidence_score', 'model_type', 'created_at')
+    list_filter = ('decision', 'model_type', 'model_version')
     search_fields = ('application__intern__full_name',)
 
 
@@ -120,13 +133,6 @@ class GrowthTrackingAdmin(admin.ModelAdmin):
     list_display = ('intern', 'months_since_joining', 'performance_rating', 'retention_status', 'created_at')
     list_filter = ('retention_status', 'promotion_received')
     search_fields = ('intern__full_name',)
-
-
-@admin.register(AuthenticityReview)
-class AuthenticityReviewAdmin(admin.ModelAdmin):
-    list_display = ('application', 'authenticity_label', 'reviewed_by', 'reviewed_at')
-    list_filter = ('authenticity_label',)
-    search_fields = ('application__intern__full_name',)
 
 
 @admin.register(ModelRegistry)

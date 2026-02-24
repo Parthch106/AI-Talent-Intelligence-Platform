@@ -16,6 +16,7 @@ Author: AI Talent Intelligence Platform
 """
 
 import re
+import ast
 import logging
 from typing import Dict, List, Any, Optional
 from collections import Counter
@@ -299,6 +300,7 @@ class ResumeParsingEngine:
             Dictionary containing all extracted features
         """
         logger.info(f"Parsing document: {document.id} - {document.title}")
+        logger.info(f"Document has raw_text: {bool(document.raw_text)}, has file: {bool(document.file)}")
         
         # Step 1: Extract raw text from the file
         raw_text = self._extract_text_from_document(document)
@@ -346,6 +348,8 @@ class ResumeParsingEngine:
         features['_raw_text'] = raw_text[:5000]  # Store first 5000 chars
         
         logger.info(f"Document parsing completed. Total features: {len(features)}")
+        logger.info(f"_parsed_data keys: {list(parsed_data.keys()) if parsed_data else None}")
+        logger.info(f"_parsed_data sample: summary={parsed_data.get('summary', '')[:50] if parsed_data else None}, skills count={len(parsed_data.get('skills', [])) if parsed_data else 0}")
         
         return features
     
@@ -453,50 +457,1137 @@ class ResumeParsingEngine:
         """
         Parse resume raw text to extract structured data.
         
-        Uses regex patterns to extract:
-        - Skills
-        - Education
-        - Experience
-        - Projects
-        - Tools
-        - Certifications
+        Handles both markdown-formatted resumes and plain text resumes.
+        Maps to ResumeSection table columns.
         
         Args:
             raw_text: Raw text extracted from resume
             
         Returns:
-            Dictionary with structured data
+            Dictionary with structured data matching ResumeSection fields
         """
         parsed = {
+            # Skills
             'skills': [],
-            'education': [],
-            'experience': [],
-            'projects': [],
             'tools': [],
-            'certifications': [],
+            'technical_skills': '',
+            'tools_technologies': '',
+            'frameworks_libraries': '',
+            'databases': '',
+            'cloud_platforms': '',
+            'soft_skills': '',
+            
+            # Experience
+            'experience': [],
+            'experience_titles': '',
+            'experience_descriptions': '',
+            'experience_duration_text': '',
             'total_experience_years': 0,
+            
+            # Projects
+            'projects': [],
+            'project_titles': '',
+            'project_descriptions': '',
+            'project_technologies': '',
+            
+            # Education
+            'education': [],
+            'education_text': '',
+            
+            # Other
+            'certifications': [],
+            'certifications_text': '',
+            'achievements': [],
+            'achievements_text': '',
+            'professional_summary': '',
+            
+            # Extracurriculars (internships, etc.)
+            'extracurriculars': '',
         }
         
-        # Extract skills using the skill patterns defined in the engine
-        parsed['skills'] = self._extract_skills_from_text(raw_text)
-        parsed['tools'] = self._extract_tools_from_text(raw_text)
+        if not raw_text or len(raw_text.strip()) < 50:
+            logger.warning("_parse_resume_text: raw_text is too short or empty")
+            return parsed
         
-        # Extract education
-        parsed['education'] = self._extract_education_from_text(raw_text)
+        print(f"_parse_resume_text: Text length = {len(raw_text)}")
+        print(f"Is markdown: {'## ' in raw_text or '# ' in raw_text}")
         
-        # Extract experience
-        parsed['experience'], parsed['total_experience_years'] = self._extract_experience_from_text(raw_text)
+        # Check if it's markdown format
+        is_markdown = '## ' in raw_text or '# ' in raw_text
         
-        # Extract projects
-        parsed['projects'] = self._extract_projects_from_text(raw_text)
+        print(f"is_markdown = {is_markdown}")
         
-        # Extract certifications
-        parsed['certifications'] = self._extract_certifications_from_text(raw_text)
+        if is_markdown:
+            print("Using MARKDOWN parsing")
+            parsed = self._parse_markdown_resume(raw_text, parsed)
+        else:
+            # Try plain text parsing first
+            is_plain_text = 'PERSONAL INFORMATION' in raw_text.upper() or 'OBJECTIVE' in raw_text.upper()
+            
+            print(f"is_plain_text = {is_plain_text}")
+            
+            if is_plain_text:
+                print("Using PLAIN TEXT parsing")
+                parsed = self._parse_plain_text_resume(raw_text, parsed)
+                
+                # Check if plain text parsing produced any results
+                # If not, fall back to intelligent parsing
+                has_plain_text_results = (
+                    parsed.get('skills') or 
+                    parsed.get('experience') or 
+                    parsed.get('projects') or 
+                    parsed.get('education') or
+                    parsed.get('professional_summary')
+                )
+                if not has_plain_text_results:
+                    print("Plain text parsing returned empty, falling back to INTELLIGENT parsing")
+                    parsed = self._intelligent_resume_parse(raw_text, parsed)
+            else:
+                # Neither markdown nor plain text - do intelligent extraction
+                print("Using INTELLIGENT parsing")
+                parsed = self._intelligent_resume_parse(raw_text, parsed)
+        
+        # After parsing, populate all text fields from the extracted lists
+        parsed = self._populate_text_fields(parsed)
+        
+        # Debug: Log and print the parsed data
+        print("\n" + "="*50)
+        print("RESUME PARSING RESULTS")
+        print("="*50)
+        
+        # Helper function to safely show truncated string
+        def show_truncated(s, limit=100):
+            s = s or ''
+            return s[:limit] + '...' if len(s) > limit else s
+        
+        print(f"professional_summary: {show_truncated(parsed.get('professional_summary', ''))}")
+        print(f"technical_skills: {show_truncated(parsed.get('technical_skills', ''), 200)}")
+        print(f"tools_technologies: {parsed.get('tools_technologies', '')}")
+        print(f"frameworks_libraries: {parsed.get('frameworks_libraries', '')}")
+        print(f"databases: {parsed.get('databases', '')}")
+        print(f"cloud_platforms: {parsed.get('cloud_platforms', '')}")
+        print(f"soft_skills: {parsed.get('soft_skills', '')}")
+        print(f"experience_titles: {parsed.get('experience_titles', '')}")
+        print(f"experience_descriptions: {show_truncated(parsed.get('experience_descriptions', ''), 200)}")
+        print(f"experience_duration_text: {parsed.get('experience_duration_text', '')}")
+        print(f"project_titles: {parsed.get('project_titles', '')}")
+        print(f"project_descriptions: {show_truncated(parsed.get('project_descriptions', ''), 200)}")
+        print(f"project_technologies: {parsed.get('project_technologies', '')}")
+        print(f"education_text: {parsed.get('education_text', '')}")
+        print(f"certifications_text: {parsed.get('certifications_text', '')}")
+        print(f"achievements_text: {show_truncated(parsed.get('achievements_text', ''), 100)}")
+        print(f"extracurriculars: {parsed.get('extracurriculars', '')}")
+        print(f"skills count: {len(parsed.get('skills', []))}")
+        print(f"experience count: {len(parsed.get('experience', []))}")
+        print(f"projects count: {len(parsed.get('projects', []))}")
+        print(f"education count: {len(parsed.get('education', []))}")
+        print(f"certifications count: {len(parsed.get('certifications', []))}")
+        print(f"achievements count: {len(parsed.get('achievements', []))}")
+        print("="*50 + "\n")
+        
+        logger.info("=== RESUME PARSING RESULTS ===")
+        logger.info(f"professional_summary: {parsed.get('professional_summary', '')[:100]}...")
+        logger.info(f"technical_skills: {parsed.get('technical_skills', '')[:200]}...")
+        logger.info(f"tools_technologies: {parsed.get('tools_technologies', '')}")
+        logger.info(f"frameworks_libraries: {parsed.get('frameworks_libraries', '')}")
+        logger.info(f"databases: {parsed.get('databases', '')}")
+        logger.info(f"cloud_platforms: {parsed.get('cloud_platforms', '')}")
+        logger.info(f"soft_skills: {parsed.get('soft_skills', '')}")
+        logger.info(f"experience_titles: {parsed.get('experience_titles', '')}")
+        logger.info(f"experience_descriptions: {parsed.get('experience_descriptions', '')[:200]}...")
+        logger.info(f"experience_duration_text: {parsed.get('experience_duration_text', '')}")
+        logger.info(f"project_titles: {parsed.get('project_titles', '')}")
+        logger.info(f"project_descriptions: {parsed.get('project_descriptions', '')[:200]}...")
+        logger.info(f"project_technologies: {parsed.get('project_technologies', '')}")
+        logger.info(f"education_text: {parsed.get('education_text', '')}")
+        logger.info(f"certifications_text: {parsed.get('certifications_text', '')}")
+        logger.info(f"achievements_text: {parsed.get('achievements_text', '')}")
+        logger.info(f"extracurriculars: {parsed.get('extracurriculars', '')}")
+        logger.info(f"skills count: {len(parsed.get('skills', []))}")
+        logger.info(f"experience count: {len(parsed.get('experience', []))}")
+        logger.info(f"projects count: {len(parsed.get('projects', []))}")
+        logger.info(f"education count: {len(parsed.get('education', []))}")
+        logger.info(f"certifications count: {len(parsed.get('certifications', []))}")
+        logger.info(f"achievements count: {len(parsed.get('achievements', []))}")
+        logger.info("=== END RESUME PARSING RESULTS ===")
         
         return parsed
     
+    def _populate_text_fields(self, parsed: Dict) -> Dict:
+        """
+        Populate all text fields from extracted lists.
+        This ensures all ResumeSection columns get filled.
+        """
+        # Technical skills - combine all skill categories
+        all_skills = []
+        all_skills.extend(parsed.get('skills', []))
+        
+        # Add tools to technical skills if not already there
+        for tool in parsed.get('tools', []):
+            if tool not in all_skills:
+                all_skills.append(tool)
+        
+        parsed['technical_skills'] = ', '.join(all_skills)
+        
+        # Tools and technologies
+        parsed['tools_technologies'] = ', '.join(parsed.get('tools', []))
+        
+        # Frameworks and libraries - extract from skills
+        frameworks = [s for s in all_skills if s.lower() in [
+            'tensorflow', 'pytorch', 'keras', 'scikit-learn', 'flask', 'django', 
+            'react', 'angular', 'vue', 'node.js', 'express', 'spring', 'rails'
+        ]]
+        parsed['frameworks_libraries'] = ', '.join(frameworks)
+        
+        # Databases - extract from skills
+        databases = [s for s in all_skills if s.lower() in [
+            'sql', 'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch',
+            'sqlite', 'oracle', 'cassandra', 'dynamodb', 'firebase'
+        ]]
+        parsed['databases'] = ', '.join(databases)
+        
+        # Cloud platforms - extract from skills
+        cloud = [s for s in all_skills if s.lower() in [
+            'aws', 'azure', 'gcp', 'google cloud', 'amazon web services'
+        ]]
+        parsed['cloud_platforms'] = ', '.join(cloud)
+        
+        # Experience - populate text fields
+        experience_list = parsed.get('experience', [])
+        if experience_list and isinstance(experience_list[0], dict):
+            titles = []
+            descriptions = []
+            durations = []
+            for exp in experience_list:
+                position = exp.get('position', '')
+                # Include positions that look like job titles
+                if position and len(position) > 3 and len(position) < 80:
+                    # Skip very long text that looks like summary
+                    if 'seeking' not in position.lower() and 'objective' not in position.lower():
+                        titles.append(position)
+                if exp.get('description'):
+                    descriptions.append(exp.get('description', ''))
+                if exp.get('duration'):
+                    durations.append(exp.get('duration', ''))
+            parsed['experience_titles'] = ', '.join(titles) if titles else parsed.get('experience_titles', '')
+            parsed['experience_descriptions'] = ' '.join(descriptions)
+            parsed['experience_duration_text'] = ', '.join(durations)
+        elif experience_list:
+            # Old format - list of strings
+            parsed['experience_descriptions'] = ' '.join(str(e) for e in experience_list)
+        
+        # Projects - populate text fields
+        projects_list = parsed.get('projects', [])
+        if projects_list and isinstance(projects_list[0], dict):
+            titles = []
+            descriptions = []
+            techs = []
+            for proj in projects_list:
+                name = proj.get('name', '')
+                # Only include if name looks like a project name (not description)
+                if name and len(name) > 3 and len(name) < 60:
+                    # Filter out text that looks like descriptions
+                    if not any(kw in name.lower() for kw in ['built', 'developed', 'implemented', 'achieved', 'created']):
+                        titles.append(name)
+                if proj.get('description'):
+                    descriptions.append(proj.get('description', ''))
+                if proj.get('technologies'):
+                    techs.append(proj.get('technologies', ''))
+            parsed['project_titles'] = ', '.join(titles) if titles else ''
+            parsed['project_descriptions'] = ' '.join(descriptions)
+            parsed['project_technologies'] = ', '.join(techs)
+        elif projects_list:
+            # Old format - list of strings
+            parsed['project_descriptions'] = ' '.join(str(p) for p in projects_list)
+        
+        # Education - populate text field
+        education_list = parsed.get('education', [])
+        if education_list and isinstance(education_list[0], dict):
+            edu_texts = []
+            for edu in education_list:
+                parts = []
+                if edu.get('degree'):
+                    parts.append(edu.get('degree', ''))
+                if edu.get('institution'):
+                    parts.append('at ' + edu.get('institution', ''))
+                if edu.get('year'):
+                    parts.append(edu.get('year', ''))
+                if edu.get('gpa'):
+                    parts.append('GPA: ' + edu.get('gpa', ''))
+                if parts:
+                    edu_texts.append(' | '.join(parts))
+            parsed['education_text'] = ' | '.join(edu_texts)
+        elif education_list:
+            # Old format - list of strings
+            parsed['education_text'] = ' '.join(str(e) for e in education_list)
+        
+        # Certifications
+        certs = parsed.get('certifications', [])
+        if certs:
+            parsed['certifications_text'] = ', '.join(str(c) for c in certs)
+        
+        # Achievements
+        achievements = parsed.get('achievements', [])
+        if achievements:
+            parsed['achievements_text'] = ', '.join(str(a) for a in achievements)
+        
+        return parsed
+    
+    def _intelligent_resume_parse(self, raw_text: str, parsed: Dict) -> Dict:
+        """
+        Intelligently parse resume text without clear section headers.
+        Uses keyword-based section detection and regex extraction.
+        
+        This handles plain PDF resumes that don't have markdown or
+        clear section headers.
+        """
+        text = raw_text
+        text_lower = text.lower()
+        
+        print("\n" + "-"*50)
+        print("INTELLIGENT PARSING START")
+        print("-"*50)
+        print(f"Text length: {len(text)} characters")
+        print(f"First 200 chars of text: {text[:200]}")
+        
+        logger.info("=== INTELLIGENT PARSING START ===")
+        logger.info(f"Text length: {len(text)} characters")
+        logger.info(f"First 200 chars: {text[:200]}")
+        
+        # Extract skills using pattern matching
+        parsed['skills'] = self._extract_skills_from_text(text)
+        parsed['tools'] = self._extract_tools_from_text(text)
+        print(f"Extracted skills: {len(parsed['skills'])} items")
+        print(f"Extracted tools: {len(parsed['tools'])} items")
+        logger.info(f"Extracted skills: {len(parsed['skills'])} items")
+        logger.info(f"Extracted tools: {len(parsed['tools'])} items")
+        
+        # Extract education
+        parsed['education'] = self._extract_education_from_text(text)
+        print(f"Extracted education: {len(parsed['education'])} entries")
+        logger.info(f"Extracted education: {len(parsed['education'])} entries")
+        
+        # Extract experience
+        parsed['experience'], parsed['total_experience_years'] = self._extract_experience_from_text(text)
+        print(f"Extracted experience: {len(parsed['experience'])} entries")
+        logger.info(f"Extracted experience: {len(parsed['experience'])} entries")
+        
+        # Extract projects
+        parsed['projects'] = self._extract_projects_from_text(text)
+        print(f"Extracted projects: {len(parsed['projects'])} entries")
+        logger.info(f"Extracted projects: {len(parsed['projects'])} entries")
+        
+        # Extract certifications
+        parsed['certifications'] = self._extract_certifications_from_text(text)
+        print(f"Extracted certifications: {len(parsed['certifications'])} items")
+        logger.info(f"Extracted certifications: {len(parsed['certifications'])} items")
+        
+        # Try to detect and extract professional summary/objective
+        # Look for text at the beginning that looks like a summary
+        lines = text.split('\n')
+        summary_lines = []
+        
+        for i, line in enumerate(lines[:10]):  # Check first 10 lines
+            line = line.strip()
+            # Check if this is the objective/summary line or content after it
+            if 'object' in line.lower() or 'summary' in line.lower() or 'profile' in line.lower():
+                # This line contains objective/summary keyword, get content after it
+                # Find where the keyword ends and get text after
+                line_lower = line.lower()
+                for kw in ['objective', 'summary', 'profile']:
+                    idx = line_lower.find(kw)
+                    if idx != -1:
+                        # Get text after the keyword
+                        after_kw = line[idx + len(kw):].strip()
+                        if after_kw and len(after_kw) > 10:
+                            summary_lines.append(after_kw)
+                        break
+                # Get next few lines as summary content
+                for j in range(i+1, min(i+4, len(lines))):
+                    next_line = lines[j].strip()
+                    if next_line and len(next_line) > 20:
+                        # Skip lines that are clearly not summary (like contact info)
+                        if not any(kw in next_line.lower() for kw in ['email', 'phone', '@', 'linkedin', 'github']):
+                            summary_lines.append(next_line)
+            elif len(line) > 30 and not any(kw in line.lower() for kw in ['email', 'phone', 'address', 'skill', 'experience', 'education', 'project', 'personal']):
+                # Also capture lines that look like a summary but don't contain these keywords
+                if not line.startswith('•') and not line.startswith('-'):
+                    summary_lines.append(line)
+        
+        if summary_lines:
+            parsed['professional_summary'] = ' '.join(summary_lines[:3])
+        
+        # Extract achievements
+        achievements = []
+        certifications = []
+        achievement_keywords = ['award', 'honor', 'achievement', 'recognition', 'winner', 'prize', 'certificate']
+        certification_keywords = ['certificate', 'certified', 'certification']
+        
+        for keyword in achievement_keywords + certification_keywords:
+            pattern = rf'.{{0,50}}{keyword}.{{0,100}}'
+            matches = re.findall(pattern, text_lower)
+            for match in matches:
+                if len(match) > 20:
+                    if keyword in certification_keywords:
+                        if match not in certifications:
+                            certifications.append(match.strip())
+                    else:
+                        if match not in achievements:
+                            achievements.append(match.strip())
+        
+        parsed['achievements'] = achievements[:10]
+        parsed['certifications'] = certifications[:10]
+        print(f"Extracted achievements: {len(parsed['achievements'])} items")
+        print(f"Extracted certifications: {len(parsed['certifications'])} items")
+        print(f"Achievements: {parsed['achievements'][:3]}...")
+        logger.info(f"Extracted achievements: {len(parsed['achievements'])} items")
+        logger.info(f"Achievements: {parsed['achievements'][:3]}...")
+        
+        # Extract extracurriculars (internships, leadership, etc.)
+        extracurriculars = []
+        print(f"Extracted extracurriculars: {len(extracurriculars)} items")
+        logger.info(f"Extracted extracurriculars: {len(extracurriculars)} items")
+        # Look for internship keywords
+        intern_patterns = [
+            r'intern(?:ship)?\s+(?:at\s+)?([A-Za-z\s]+)',
+            r'trainee\s+(?:at\s+)?([A-Za-z\s]+)',
+        ]
+        for pattern in intern_patterns:
+            matches = re.findall(pattern, text_lower)
+            for match in matches:
+                if len(match.strip()) > 2:
+                    extracurriculars.append(f"Internship at {match.strip()}")
+        if extracurriculars:
+            parsed['extracurriculars'] = ' | '.join(extracurriculars)
+        print(f"Extracurriculars: {extracurriculars}")
+        logger.info(f"Extrracted extracurriculars: {extracurriculars}")
+        print(f"Extrracted extracurriculars: {len(extracurriculars)} items")
+        logger.info(f"Extracted extracurriculars: {len(extracurriculars)} items")
+        
+        # Try to extract experience descriptions more intelligently
+        # Look for patterns like "Company | Position | Duration"
+        exp_pattern = r'([A-Z][A-Za-z\s]+)\s*\|\s*([A-Za-z\s]+(?: Engineer| Developer| Analyst| Manager| Intern))?\s*\|?\s*(\d{4}\s*[-–]?\s*\d{4}|\d{4}\s*[-–]?\s*present)?'
+        matches = re.findall(exp_pattern, text)
+        
+        for match in matches:
+            if len(match[0].strip()) > 2:
+                # This could be a job entry
+                position = match[1].strip() if match[1] else ''
+                company = match[0].strip()
+                duration = match[2].strip() if match[2] else ''
+                
+                # Add to experience if not already there
+                if position and not any(exp.get('position') == position for exp in parsed.get('experience', [])):
+                    parsed['experience'].append({
+                        'position': position,
+                        'company': company,
+                        'duration': duration,
+                        'description': f"Worked at {company}"
+                    })
+        
+        # Populate experience_duration_text from experience list
+        if parsed.get('experience'):
+            durations = []
+            for exp in parsed['experience']:
+                if exp.get('duration'):
+                    durations.append(exp['duration'])
+            if durations:
+                parsed['experience_duration_text'] = ', '.join(durations)
+        
+        # Try to extract project names more intelligently
+        # Look for patterns like "Project Name: Description" or "Project Name - Description"
+        proj_pattern = r'([A-Z][A-Za-z0-9\s]+(?:System|App|Platform|Tool|API|Model|Network|Website|Application|Project))\s*[-:]\s*([A-Za-z0-9\s,.]{20,150})'
+        proj_matches = re.findall(proj_pattern, text)
+        
+        for match in proj_matches:
+            if len(match[0].strip()) > 3 and len(match[1].strip()) > 10:
+                proj_name = match[0].strip()
+                proj_desc = match[1].strip()
+                
+                # Check if project already exists
+                if not any(proj.get('name') == proj_name for proj in parsed.get('projects', [])):
+                    # Try to extract technologies from description
+                    proj_techs = []
+                    for skill in parsed.get('skills', []):
+                        if skill.lower() in proj_desc.lower():
+                            proj_techs.append(skill)
+                    
+                    parsed['projects'].append({
+                        'name': proj_name,
+                        'description': proj_desc,
+                        'technologies': ', '.join(proj_techs),
+                        'role': ''
+                    })
+        
+        print(f"Final projects after intelligent extraction: {len(parsed['projects'])} entries")
+        print("-"*50)
+        print("INTELLIGENT PARSING END")
+        print("-"*50 + "\n")
+        logger.info(f"Final projects after intelligent extraction: {len(parsed['projects'])} entries")
+        logger.info("=== INTELLIGENT PARSING END ===")
+        
+        return parsed
+    
+    def _parse_markdown_resume(self, raw_text: str, parsed: Dict) -> Dict:
+        """
+        Parse markdown or plain text resume into structured sections.
+        Maps directly to ResumeSection table columns.
+        
+        Handles both:
+        - Markdown format (## headers)
+        - Plain text format (CAPS section headers with bullet points)
+        """
+        # Check if it's plain text format (CAPS headers with bullet points)
+        is_plain_text = 'PERSONAL INFORMATION' in raw_text.upper() or 'OBJECTIVE' in raw_text
+        
+        if is_plain_text:
+            parsed = self._parse_plain_text_resume(raw_text, parsed)
+            return parsed
+        
+        # Otherwise use markdown parsing
+        # Split by headers
+        sections = re.split(r'(?:\n##\s+|\n#\s+)', raw_text)
+        
+        current_section = ''
+        section_content = []
+        
+        for part in sections:
+            part = part.strip()
+            if not part:
+                continue
+            
+            # First part is the title (before first ##)
+            if not current_section:
+                # This is content before any ## header
+                continue
+            
+            # Parse each section
+            lines = part.split('\n')
+            section_name = lines[0].strip() if lines else ''
+            content = '\n'.join(lines[1:]) if len(lines) > 1 else ''
+            
+            # Map section to parsed fields
+            section_lower = section_name.lower()
+            
+            if 'personal' in section_lower or 'information' in section_lower:
+                # Extract name, email, etc.
+                parsed['professional_summary'] = self._extract_from_personal_info(content)
+            
+            elif 'objective' in section_lower or 'summary' in section_lower:
+                parsed['professional_summary'] = content.strip()
+            
+            elif 'skill' in section_lower:
+                self._parse_skills_section(content, parsed)
+            
+            elif 'experience' in section_lower or 'work' in section_lower:
+                self._parse_experience_section(content, parsed)
+            
+            elif 'project' in section_lower:
+                self._parse_projects_section(content, parsed)
+            
+            elif 'education' in section_lower:
+                self._parse_education_section(content, parsed)
+            
+            elif 'certification' in section_lower:
+                self._parse_certifications_section(content, parsed)
+            
+            elif 'achievement' in section_lower:
+                self._parse_achievements_section(content, parsed)
+            
+            elif 'internship' in section_lower:
+                parsed['extracurriculars'] = content.strip()
+        
+        return parsed
+    
+    def _extract_from_personal_info(self, content: str) -> str:
+        """Extract professional summary from personal info section."""
+        # Look for objective or summary nearby
+        lines = content.split('\n')
+        for line in lines:
+            if 'objective' in line.lower() or 'summary' in line.lower():
+                return line.split('|')[-1].strip() if '|' in line else line.strip()
+        # Return first few lines as summary
+        return ' '.join(lines[:3])
+    
+    def _parse_skills_section(self, content: str, parsed: Dict):
+        """Parse technical skills section."""
+        all_skills = []
+        tools_tech = []
+        frameworks = []
+        databases = []
+        cloud = []
+        soft = []
+        
+        lines = content.split('\n')
+        for line in lines:
+            line = line.strip().lstrip('-*').strip()
+            if not line:
+                continue
+            
+            # Check for category headers
+            line_lower = line.lower()
+            if any(kw in line_lower for kw in ['programming', 'language', 'ml/dl', 'tools', 'database', 'cloud', 'math', 'soft']):
+                # This is a category header, continue
+                continue
+            
+            # Extract skills from bullet points
+            if ':' in line:
+                # Format: "Category: Skills"
+                parts = line.split(':', 1)
+                category = parts[0].lower()
+                skills_str = parts[1] if len(parts) > 1 else ''
+                skills = [s.strip() for s in skills_str.replace(',', ' ').split() if s.strip()]
+                
+                if 'programming' in category or 'language' in category:
+                    all_skills.extend(skills)
+                elif 'ml' in category or 'dl' in category or 'machine learning' in category:
+                    all_skills.extend(skills)
+                    frameworks.extend([s for s in skills if s in ['TensorFlow', 'PyTorch', 'Scikit-learn', 'Keras']])
+                elif 'tool' in category:
+                    tools_tech.extend(skills)
+                elif 'database' in category:
+                    databases.extend(skills)
+                elif 'cloud' in category:
+                    cloud.extend(skills)
+                elif 'math' in category:
+                    pass  # Skip math skills
+                else:
+                    all_skills.extend(skills)
+            else:
+                # Just a list of skills
+                skills = [s.strip() for s in line.replace(',', ' ').split() if s.strip()]
+                all_skills.extend(skills)
+        
+        # Set parsed fields
+        parsed['skills'] = list(set(all_skills))
+        parsed['tools'] = list(set(tools_tech))
+        parsed['technical_skills'] = ', '.join(parsed['skills'])
+        parsed['tools_technologies'] = ', '.join(tools_tech)
+        parsed['frameworks_libraries'] = ', '.join(frameworks)
+        parsed['databases'] = ', '.join(databases)
+        parsed['cloud_platforms'] = ', '.join(cloud)
+    
+    def _parse_experience_section(self, content: str, parsed: Dict):
+        """Parse work experience section."""
+        experience_list = []
+        titles = []
+        descriptions = []
+        durations = []
+        
+        # Split by job entries (### or similar markers)
+        jobs = re.split(r'(?:###|\n\d+\.\s*)', content)
+        
+        for job in jobs:
+            job = job.strip()
+            if not job or len(job) < 10:
+                continue
+            
+            lines = job.split('\n')
+            first_line = lines[0].strip() if lines else ''
+            
+            # Extract title, company, duration from first line
+            # Format: "Job Title | Company | Date"
+            parts = first_line.split('|')
+            title = parts[0].strip() if parts else ''
+            company = parts[1].strip() if len(parts) > 1 else ''
+            duration = parts[2].strip() if len(parts) > 2 else ''
+            
+            # Get description bullets
+            desc_lines = [l.strip().lstrip('-*') for l in lines[1:] if l.strip().startswith('-') or l.strip().startswith('*')]
+            description = ' '.join(desc_lines)
+            
+            if title:
+                titles.append(title)
+                experience_list.append({
+                    'position': title,
+                    'company': company,
+                    'duration': duration,
+                    'description': description
+                })
+                descriptions.append(description)
+                if duration:
+                    durations.append(duration)
+                else:
+                    # Try to find duration in job text
+                    date_pattern = r'(\d{4}\s*[-–to]+\s*\d{4}|\d{4}\s*[-–to]+\s*present|current|now)'
+                    date_matches = re.findall(date_pattern, job, re.IGNORECASE)
+                    if date_matches:
+                        durations.append(date_matches[0])
+        
+        parsed['experience'] = experience_list
+        parsed['experience_titles'] = ', '.join(titles)
+        parsed['experience_descriptions'] = ' '.join(descriptions)
+        parsed['experience_duration_text'] = ', '.join(durations)
+    
+    def _parse_projects_section(self, content: str, parsed: Dict):
+        """Parse projects section."""
+        projects_list = []
+        project_titles = []
+        project_descs = []
+        project_techs = []
+        
+        # Split by project entries
+        projects = re.split(r'(?:###|\n\d+\.\s*)', content)
+        
+        for project in projects:
+            project = project.strip()
+            if not project or len(project) < 10:
+                continue
+            
+            lines = project.split('\n')
+            first_line = lines[0].strip() if lines else ''
+            
+            # Extract project name
+            project_name = first_line.split('|')[0].strip() if '|' in first_line else first_line
+            
+            # Get description and technologies
+            desc_lines = []
+            techs = []
+            for line in lines[1:]:
+                line = line.strip()
+                if line.startswith('-') or line.startswith('*'):
+                    line = line.lstrip('-*').strip()
+                    if 'technolog' in line.lower():
+                        # Extract technologies
+                        tech_part = line.split(':', 1)[-1] if ':' in line else line
+                        techs = [t.strip() for t in tech_part.replace(',', ' ').split()]
+                    else:
+                        desc_lines.append(line)
+            
+            description = ' '.join(desc_lines)
+            
+            # If no technologies found, try to extract from the whole project text
+            if not techs and project:
+                # Use skill_pattern to find technologies
+                found_techs = self.skill_pattern.findall(project)
+                techs = list(set([t.lower() for t in found_techs]))
+            
+            if project_name:
+                project_titles.append(project_name)
+                project_descs.append(description)
+                project_techs.extend(techs)
+                projects_list.append({
+                    'name': project_name,
+                    'description': description,
+                    'technologies': ', '.join(techs),
+                    'role': ''
+                })
+        
+        parsed['projects'] = projects_list
+        parsed['project_titles'] = ', '.join(project_titles)
+        parsed['project_descriptions'] = ' '.join(project_descs)
+        parsed['project_technologies'] = ', '.join(set(project_techs))
+    
+    def _parse_education_section(self, content: str, parsed: Dict):
+        """Parse education section."""
+        education_list = []
+        edu_texts = []
+        
+        # Split by education entries
+        degrees = re.split(r'(?:###|\n\d+\.\s*)', content)
+        
+        for degree in degrees:
+            degree = degree.strip()
+            if not degree or len(degree) < 10:
+                continue
+            
+            lines = degree.split('\n')
+            first_line = lines[0].strip() if lines else ''
+            
+            # Extract degree name, institution, year
+            # Format: "Degree | Institution | Year"
+            parts = first_line.split('|')
+            degree_name = parts[0].strip() if parts else ''
+            institution = parts[1].strip() if len(parts) > 1 else ''
+            year = parts[2].strip() if len(parts) > 2 else ''
+            
+            # Get GPA from bullet points
+            gpa = ''
+            for line in lines[1:]:
+                if 'gpa' in line.lower():
+                    gpa_match = re.search(r'(\d+\.?\d*)\s*/\s*(\d+\.?\d*)', line)
+                    if gpa_match:
+                        gpa = f"{gpa_match.group(1)}/{gpa_match.group(2)}"
+            
+            if degree_name:
+                education_list.append({
+                    'degree': degree_name,
+                    'institution': institution,
+                    'year': year,
+                    'gpa': gpa
+                })
+                edu_texts.append(f"{degree_name} at {institution} {year} GPA: {gpa}")
+        
+        parsed['education'] = education_list
+        parsed['education_text'] = ' | '.join(edu_texts)
+    
+    def _parse_certifications_section(self, content: str, parsed: Dict):
+        """Parse certifications section."""
+        certs = []
+        
+        lines = content.split('\n')
+        for line in lines:
+            line = line.strip().lstrip('-*').strip()
+            if line and not line.startswith('#'):
+                certs.append(line)
+        
+        parsed['certifications'] = certs
+        parsed['certifications_text'] = ', '.join(certs)
+    
+    def _parse_achievements_section(self, content: str, parsed: Dict):
+        """Parse achievements section."""
+        achievements = []
+        
+        lines = content.split('\n')
+        for line in lines:
+            line = line.strip().lstrip('-*').strip()
+            if line and not line.startswith('#'):
+                achievements.append(line)
+        
+        parsed['achievements'] = achievements
+        parsed['achievements_text'] = ', '.join(achievements)
+    
+    def _parse_plain_text_resume(self, raw_text: str, parsed: Dict) -> Dict:
+        """
+        Parse plain text resume (like Alex Johnson's) into structured sections.
+        
+        Format:
+        - SECTION NAME (all caps)
+        - Content with bullet points (•)
+        
+        Example:
+        PERSONAL INFORMATION
+        • Email: alex.johnson@email.com
+        • Phone: (555) 123-4567
+        
+        OBJECTIVE
+        Machine Learning Engineer with 2+ years...
+        
+        TECHNICAL SKILLS
+        • Programming: Python, SQL, Java, C++
+        • ML/DL: TensorFlow, PyTorch, Scikit-learn, Keras
+        """
+        # Split by section headers (all caps words at start of line)
+        # Match patterns like "SECTION NAME" followed by content
+        
+        # First, split by section headers
+        section_pattern = r'\n([A-Z][A-Z\s]{2,})\n'
+        parts = re.split(section_pattern, raw_text)
+        
+        # parts[0] is content before first header (usually empty or name)
+        # parts[1], parts[3], parts[5]... are section names
+        # parts[2], parts[4], parts[6]... are section contents
+        
+        current_section = ''
+        
+        for i, part in enumerate(parts):
+            part = part.strip()
+            if not part:
+                continue
+            
+            # Even indices contain section content (after first empty skip)
+            if i == 0:
+                # This is content before any header (probably name)
+                # Check if it looks like a name (letters and spaces)
+                if part and part.split('\n')[0].strip():
+                    # Could be name, store as potential header
+                    first_line = part.split('\n')[0].strip()
+                    if len(first_line.split()) <= 4 and first_line.replace(' ', '').isalpha():
+                        parsed['professional_summary'] = f"Name: {first_line}"
+                continue
+            
+            # Odd indices are section names
+            section_name = part.upper().strip()
+            section_content = ''
+            
+            # Get the next part as content if available
+            if i + 1 < len(parts):
+                section_content = parts[i + 1]
+            
+            # Parse based on section name
+            self._parse_plain_section(section_name, section_content, parsed)
+        
+        return parsed
+    
+    def _parse_plain_section(self, section_name: str, content: str, parsed: Dict):
+        """Parse a single section of plain text resume."""
+        
+        if 'PERSONAL' in section_name or 'CONTACT' in section_name:
+            # Extract email, phone, location, etc.
+            lines = content.split('\n')
+            info_parts = []
+            for line in lines:
+                line = line.strip()
+                if line.startswith('•') or line.startswith('-'):
+                    line = line.lstrip('•-').strip()
+                    if ':' in line:
+                        info_parts.append(line.split(':', 1)[1].strip())
+            parsed['professional_summary'] = ' | '.join(info_parts)
+        
+        elif 'OBJECTIVE' in section_name or 'SUMMARY' in section_name:
+            # Objective/summary is the content itself
+            parsed['professional_summary'] = content.strip()
+        
+        elif 'SKILL' in section_name:
+            self._parse_plain_skills(content, parsed)
+        
+        elif 'EXPERIENCE' in section_name or 'WORK' in section_name:
+            self._parse_plain_experience(content, parsed)
+        
+        elif 'PROJECT' in section_name:
+            self._parse_plain_projects(content, parsed)
+        
+        elif 'EDUCATION' in section_name:
+            self._parse_plain_education(content, parsed)
+        
+        elif 'CERTIFICATION' in section_name:
+            self._parse_plain_certifications(content, parsed)
+        
+        elif 'ACHIEVEMENT' in section_name:
+            self._parse_plain_achievements(content, parsed)
+        
+        elif 'INTERNSHIP' in section_name:
+            parsed['extracurriculars'] = content.strip()
+    
+    def _parse_plain_skills(self, content: str, parsed: Dict):
+        """Parse technical skills from plain text."""
+        all_skills = []
+        tools_tech = []
+        frameworks = []
+        databases = []
+        cloud = []
+        
+        lines = content.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Remove bullet points
+            line = line.lstrip('•-').strip()
+            
+            if ':' in line:
+                # Format: "Category: Skills"
+                parts = line.split(':', 1)
+                category = parts[0].strip().lower()
+                skills_str = parts[1].strip() if len(parts) > 1 else ''
+                
+                # Extract skills
+                skills = [s.strip() for s in skills_str.replace(',', ' ').split() if s.strip()]
+                
+                if 'programming' in category or 'language' in category:
+                    all_skills.extend(skills)
+                elif 'ml' in category or 'dl' in category or 'machine learning' in category:
+                    all_skills.extend(skills)
+                    frameworks.extend([s for s in skills if s in ['TensorFlow', 'PyTorch', 'Scikit-learn', 'Keras']])
+                elif 'tool' in category:
+                    tools_tech.extend(skills)
+                elif 'database' in category:
+                    databases.extend(skills)
+                elif 'cloud' in category:
+                    cloud.extend(skills)
+                else:
+                    all_skills.extend(skills)
+        
+        # Also search for skills anywhere in content
+        text_lower = content.lower()
+        for category, skills in self.TECHNICAL_SKILLS.items():
+            for skill in skills:
+                pattern = r'\b' + re.escape(skill) + r'\b'
+                if re.search(pattern, text_lower):
+                    if skill not in all_skills:
+                        all_skills.append(skill)
+        
+        parsed['skills'] = list(set(all_skills))
+        parsed['technical_skills'] = ', '.join(parsed['skills'])
+        parsed['tools_technologies'] = ', '.join(set(tools_tech))
+        parsed['frameworks_libraries'] = ', '.join(set(frameworks))
+        parsed['databases'] = ', '.join(set(databases))
+        parsed['cloud_platforms'] = ', '.join(set(cloud))
+    
+    def _parse_plain_experience(self, content: str, parsed: Dict):
+        """Parse work experience from plain text."""
+        experience_list = []
+        titles = []
+        descriptions = []
+        durations = []
+        
+        # Split by job entries (each job starts with a title | company | date)
+        jobs = re.split(r'\n(?=[A-Z])', content)
+        
+        for job in jobs:
+            job = job.strip()
+            if not job or len(job) < 20:
+                continue
+            
+            lines = job.split('\n')
+            first_line = lines[0].strip() if lines else ''
+            
+            # Extract title, company, duration
+            # Format: "Job Title | Company | Date"
+            parts = first_line.split('|')
+            title = parts[0].strip() if parts else ''
+            company = parts[1].strip() if len(parts) > 1 else ''
+            duration = parts[2].strip() if len(parts) > 2 else ''
+            
+            # Get description bullets
+            desc_lines = []
+            for line in lines[1:]:
+                line = line.strip()
+                if line.startswith('•') or line.startswith('-'):
+                    desc_lines.append(line.lstrip('•-').strip())
+            description = ' '.join(desc_lines)
+            
+            if title:
+                titles.append(title)
+                experience_list.append({
+                    'position': title,
+                    'company': company,
+                    'duration': duration,
+                    'description': description
+                })
+                descriptions.append(description)
+                if duration:
+                    durations.append(duration)
+        
+        parsed['experience'] = experience_list
+        parsed['experience_titles'] = ', '.join(titles)
+        parsed['experience_descriptions'] = ' '.join(descriptions)
+        parsed['experience_duration_text'] = ', '.join(durations)
+    
+    def _parse_plain_projects(self, content: str, parsed: Dict):
+        """Parse projects from plain text."""
+        projects_list = []
+        project_titles = []
+        project_descs = []
+        project_techs = []
+        
+        # Split by project entries
+        projects = re.split(r'\n(?=[A-Z])', content)
+        
+        for project in projects:
+            project = project.strip()
+            if not project or len(project) < 20:
+                continue
+            
+            lines = project.split('\n')
+            first_line = lines[0].strip() if lines else ''
+            
+            # Extract project name
+            project_name = first_line.split('|')[0].strip() if '|' in first_line else first_line
+            
+            # Get description and technologies
+            desc_lines = []
+            techs = []
+            for line in lines[1:]:
+                line = line.strip()
+                if not line:
+                    continue
+                line = line.lstrip('•-').strip()
+                
+                if 'technolog' in line.lower():
+                    # Extract technologies
+                    tech_part = line.split(':', 1)[-1] if ':' in line else line
+                    techs = [t.strip() for t in tech_part.replace(',', ' ').split()]
+                else:
+                    desc_lines.append(line)
+            
+            description = ' '.join(desc_lines)
+            
+            if project_name:
+                project_titles.append(project_name)
+                project_descs.append(description)
+                project_techs.extend(techs)
+                projects_list.append({
+                    'name': project_name,
+                    'description': description,
+                    'technologies': ', '.join(techs),
+                    'role': ''
+                })
+        
+        parsed['projects'] = projects_list
+        parsed['project_titles'] = ', '.join(project_titles)
+        parsed['project_descriptions'] = ' '.join(project_descs)
+        parsed['project_technologies'] = ', '.join(set(project_techs))
+    
+    def _parse_plain_education(self, content: str, parsed: Dict):
+        """Parse education from plain text."""
+        education_list = []
+        edu_texts = []
+        
+        # Split by degree entries
+        degrees = re.split(r'\n(?=[A-Z])', content)
+        
+        for degree in degrees:
+            degree = degree.strip()
+            if not degree or len(degree) < 15:
+                continue
+            
+            lines = degree.split('\n')
+            first_line = lines[0].strip() if lines else ''
+            
+            # Extract degree name, institution, year
+            # Format: "Degree Name | Institution | Year | GPA"
+            parts = first_line.split('|')
+            degree_name = parts[0].strip() if parts else ''
+            institution = parts[1].strip() if len(parts) > 1 else ''
+            year = parts[2].strip() if len(parts) > 2 else ''
+            gpa = parts[3].strip() if len(parts) > 3 else ''
+            
+            # Also look for GPA in any line
+            for line in lines:
+                if 'gpa' in line.lower():
+                    gpa_match = re.search(r'(\d+\.?\d*)\s*/\s*(\d+)', line)
+                    if gpa_match:
+                        gpa = f"{gpa_match.group(1)}/{gpa_match.group(2)}"
+            
+            if degree_name:
+                education_list.append({
+                    'degree': degree_name,
+                    'institution': institution,
+                    'year': year,
+                    'gpa': gpa
+                })
+                edu_texts.append(f"{degree_name} at {institution} {year} GPA: {gpa}")
+        
+        parsed['education'] = education_list
+        parsed['education_text'] = ' | '.join(edu_texts)
+    
+    def _parse_plain_certifications(self, content: str, parsed: Dict):
+        """Parse certifications from plain text."""
+        certs = []
+        
+        lines = content.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            line = line.lstrip('•-').strip()
+            if line and not line.startswith('#'):
+                certs.append(line)
+        
+        parsed['certifications'] = certs
+        parsed['certifications_text'] = ', '.join(certs)
+    
+    def _parse_plain_achievements(self, content: str, parsed: Dict):
+        """Parse achievements from plain text."""
+        achievements = []
+        
+        lines = content.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            line = line.lstrip('•-').strip()
+            if line and not line.startswith('#'):
+                achievements.append(line)
+        
+        parsed['achievements'] = achievements
+        parsed['achievements_text'] = ', '.join(achievements)
+    
     def _extract_skills_from_text(self, text: str) -> List[str]:
         """Extract skills from raw text using pattern matching."""
+        print(f"_extract_skills_from_text: Starting with text length {len(text)}")
         text_lower = text.lower()
         found_skills = []
         
@@ -506,6 +1597,8 @@ class ResumeParsingEngine:
                 pattern = r'\b' + re.escape(skill) + r'\b'
                 if re.search(pattern, text_lower):
                     found_skills.append(skill)
+        
+        print(f"_extract_skills_from_text: Found {len(found_skills)} skills: {found_skills[:10]}")
         
         # Remove duplicates while preserving order
         seen = set()
@@ -532,7 +1625,26 @@ class ResumeParsingEngine:
     
     def _extract_education_from_text(self, text: str) -> List[Dict]:
         """Extract education information from raw text."""
+        print(f"_extract_education_from_text: Starting with text length {len(text)}")
         education = []
+        
+        # If text looks like a dict string representation, try to parse it
+        if text.strip().startswith("{") and text.strip().endswith("}"):
+            try:
+                parsed = ast.literal_eval(text)
+                if isinstance(parsed, dict):
+                    # Single education entry
+                    if parsed.get('degree') or parsed.get('institution'):
+                        education.append({
+                            'degree': str(parsed.get('degree', '')),
+                            'institution': str(parsed.get('institution', '')),
+                            'year': str(parsed.get('year', '')),
+                            'gpa': str(parsed.get('gpa', ''))
+                        })
+                    return education
+            except (ValueError, SyntaxError):
+                pass
+        
         text_lower = text.lower()
         
         # Degree patterns
@@ -549,8 +1661,6 @@ class ResumeParsingEngine:
         
         # Year pattern
         year_pattern = r'(19|20)\d{2}'
-        
-        text_lower = text.lower()
         
         # Find education sections
         sections = re.split(r'(?:education|academic|qualification)', text_lower)
@@ -579,13 +1689,42 @@ class ResumeParsingEngine:
                     'gpa': ''
                 })
         
+        print(f"_extract_education_from_text: Found {len(education)} education entries: {education}")
         return education
     
     def _extract_experience_from_text(self, text: str) -> tuple:
         """Extract experience information from raw text."""
+        print(f"_extract_experience_from_text: Starting with text length {len(text)}")
         experience = []
         total_years = 0
-        text_lower = text.lower()
+        
+        # If text looks like a dict string representation, try to parse it
+        if text.strip().startswith("{") and text.strip().endswith("}"):
+            try:
+                parsed = ast.literal_eval(text)
+                if isinstance(parsed, dict):
+                    # Single experience entry
+                    if parsed.get('description') or parsed.get('position'):
+                        experience.append({
+                            'company': str(parsed.get('company', 'Unknown')),
+                            'position': str(parsed.get('position', ''))[:100],
+                            'duration': str(parsed.get('duration', '')),
+                            'description': str(parsed.get('description', ''))[:300]
+                        })
+                    return experience, 0
+                elif isinstance(parsed, list):
+                    # Multiple experience entries
+                    for exp in parsed:
+                        if isinstance(exp, dict):
+                            experience.append({
+                                'company': str(exp.get('company', 'Unknown')),
+                                'position': str(exp.get('position', ''))[:100],
+                                'duration': str(exp.get('duration', '')),
+                                'description': str(exp.get('description', ''))[:300]
+                            })
+                    return experience, 0
+            except (ValueError, SyntaxError):
+                pass
         
         # Look for duration patterns like "2 years", "6 months", "1-2 years"
         duration_patterns = [
@@ -607,41 +1746,128 @@ class ResumeParsingEngine:
                     pass
         
         # Look for work experience section
-        exp_sections = re.split(r'(?:experience|work history|employment|internship)', text_lower)
+        try:
+            exp_sections = re.split(r'(?:experience|work history|employment|internship)', text, flags=re.IGNORECASE)
+        except:
+            exp_sections = text.split('experience')
         
-        for section in exp_sections[1:]:
-            # Extract company names (common ones)
-            companies = re.findall(r'\b(Google|Microsoft|Amazon|Meta|Apple|Netflix|Adobe|Salesforce|Tesla|IBM|Oracle|Intel|AMD|NVIDIA|Qualcomm|Flipkart|Walmart|Accenture|TCS|Infosys|Wipro|Capgemini)\b', section)
+        for section in exp_sections[1:]:  # Skip first part
+            # Split by newlines to get individual entries
+            lines = section.split('\n')
             
-            for company in companies[:3]:  # Limit to 3 entries per section
-                experience.append({
-                    'company': company,
-                    'position': '',
-                    'duration': '',
-                    'description': section[:200]
-                })
+            current_entry = []
+            for line in lines:
+                line = line.strip()
+                if line:
+                    # If line looks like a new entry (has year/dates), save previous
+                    if re.search(r'\d{4}|present|intern|engineer|developer|analyst|manager', line, re.IGNORECASE):
+                        if current_entry:
+                            desc = ' '.join(current_entry)[:300]
+                            if desc:
+                                # Try to find duration in the entry
+                                duration = ''
+                                date_pattern = r'(\d{4}\s*[-–to]+\s*\d{4}|\d{4}\s*[-–to]+\s*present|current|now|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec\s*\d{4})'
+                                date_matches = re.findall(date_pattern, ' '.join(current_entry), re.IGNORECASE)
+                                if date_matches:
+                                    duration = date_matches[0]
+                                
+                                experience.append({
+                                    'company': 'Unknown',
+                                    'position': current_entry[0][:100] if current_entry else '',
+                                    'duration': duration,
+                                    'description': desc
+                                })
+                            current_entry = []
+                    current_entry.append(line)
+            
+            # Don't forget last entry
+            if current_entry:
+                desc = ' '.join(current_entry)[:300]
+                if desc:
+                    experience.append({
+                        'company': 'Unknown',
+                        'position': current_entry[0][:100] if current_entry else '',
+                        'duration': '',
+                        'description': desc
+                    })
         
-        return experience, round(total_years, 1)
+        return experience[:10], round(total_years, 1)
     
     def _extract_projects_from_text(self, text: str) -> List[Dict]:
         """Extract project information from raw text."""
         projects = []
-        text_lower = text.lower()
         
-        # Look for project section
-        project_sections = re.split(r'(?:projects?|project work)', text_lower)
+        # If text looks like a dict string representation, try to parse it
+        if text.strip().startswith("{") and text.strip().endswith("}"):
+            try:
+                # Try to evaluate as Python dict
+                parsed = ast.literal_eval(text)
+                if isinstance(parsed, dict):
+                    # Check if it's a single project dict with 'name'/'description' keys
+                    if 'name' in parsed and parsed['name']:
+                        projects.append({
+                            'name': str(parsed.get('name', ''))[:100],
+                            'description': str(parsed.get('description', ''))[:500],
+                            'technologies': str(parsed.get('technologies', '')),
+                            'role': str(parsed.get('role', ''))
+                        })
+                    # Check if it's a list of projects
+                    elif isinstance(parsed, list):
+                        for proj in parsed:
+                            if isinstance(proj, dict):
+                                projects.append({
+                                    'name': str(proj.get('name', ''))[:100],
+                                    'description': str(proj.get('description', ''))[:500],
+                                    'technologies': str(proj.get('technologies', '')),
+                                    'role': str(proj.get('role', ''))
+                                })
+                    return projects[:10]
+            except (ValueError, SyntaxError):
+                # Not a valid dict string, continue with normal parsing
+                pass
+        
+        # Look for project section - case insensitive
+        try:
+            project_sections = re.split(r'(?:projects?|project work|academic projects?)', text, flags=re.IGNORECASE)
+        except:
+            project_sections = text.split('project')
         
         for section in project_sections[1:]:  # Skip first part
-            # Extract project name (usually followed by description)
+            # Split by newlines
             lines = section.split('\n')
             
-            for line in lines[:5]:  # Limit to 5 projects
+            current_project = []
+            for line in lines:
                 line = line.strip()
-                if line and len(line) > 10:
+                if line:
+                    # If line looks like a new project (has year or tech terms)
+                    if re.search(r'20\d{2}|github|built|developed|created|implemented|technologies', line, re.IGNORECASE):
+                        if current_project:
+                            desc = ' '.join(current_project)[:300]
+                            if desc:
+                                # Extract technologies from description using skill pattern
+                                proj_techs = self.skill_pattern.findall(desc)
+                                technologies = ', '.join(list(set([t.lower() for t in proj_techs])))
+                                projects.append({
+                                    'name': current_project[0][:100] if current_project else '',
+                                    'description': desc,
+                                    'technologies': technologies,
+                                    'role': ''
+                                })
+                            current_project = []
+                    current_project.append(line)
+            
+            # Don't forget last project
+            if current_project:
+                desc = ' '.join(current_project)[:300]
+                if desc:
+                    # Extract technologies from description using skill pattern
+                    proj_techs = self.skill_pattern.findall(desc)
+                    technologies = ', '.join(list(set([t.lower() for t in proj_techs])))
                     projects.append({
-                        'name': line[:100],
-                        'description': line,
-                        'technologies': '',
+                        'name': current_project[0][:100] if current_project else '',
+                        'description': desc,
+                        'technologies': technologies,
                         'role': ''
                     })
         
