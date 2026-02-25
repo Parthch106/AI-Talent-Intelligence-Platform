@@ -1,25 +1,32 @@
 import random
+import os
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from apps.accounts.models import User
 from apps.interns.models import InternProfile
 from apps.projects.models import Project, ProjectAssignment
 
+
 class Command(BaseCommand):
     help = 'Seeds the database with initial data'
 
     def handle(self, *args, **kwargs):
+        # Get passwords from environment variables with defaults for development
+        admin_password = os.getenv("SEED_ADMIN_PASSWORD", "adminpassword")
+        manager_password = os.getenv("SEED_MANAGER_PASSWORD", "managerpassword")
+        intern_password = os.getenv("SEED_INTERN_PASSWORD", "internpassword")
+        
         self.stdout.write('Seeding data...')
         
         # Create Admin
         if not User.objects.filter(email='admin@example.com').exists():
-            User.objects.create_superuser('admin@example.com', 'adminpassword', full_name='System Admin')
-            self.stdout.write('Created Admin: admin@example.com / adminpassword')
+            User.objects.create_superuser('admin@example.com', admin_password, full_name='System Admin')
+            self.stdout.write(f'Created Admin: admin@example.com')
 
         # Create Manager
         if not User.objects.filter(email='manager@example.com').exists():
-            manager = User.objects.create_user('manager@example.com', 'managerpassword', full_name='Sarah Manager', role=User.Role.MANAGER)
-            self.stdout.write('Created Manager: manager@example.com / managerpassword')
+            manager = User.objects.create_user('manager@example.com', manager_password, full_name='Sarah Manager', role=User.Role.MANAGER)
+            self.stdout.write(f'Created Manager: manager@example.com')
         else:
             manager = User.objects.get(email='manager@example.com')
 
@@ -29,7 +36,7 @@ class Command(BaseCommand):
         for name in intern_names:
             email = f"{name.lower().replace(' ', '.')}@example.com"
             if not User.objects.filter(email=email).exists():
-                user = User.objects.create_user(email, 'internpassword', full_name=name, role=User.Role.INTERN)
+                user = User.objects.create_user(email, intern_password, full_name=name, role=User.Role.INTERN)
                 
                 # Check creating profile
                 if not hasattr(user, 'intern_profile'):
@@ -41,7 +48,7 @@ class Command(BaseCommand):
                         status='ACTIVE'
                     )
                 interns.append(user)
-                self.stdout.write(f'Created Intern: {email} / internpassword')
+                self.stdout.write(f'Created Intern: {email}')
             else:
                 user = User.objects.get(email=email)
                 if not hasattr(user, 'intern_profile'):

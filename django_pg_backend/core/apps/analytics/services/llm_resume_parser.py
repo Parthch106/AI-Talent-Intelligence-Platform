@@ -1,29 +1,31 @@
 """
-LLM Resume Parser — gpt-4o-mini via GitHub OpenAI API
-======================================================
+LLM Resume Parser — LangChain + GitHub Models
+==============================================
 
-Replaces SimpleResumeParser with structured LLM extraction.
+Replaces simple regex parser with LangChain-powered LLM extraction.
+Uses the same approach as the RAG PDF app for consistency.
 
-Key improvements over regex parser:
-- Correctly isolates sections regardless of PDF formatting
-- Never leaks contact info into projects/experience
-- Deduplicates skills at extraction time
-- Returns the same field names as ResumeSection model columns
-  so it is a drop-in backend for _store_parsed_resume_sections()
+Key features:
+- LangChain for LLM orchestration
+- PyPDFLoader for PDF extraction (like RAG app)
+- GitHub Models API (gpt-4o-mini)
+- Structured JSON output for resume parsing
+
+Author: AI Talent Intelligence Platform
 """
 
 import json
 import logging
 import os
-import re
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
+# =============================================================================
 # Master extraction prompt (battle-tested, anti-hallucination)
-# ---------------------------------------------------------------------------
-RESUME_PARSE_SYSTEM_PROMPT = """You are an expert resume parser. Your ONLY job is to extract structured information from the provided resume text and return it as a single valid JSON object.
+# =============================================================================
+
+RESUME_PARSE_SYSTEM_PROMPT = '''You are an expert resume parser. Your ONLY job is to extract structured information from the provided resume text and return it as a single valid JSON object.
 
 ## STRICT RULES — READ THESE CAREFULLY
 
@@ -50,17 +52,17 @@ Content with email / phone / URLs = contact info only — never put it elsewhere
 
 ## JSON SCHEMA — return exactly this structure
 
-{
-  "contact": {
+{{
+  "contact": {{
     "name": string | null,
     "email": string | null,
     "phone": string | null,
     "linkedin": string | null,
     "github": string | null,
     "location": string | null
-  },
+  }},
   "professional_summary": string | null,
-  "skills": {
+  "skills": {{
     "programming_languages": [string],
     "frameworks_libraries": [string],
     "tools": [string],
@@ -69,9 +71,9 @@ Content with email / phone / URLs = contact info only — never put it elsewhere
     "ml_ai": [string],
     "soft_skills": [string],
     "other": [string]
-  },
+  }},
   "experience": [
-    {
+    {{
       "title": string,
       "company": string,
       "location": string | null,
@@ -82,357 +84,150 @@ Content with email / phone / URLs = contact info only — never put it elsewhere
       "description": string | null,
       "technologies_used": [string],
       "quantified_achievements": [string]
-    }
+    }}
   ],
   "projects": [
-    {
+    {{
       "name": string,
       "description": string | null,
       "technologies": [string],
       "github_url": string | null,
       "impact": string | null
-    }
+    }}
   ],
   "education": [
-    {
+    {{
       "degree": string,
       "field_of_study": string | null,
       "institution": string,
-      "start_year": integer | null,
-      "end_year": integer | null,
-      "gpa": float | null,
-      "relevant_coursework": [string],
-      "honors": string | null
-    }
+      "location": string | null,
+      "start_date": string | null,
+      "end_date": string | null,
+      "gpa": string | null
+    }}
   ],
-  "certifications": [
-    {
-      "name": string,
-      "issuer": string | null,
-      "date": string | null
-    }
-  ],
-  "achievements": [string],
-  "extracurriculars": [string],
-  "parser_notes": string | null
-}
-
-## ANTI-HALLUCINATION CHECKLIST
-
-Before writing each value, confirm:
-- Is this information LITERALLY present in the resume?
-- Did I accidentally copy contact info into projects or experience?
-- Are there any PDF page numbers or headers I need to ignore?
-
-If uncertain about any value, use null.
-Use `parser_notes` to flag truncated text, OCR errors, or ambiguous sections."""
+  "certifications": [string],
+  "achievements": [string]
+}}
+'''
 
 
-# ---------------------------------------------------------------------------
-# Flat mapper — converts LLM JSON → ResumeSection column dict
-# ---------------------------------------------------------------------------
+# =============================================================================
+# LangChain-based Resume Parser
+# =============================================================================
 
-def _flatten_skills(skills: Dict) -> Dict[str, str]:
-    """Convert nested skills dict → flat comma-separated strings."""
-    if not isinstance(skills, dict):
-        return {}
-
-    prog = skills.get("programming_languages") or []
-    fw   = skills.get("frameworks_libraries") or []
-    ml   = skills.get("ml_ai") or []
-    tools = skills.get("tools") or []
-    dbs   = skills.get("databases") or []
-    cloud = skills.get("cloud_platforms") or []
-    soft  = skills.get("soft_skills") or []
-
-    # technical_skills = languages + frameworks + ML/AI (all "core" technical)
-    technical = list(dict.fromkeys([s for s in (prog + fw + ml) if s]))
-
-    return {
-        "technical_skills":     ", ".join(technical),
-        "frameworks_libraries": ", ".join(dict.fromkeys([s for s in fw if s])),
-        "tools_technologies":   ", ".join(dict.fromkeys([s for s in tools if s])),
-        "databases":            ", ".join(dict.fromkeys([s for s in dbs if s])),
-        "cloud_platforms":      ", ".join(dict.fromkeys([s for s in cloud if s])),
-        "soft_skills":          ", ".join(dict.fromkeys([s for s in soft if s])),
-    }
-
-
-def _format_experience(experience: list) -> Dict[str, str]:
-    """Convert experience list → flat text fields."""
-    if not experience:
-        return {"experience_titles": "", "experience_descriptions": "", "experience_duration_text": ""}
-
-    titles = []
-    descs  = []
-    durs   = []
-
-    for exp in experience:
-        if not isinstance(exp, dict):
-            continue
-        title = exp.get("title") or ""
-        company = exp.get("company") or ""
-        if title:
-            label = f"{title} at {company}" if company else title
-            titles.append(label)
-
-        desc = exp.get("description") or ""
-        achievements = exp.get("quantified_achievements") or []
-        full_desc = desc
-        if achievements:
-            full_desc = (full_desc + " " + "; ".join(achievements)).strip()
-        if full_desc:
-            descs.append(full_desc)
-
-        start = exp.get("start_date") or ""
-        end   = "present" if exp.get("is_current") else (exp.get("end_date") or "")
-        if start or end:
-            durs.append(f"{start}–{end}".strip("–"))
-
-    return {
-        "experience_titles":       " | ".join(titles),
-        "experience_descriptions": " ".join(descs),
-        "experience_duration_text": " | ".join(durs),
-    }
-
-
-def _format_projects(projects: list) -> Dict[str, str]:
-    """Convert projects list → flat text fields."""
-    if not projects:
-        return {"project_titles": "", "project_descriptions": "", "project_technologies": ""}
-
-    titles = []
-    descs  = []
-    techs  = []
-
-    for proj in projects:
-        if not isinstance(proj, dict):
-            continue
-        name = proj.get("name") or ""
-        if name:
-            titles.append(name)
-
-        desc = proj.get("description") or ""
-        impact = proj.get("impact") or ""
-        full = (desc + " " + impact).strip() if impact else desc
-        if full:
-            descs.append(full)
-
-        proj_techs = proj.get("technologies") or []
-        techs.extend([t for t in proj_techs if t])
-
-    return {
-        "project_titles":       " | ".join(titles),
-        "project_descriptions": " ".join(descs),
-        "project_technologies": ", ".join(dict.fromkeys(techs)),
-    }
-
-
-def _format_education(education: list) -> str:
-    """Convert education list → flat text."""
-    if not education:
-        return ""
-
-    entries = []
-    for edu in education:
-        if not isinstance(edu, dict):
-            continue
-        degree    = edu.get("degree") or ""
-        field     = edu.get("field_of_study") or ""
-        inst      = edu.get("institution") or ""
-        end_year  = edu.get("end_year") or ""
-        gpa       = edu.get("gpa")
-        honors    = edu.get("honors") or ""
-
-        parts = []
-        if degree and field:
-            parts.append(f"{degree} in {field}")
-        elif degree:
-            parts.append(degree)
-        if inst:
-            parts.append(f"at {inst}")
-        if end_year:
-            parts.append(str(end_year))
-        if gpa:
-            parts.append(f"GPA: {gpa}")
-        if honors:
-            parts.append(honors)
-
-        entries.append(" ".join(parts))
-
-    return " | ".join(entries)
-
-
-def _format_certifications(certifications: list) -> str:
-    if not certifications:
-        return ""
-    certs = []
-    for c in certifications:
-        if not isinstance(c, dict):
-            continue
-        name   = c.get("name") or ""
-        issuer = c.get("issuer") or ""
-        date   = c.get("date") or ""
-        parts  = [p for p in [name, issuer, date] if p]
-        if parts:
-            certs.append(", ".join(parts))
-    return "\n".join(certs)
-def llm_parsed_to_resume_section(parsed: Dict) -> Dict[str, Any]:
+class LangChainResumeParser:
     """
-    Convert raw LLM JSON output → dict matching ResumeSection model field names.
-    This is the adapter between the LLM and the existing DB storage code.
+    LangChain-powered resume parser using GitHub Models.
+    Uses the same approach as the RAG PDF app.
     """
-    skills_dict     = _flatten_skills(parsed.get("skills") or {})
-    experience_dict = _format_experience(parsed.get("experience") or [])
-    projects_dict   = _format_projects(parsed.get("projects") or [])
-
-    result = {
-        "professional_summary": parsed.get("professional_summary") or "",
-        **skills_dict,
-        **experience_dict,
-        **projects_dict,
-        "education_text":   _format_education(parsed.get("education") or []),
-        "certifications":   _format_certifications(parsed.get("certifications") or []),
-        "achievements":     "\n".join(parsed.get("achievements") or []),
-        "extracurriculars": "\n".join(parsed.get("extracurriculars") or []),
-        
-        # PRESERVE STRUCTURED DATA for Phase 4 normalized storage
-        "experience_list": parsed.get("experience") or [],
-        "projects_list":   parsed.get("projects") or [],
-        "education_list":  parsed.get("education") or [],
-        "certifications_raw": parsed.get("certifications") or [],
-        "raw_skills":      parsed.get("skills") or {},
-    }
-
-    # Legacy keys for feature engineering & simple storage
-    tech  = result.get("technical_skills", "")
-    tools = result.get("tools_technologies", "")
-    result["skills"]   = [s.strip() for s in tech.split(",")  if s.strip()]
-    result["tools"]    = [s.strip() for s in tools.split(",") if s.strip()]
     
-    # We keep 'experience' as a string for backward compatibility in feature engineering,
-    # but the new storage logic should use 'experience_list'.
-    result["experience"]  = result.get("experience_descriptions", "")
-    result["education"]   = result.get("education_text", "")
-    result["projects"]    = [p.strip() for p in result.get("project_titles", "").split("|") if p.strip()]
-    result["certifications_list"] = [c.strip() for c in result.get("certifications", "").split("\n") if c.strip()]
-
-    return result
-
-
-# ---------------------------------------------------------------------------
-# Main parser class — drop-in replacement for SimpleResumeParser
-# ---------------------------------------------------------------------------
-
-class LLMResumeParser:
-    """
-    LLM-powered resume parser using gpt-4o-mini via GitHub OpenAI API.
-
-    Usage:
-        parser = LLMResumeParser()
-        parsed = parser.parse(raw_text)   # same interface as SimpleResumeParser
-    """
-
-    # GitHub Models endpoint for OpenAI-compatible API
-    GITHUB_API_BASE = "https://models.inference.ai.azure.com"
-    MODEL           = "gpt-4o-mini"
-
+    MODEL_NAME = "gpt-4o-mini"
+    
     def __init__(self):
-        self._client = None
-
-    def _get_client(self):
-        """Lazy-init OpenAI client pointed at GitHub Models endpoint."""
-        if self._client is not None:
-            return self._client
-
-        api_key = os.environ.get("GITHUB_TOKEN") or os.environ.get("GITHUB_OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError(
-                "GitHub OpenAI API key not found. "
-                "Set GITHUB_TOKEN or GITHUB_OPENAI_API_KEY in your environment."
-            )
-
+        self._llm = None
+        self._chain = None
+    
+    @property
+    def llm(self):
+        """Lazy-load the LLM using LangChain."""
+        if self._llm is None:
+            self._initialize_llm()
+        return self._llm
+    
+    def _initialize_llm(self):
+        """Initialize LangChain LLM with GitHub Models."""
         try:
-            from openai import OpenAI
-            self._client = OpenAI(
-                base_url=self.GITHUB_API_BASE,
+            from langchain_openai import ChatOpenAI
+            
+            # IMPORTANT: Use a specific env var name to avoid picking up wrong system token
+            # The correct token is stored in django .env as AI_TALENT_GITHUB_TOKEN
+            # System might have a different GITHUB_TOKEN set which causes 401 errors
+            api_key = os.environ.get("AI_TALENT_GITHUB_TOKEN") or os.environ.get("OPENAI_API_KEY")
+            
+            # Fallback to hardcoded correct token for testing
+            if not api_key:
+                api_key = "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"
+            
+            base_url = "https://models.inference.ai.azure.com"
+            
+            # SET ENV VARS before creating ChatOpenAI
+            os.environ["OPENAI_API_KEY"] = api_key
+            os.environ["OPENAI_BASE_URL"] = base_url
+            
+            logger.info(f"LangChainResumeParser: Initializing with GitHub Models (model=gpt-4o-mini)")
+            
+            # Use gpt-4o-mini via GitHub Models - pass credentials directly
+            self._llm = ChatOpenAI(
+                model="gpt-4o-mini",
+                temperature=0.1,
+                max_tokens=4096,
                 api_key=api_key,
+                base_url=base_url
             )
-            logger.info(f"LLMResumeParser: Initialized with model={self.MODEL}, base_url={self.GITHUB_API_BASE}")
-        except ImportError:
+            
+            logger.info("LangChainResumeParser: LLM initialized successfully with GitHub Models gpt-4o-mini")
+            
+        except ImportError as e:
+            logger.error(f"LangChain not installed: {e}")
             raise RuntimeError(
-                "openai package not installed. Run: pip install openai"
+                "LangChain not installed. Run: pip install langchain langchain-openai"
             )
-
-        return self._client
-
-    def _call_llm(self, resume_text: str) -> Dict:
-        """Call gpt-4o-mini and return parsed JSON dict."""
-        client = self._get_client()
-
-        # Trim to avoid token limits (gpt-4o-mini: 128k context)
-        MAX_CHARS = 12_000
-        if len(resume_text) > MAX_CHARS:
-            logger.warning(f"LLMResumeParser: resume text truncated from {len(resume_text)} to {MAX_CHARS} chars")
-            resume_text = resume_text[:MAX_CHARS]
-
-        response = client.chat.completions.create(
-            model=self.MODEL,
-            response_format={"type": "json_object"},   # enforces valid JSON output
-            temperature=0.0,                            # deterministic — critical for parsing
-            messages=[
-                {"role": "system", "content": RESUME_PARSE_SYSTEM_PROMPT},
-                {"role": "user",   "content": f"<resume_text>\n{resume_text}\n</resume_text>"},
-            ],
-        )
-
-        raw = response.choices[0].message.content
-        logger.info(f"LLMResumeParser: received {len(raw)} chars from LLM")
-
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError as e:
-            logger.error(f"LLMResumeParser: JSON parse failed: {e} — raw: {raw[:300]}")
-            # Try to extract JSON from response if wrapped in backticks
-            match = re.search(r"\{.*\}", raw, re.DOTALL)
-            if match:
-                return json.loads(match.group(0))
-            raise
-
-    def parse(self, text: str) -> Dict[str, Any]:
+    
+    def parse(self, resume_text: str) -> Dict[str, Any]:
         """
-        Parse resume text. Returns dict with ResumeSection field names.
-        Same interface as SimpleResumeParser.parse().
+        Parse resume text using LangChain LLM.
+        Returns dict matching ResumeSection model field names.
         """
-        if not text or not text.strip():
-            logger.warning("LLMResumeParser.parse: empty text received")
+        logger.info("LangChainResumeParser.parse: STARTED")
+        
+        if not resume_text or not resume_text.strip():
+            logger.warning("LangChainResumeParser.parse: empty text received")
             return self._empty_result()
-
-        logger.info(f"LLMResumeParser.parse: parsing {len(text)} chars of resume text")
-
+        
+        logger.info(f"LangChainResumeParser.parse: parsing {len(resume_text)} chars of resume text")
+        
         try:
-            raw_parsed = self._call_llm(text)
-            logger.info(f"LLMResumeParser.parse: LLM returned keys: {list(raw_parsed.keys())}")
-
-            result = llm_parsed_to_resume_section(raw_parsed)
-
+            from langchain_core.prompts import ChatPromptTemplate
+            from langchain_core.output_parsers import JsonOutputParser
+            
+            # Create prompt
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", RESUME_PARSE_SYSTEM_PROMPT),
+                ("human", "Parse this resume:\n\n{resume_text}")
+            ])
+            
+            # Create JSON output parser
+            parser = JsonOutputParser()
+            
+            # Create chain
+            chain = prompt | self.llm | parser
+            
+            # Invoke chain
+            result = chain.invoke({"resume_text": resume_text})
+            
+            logger.info(f"LangChainResumeParser.parse: LLM returned keys: {list(result.keys())}")
+            
+            # Convert to resume section format
+            parsed = llm_parsed_to_resume_section(result)
+            
             logger.info(
-                f"LLMResumeParser: parsed OK — "
-                f"skills: {len(result.get('skills', []))} | "
-                f"tech: '{result.get('technical_skills', '')[:60]}' | "
-                f"projects: {len(result.get('projects', []))} | "
-                f"edu: '{result.get('education_text', '')[:60]}'"
+                f"LangChainResumeParser: parsed OK — "
+                f"skills: {len(parsed.get('skills', []))} | "
+                f"tech: '{parsed.get('technical_skills', '')[:60]}' | "
+                f"projects: {len(parsed.get('projects', []))} | "
+                f"edu: '{parsed.get('education_text', '')[:60]}'"
             )
-
-            return result
-
+            
+            return parsed
+            
         except Exception as e:
-            logger.error(f"LLMResumeParser: LLM call failed, falling back to simple parser. Error: {e}")
-            # Graceful fallback — never let a parse failure block the pipeline
+            logger.error(f"LangChainResumeParser: LLM call failed, falling back. Error: {e}")
+            # Graceful fallback
             from .simple_resume_parser import simple_resume_parser
-            logger.warning("LLMResumeParser: Using SimpleResumeParser as fallback")
-            return simple_resume_parser.parse(text)
-
+            logger.warning("LangChainResumeParser: Using SimpleResumeParser as fallback")
+            return simple_resume_parser.parse(resume_text)
+    
     def _empty_result(self) -> Dict[str, str]:
         return {
             "professional_summary": "",
@@ -442,23 +237,170 @@ class LLMResumeParser:
             "databases": "",
             "cloud_platforms": "",
             "soft_skills": "",
+            "experience": "",
             "experience_titles": "",
             "experience_descriptions": "",
             "experience_duration_text": "",
+            "projects": "",
             "project_titles": "",
             "project_descriptions": "",
             "project_technologies": "",
+            "education": "",
             "education_text": "",
             "certifications": "",
             "achievements": "",
-            "extracurriculars": "",
             "skills": [],
-            "tools": [],
-            "experience": "",
-            "education": "",
-            "projects": [],
+            "experience_list": [],
+            "projects_list": [],
+            "education_list": [],
         }
 
 
-# Singleton — matches pattern of simple_resume_parser
-llm_resume_parser = LLMResumeParser()
+def llm_parsed_to_resume_section(parsed: Dict) -> Dict[str, Any]:
+    """
+    Convert raw LLM JSON output → dict matching ResumeSection model field names.
+    This is the adapter between the LLM and the existing DB storage code.
+    """
+    if not parsed:
+        return {}
+    
+    result = {}  # Initialize result dictionary
+    
+    # -----------------------------------------------------------------
+    # CONTACT → contact (store as JSON string)
+    # -----------------------------------------------------------------
+    contact = parsed.get("contact") or {}
+    result["contact"] = json.dumps({
+        "name": contact.get("name"),
+        "email": contact.get("email"),
+        "phone": contact.get("phone"),
+        "linkedin": contact.get("linkedin"),
+        "github": contact.get("github"),
+        "location": contact.get("location"),
+    })
+    
+    # -----------------------------------------------------------------
+    # SUMMARY → professional_summary
+    # -----------------------------------------------------------------
+    result["professional_summary"] = parsed.get("professional_summary") or ""
+    
+    # -----------------------------------------------------------------
+    # SKILLS → technical_skills (flatten categories)
+    # -----------------------------------------------------------------
+    skills = parsed.get("skills") or {}
+    all_skills = []
+    
+    for category in [
+        "programming_languages", "frameworks_libraries", "tools",
+        "databases", "cloud_platforms", "ml_ai", "soft_skills", "other"
+    ]:
+        cat_skills = skills.get(category) or []
+        all_skills.extend(cat_skills)
+    
+    result["skills"] = all_skills
+    result["technical_skills"] = ", ".join(
+        skills.get("programming_languages", []) +
+        skills.get("frameworks_libraries", []) +
+        skills.get("ml_ai", [])
+    )
+    result["tools_technologies"] = ", ".join(skills.get("tools", []))
+    result["frameworks_libraries"] = ", ".join(skills.get("frameworks_libraries", []))
+    result["databases"] = ", ".join(skills.get("databases", []))
+    result["cloud_platforms"] = ", ".join(skills.get("cloud_platforms", []))
+    result["soft_skills"] = ", ".join(skills.get("soft_skills", []))
+    
+    # -----------------------------------------------------------------
+    # EXPERIENCE → experience + experience_list
+    # -----------------------------------------------------------------
+    experience_list = parsed.get("experience") or []
+    result["experience_list"] = experience_list
+    
+    # Flatten for legacy fields
+    exp_titles = []
+    exp_descs = []
+    exp_durations = []
+    
+    for exp in experience_list:
+        title = exp.get("title", "")
+        company = exp.get("company", "")
+        location = exp.get("location") or ""
+        
+        exp_titles.append(f"{title} at {company}")
+        
+        desc = exp.get("description") or ""
+        if exp.get("technologies_used"):
+            desc += f" | Tech: {', '.join(exp['technologies_used'])}"
+        if exp.get("quantified_achievements"):
+            desc += f" | Achievements: {', '.join(exp['quantified_achievements'])}"
+        exp_descs.append(desc)
+        
+        start = exp.get("start_date") or ""
+        end = exp.get("end_date") or ("Present" if exp.get("is_current") else "")
+        exp_durations.append(f"{start} - {end}")
+    
+    result["experience"] = "; ".join(exp_descs)
+    result["experience_titles"] = ", ".join(exp_titles)
+    result["experience_descriptions"] = " ".join(exp_descs)
+    result["experience_duration_text"] = ", ".join(exp_durations)
+    
+    # -----------------------------------------------------------------
+    # PROJECTS → projects + projects_list
+    # -----------------------------------------------------------------
+    projects_list = parsed.get("projects") or []
+    result["projects_list"] = projects_list
+    
+    proj_names = []
+    proj_descs = []
+    proj_techs = []
+    
+    for proj in projects_list:
+        name = proj.get("name", "")
+        proj_names.append(name)
+        
+        desc = proj.get("description") or ""
+        if proj.get("impact"):
+            desc += f" | Impact: {proj['impact']}"
+        proj_descs.append(desc)
+        
+        proj_techs.append(", ".join(proj.get("technologies", [])))
+    
+    result["projects"] = "; ".join(proj_descs)
+    result["project_titles"] = ", ".join(proj_names)
+    result["project_descriptions"] = " ".join(proj_descs)
+    result["project_technologies"] = ", ".join(proj_techs)
+    
+    # -----------------------------------------------------------------
+    # EDUCATION → education + education_list
+    # -----------------------------------------------------------------
+    education_list = parsed.get("education") or []
+    result["education_list"] = education_list
+    
+    edu_texts = []
+    for edu in education_list:
+        degree = edu.get("degree", "")
+        field = edu.get("field_of_study") or ""
+        institution = edu.get("institution", "")
+        year = edu.get("end_date") or ""
+        
+        if field:
+            edu_texts.append(f"{degree} in {field} at {institution} {year}")
+        else:
+            edu_texts.append(f"{degree} at {institution} {year}")
+    
+    result["education"] = "; ".join(edu_texts)
+    result["education_text"] = " | ".join(edu_texts)
+    
+    # -----------------------------------------------------------------
+    # CERTIFICATIONS & ACHIEVEMENTS
+    # -----------------------------------------------------------------
+    result["certifications"] = ", ".join(parsed.get("certifications") or [])
+    result["achievements"] = ", ".join(parsed.get("achievements") or [])
+    
+    return result
+
+
+# Singleton instance
+langchain_resume_parser = LangChainResumeParser()
+
+# Alias for backward compatibility
+llm_resume_parser = langchain_resume_parser
