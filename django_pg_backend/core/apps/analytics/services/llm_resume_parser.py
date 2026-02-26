@@ -143,10 +143,6 @@ class LangChainResumeParser:
             # System might have a different GITHUB_TOKEN set which causes 401 errors
             api_key = os.environ.get("AI_TALENT_GITHUB_TOKEN") or os.environ.get("OPENAI_API_KEY")
             
-            # Fallback to hardcoded correct token for testing
-            if not api_key:
-                api_key = "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"
-            
             base_url = "https://models.inference.ai.azure.com"
             
             # SET ENV VARS before importing ChatOpenAI
