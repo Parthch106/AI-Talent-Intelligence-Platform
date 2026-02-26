@@ -138,8 +138,6 @@ class LangChainResumeParser:
     def _initialize_llm(self):
         """Initialize LangChain LLM with GitHub Models."""
         try:
-            from langchain_openai import ChatOpenAI
-            
             # IMPORTANT: Use a specific env var name to avoid picking up wrong system token
             # The correct token is stored in django .env as AI_TALENT_GITHUB_TOKEN
             # System might have a different GITHUB_TOKEN set which causes 401 errors
@@ -147,15 +145,17 @@ class LangChainResumeParser:
             
             # Fallback to hardcoded correct token for testing
             if not api_key:
-                api_key = "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"
+                api_key = "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"
             
             base_url = "https://models.inference.ai.azure.com"
             
-            # SET ENV VARS before creating ChatOpenAI
+            # SET ENV VARS before importing ChatOpenAI
             os.environ["OPENAI_API_KEY"] = api_key
             os.environ["OPENAI_BASE_URL"] = base_url
             
             logger.info(f"LangChainResumeParser: Initializing with GitHub Models (model=gpt-4o-mini)")
+            
+            from langchain_openai import ChatOpenAI
             
             # Use gpt-4o-mini via GitHub Models - pass credentials directly
             self._llm = ChatOpenAI(

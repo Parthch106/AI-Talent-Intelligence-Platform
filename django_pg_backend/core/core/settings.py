@@ -17,6 +17,10 @@ from dotenv import load_dotenv
 # Load .env from the same directory as settings.py
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
+# Unset system-level GITHUB_TOKEN to avoid conflicts with AI_TALENT_GITHUB_TOKEN
+if 'GITHUB_TOKEN' in os.environ:
+    del os.environ['GITHUB_TOKEN']
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 

@@ -76,6 +76,8 @@ class TrainConfig:
     TEST_SIZE = 0.2
     RANDOM_STATE = 42
     CV_FOLDS = 5
+    # Use smaller subset for faster training (set to None for all data)
+    MAX_SAMPLES = 2000  # Reduce from 10,000 to 2,000 for 5x faster training
     
     # Model parameters for XGBoost
     XGBOOST_PARAMS = {
@@ -104,6 +106,19 @@ def load_dataset(config: TrainConfig) -> pd.DataFrame:
         raise FileNotFoundError(f"Dataset not found at {config.DATASET_PATH}")
     
     df = pd.read_csv(config.DATASET_PATH)
+    
+    # Use smaller subset for faster training
+    if config.MAX_SAMPLES and len(df) > config.MAX_SAMPLES:
+        logger.info(f"Using {config.MAX_SAMPLES} samples instead of {len(df)} for faster training")
+        # Stratified sampling to preserve class distribution
+        from sklearn.model_selection import train_test_split
+        df, _ = train_test_split(
+            df, 
+            test_size=1 - config.MAX_SAMPLES/len(df),
+            stratify=df['suitability_label'],
+            random_state=config.RANDOM_STATE
+        )
+    
     logger.info(f"Loaded {len(df)} records")
     logger.info(f"Columns: {list(df.columns)}")
     logger.info(f"Label distribution:\n{df['suitability_label'].value_counts()}")

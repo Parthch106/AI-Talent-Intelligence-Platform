@@ -43,7 +43,7 @@ const App: React.FC = () => {
             <Route path="/my-tasks" element={<InternTasks />} />
             <Route path="/my-attendance" element={<MyAttendance />} />
             <Route path="/manager" element={<ManagerDashboard />} />
-            <Route path="/reports" element={<div className="p-6 text-gray-500">Reports Coming Soon</div>} />
+            <Route path="/reports" element={<div className="p-6 text-slate-400">Reports Coming Soon</div>} />
           </Route>
 
           {/* Catch all */}
