@@ -48,6 +48,10 @@ class EmbeddingConfig:
     model_name: str = 'BAAI/bge-large-en-v1.5'
     embedding_dim: int = 1024
     
+    print(f"\n[EMBEDDING CONFIG]")
+    print(f"  Model: {model_name}")
+    print(f"  Dimension: {embedding_dim}")
+    
     # Section weights for resume vector combination
     weights: Dict[str, float] = None
     

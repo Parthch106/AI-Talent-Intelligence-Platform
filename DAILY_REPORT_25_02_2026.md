@@ -3,125 +3,95 @@
 **Date:** 25/02/2026  
 **Intern Name:** Parth Chauhan
 
----
-
-## Comprehensive Project Report: AI Talent Intelligence Platform Enhancements
-
-This report provides a detailed overview of the core architectural and feature enhancements implemented for the AI Talent Intelligence Platform.
-
-### 1. Logging Overhaul & Cleanliness
-
-**Objective:** Transition from scattered debug prints to a production-grade structured logging system and clean the frontend codebase.
-
-**Backend (Python):**
-
-- Removed over 100 `print()` statements across services (`resume_parsing_engine.py`, `suitability_scorer.py`, `talent_intelligence_service.py`).
-- Implemented a hierarchical logging system using `logger.info`, `logger.error`, and `logger.warning`.
-- Added decorative structured logs for key lifecycle events (Model Training, Resume Analysis, Decision Scoring).
-
-**Frontend (React):**
-
-- Conducted a system-wide audit and removed all `console.log` statements from all components.
-- Improved error handling in API calls to provide user-facing alerts instead of silent console failures.
+**Project Title:** AI Talent Intelligence Platform
 
 ---
 
-### 2. Phase 3: Resume Pipeline Modernization
+## Tasks Completed Today:
 
-**Objective:** Upgrade the extraction and matching engine to industry-leading standards for higher accuracy.
+### 1. Training Data Verification
 
-**Layout-Aware Extraction**
+- Verified the synthetic resume dataset (`synthetic_resume_dataset_20000_advanced.csv`) for ML model training
+- Dataset contains:
+  - 20,000 synthetic resume records
+  - 11 columns: candidate_id, applied_role, professional_summary, technical_skills, frameworks_libraries, tools_technologies, experience_descriptions, project_descriptions, education_text, certifications, suitability_label
+  - 4 roles: ML Engineer, Data Analyst, Frontend Developer, Backend Developer
+  - Label distribution: 74.9% positive (14,973), 25.1% negative (5,027)
+- Confirmed all columns match the training code requirements in `train_models_v2.py`
 
-- **PyMuPDF4LLM Integration:** Replaced legacy text streaming with layout-aware markdown extraction. This identifies tables, headers, and multi-column layouts, providing the LLM with a context-rich document.
+### 2. LLM Resume Parser Implementation
 
-**LLM-Powered Parsing**
+- The system uses **LangChainResumeParser** (GPT-4o-mini via GitHub OpenAI API)
+- Parser location: `django_pg_backend/core/apps/analytics/services/llm_resume_parser.py`
+- Features:
+  - PDF text extraction using PyMuPDF4LLM
+  - LLM-based structured parsing with zero-shot prompting
+  - Outputs structured JSON with: professional_summary, technical_skills, frameworks, tools, experience, projects, education, certifications
+  - Anti-hallucination rules enabled
 
-- **GPT-4o-mini Hybrid Parser:** Implemented the `LLMResumeParser` using the GitHub AI API. It extracts 20+ specific data points across Experience, Projects, and Skills with high precision.
-- **Fallback Logic:** Maintained a local regex-based parser to ensure system availability if the external API is unreachable.
+### 3. Embedding Engine Upgrade
 
-**High-Precision Embeddings**
+- Upgraded from MiniLM (384 dim) to **BAAI/bge-large-en-v1.5** (1024 dimensions)
+- Location: `django_pg_backend/core/apps/analytics/services/embedding_engine.py`
+- Weighted section embedding:
+  - Professional Summary: 25%
+  - Experience: 40%
+  - Skills/Projects: 25%
+  - Education: 10%
 
-- **BGE-Large v1.5:** Upgraded from MiniLM (384-dim) to BAAI/bge-large-en-v1.5 (1024-dim).
-- **Semantic Optimization:** Implemented query-prefixing ("Represent this document for retrieval: ") to align with state-of-the-art embedding best practices.
+### 4. ML Model Training Pipeline
 
----
+- Training command: `python manage.py train_models_v2`
+- Dataset path: `django_pg_backend/core/docs/synthetic_resume_dataset_20000_advanced.csv`
+- Output: Trained models in `apps/analytics/management/trained_models/`
 
-### 3. Phase 4: Database Schema Normalization
+### 5. Scoring & Decision System
 
-**Objective:** Move away from unstructured "blobs" to a relational schema for deep analytics.
-
-**New Relational Models**
-Established a granular database structure in `apps/analytics/models.py`:
-
-- **ResumeSkill:** Categorized technical competencies.
-- **ResumeExperience:** Detailed work history with technology tracking.
-- **ResumeProject:** Key projects with impact metrics and GitHub links.
-- **ResumeEducation:** Academic background including GPA and honors.
-- **ResumeCertification:** External validation of skills.
-
-**Storage Service Refactor**
-
-- Refactored `TalentIntelligenceService._store_parsed_resume_sections` to perform atomic database updates.
-- Implemented a "Sync on Analysis" pattern where the LLM's structured output is immediately mapped to these relational tables.
-
----
-
-### 4. Phase 5: Frontend Integration & Enhanced UI
-
-**Objective:** Expose the new structured data to recruiters and managers through a premium dashboard.
-
-**Candidate Profile Section**
-
-- **Visualization:** Added a "Candidate Profile" to the `AnalysisPage.tsx` dashboard.
-- **Experience Timeline:** A professional vertical timeline displaying work history.
-- **Skill Mapping:** Visual badges color-coded by "Major" vs "Minor" skills.
-- **Project Cards:** Dedicated cards for GitHub projects with impact descriptions.
-
-**API Modernization**
-
-- Updated `LegacyIntelligenceView` and `AnalyticsDashboardService` to bundle the new `structured_resume` object in every analysis response.
+- **SuitabilityScorer** combines:
+  - ML model score (40% weight)
+  - Semantic match score (60% weight)
+- Decision thresholds:
+  - INTERVIEW_SHORTLIST: 0.75
+  - TECHNICAL_ASSIGNMENT: 0.55
+  - MANUAL_REVIEW: 0.40
 
 ---
 
-### 5. Additional Enhancements (Today)
+## Problems Faced:
 
-**Task Management & Project Workflow:**
-
-- Implemented task grouping by project in the My Tasks page
-- Added `project_assignment_id` field to TaskTracking model to link tasks to projects
-- Created database migrations for the new field
-- Updated backend API to include project information with tasks
-- Added project dropdown to task creation form in MonitoringDashboard
-- Implemented auto-mark project as "Pending Approval" when all tasks are completed
-- Added manager approval workflow (approve/reject endpoints) for project completion
-- Linked all 65 existing tasks to their respective project assignments in the database
+1. **Parsing Issues**: Previous regex-based parser caused section leakage (email/phone in projects), concatenated garbage text, and duplicate skills
+2. **Low Semantic Scores**: Original cosine similarity ~0.24 even for relevant ML resumes due to weak embeddings (MiniLM)
+3. **ML Model Bias**: Previous weighting (70% ML + 30% semantic) produced too many REJECT decisions
+4. **Class Imbalance**: Training data has 75% positive labels, which may affect model bias
 
 ---
 
-### Final Verification Summary
+## Solutions Found:
 
-- **Code Hygiene:** 0 total print/console.log remaining in production paths.
-- **Schema Stability:** Migrations successfully applied and verified with real data.
-- **Pipeline Accuracy:** Verified 95%+ accuracy in extracting years of experience and core skills from complex PDF resumes.
-
-**NOTE:** The platform is now fully optimized for high-volume intern screening with a robust relational data foundation.
+1. **LLM-Based Parser**: Replaced simple regex parser with GPT-4o-mini for structured extraction
+2. **Better Embeddings**: Upgraded to bge-large-en-v1.5 for improved semantic matching
+3. **Adjusted Weights**: Changed scoring formula to 40% ML + 60% semantic for better decisions
+4. **Lowered Thresholds**: Adjusted decision thresholds to reduce false rejections
 
 ---
 
-### Problems Faced:
+## Plans for Tomorrow:
 
-- Initial notification functionality was not working - notifications were not being created for various events
-- Tasks were not linked to projects, making it difficult to track project progress
+1. Run the full ML model training with the verified dataset
+2. Test the analysis pipeline with real intern resumes
+3. Verify the new parser produces clean, structured output
+4. Check semantic match scores are now in the meaningful range (0.65+ for relevant candidates)
+5. Review ML model predictions (Growth, Communication, Authenticity scores)
 
-### Solutions Found:
+---
 
-- Created Django signals to automatically create notifications on events (task completion, project assignment, intelligence computation)
-- Added project_assignment foreign key to TaskTracking model
-- Created automatic workflow to mark projects as "Pending Approval" when all tasks are completed
+## Key Files Modified:
 
-### Plans for Tomorrow:
-
-- Continue testing and refining the project approval workflow
-- Add more notifications for different events
-- Work on improving the frontend UI/UX
-- Continue developing new features for the AI Talent Intelligence Platform
+| File                                          | Purpose                                |
+| --------------------------------------------- | -------------------------------------- |
+| `llm_resume_parser.py`                        | LLM-based resume parsing               |
+| `embedding_engine.py`                         | BGE embeddings with weighted sections  |
+| `suitability_scorer.py`                       | Combined scoring with adjusted weights |
+| `talent_intelligence_service.py`              | Main orchestration service             |
+| `train_models_v2.py`                          | ML model training pipeline             |
+| `synthetic_resume_dataset_20000_advanced.csv` | Training data (20,000 records)         |

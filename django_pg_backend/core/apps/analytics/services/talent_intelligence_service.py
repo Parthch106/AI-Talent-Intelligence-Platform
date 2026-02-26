@@ -74,6 +74,14 @@ class TalentIntelligenceService:
         use_llm = os.environ.get('USE_LLM_PARSER', 'false').lower() == 'true'
         self.parsing_engine = llm_resume_parser  # Use LLM parser by default for V2
         self.legacy_parser = ResumeParsingEngine()
+        
+        print(f"\n{'='*60}")
+        print(f"TALENT INTELLIGENCE SERVICE INITIALIZED")
+        print(f"{'='*60}")
+        print(f"Parser: {type(self.parsing_engine).__name__}")
+        print(f"Legacy Parser: {type(self.legacy_parser).__name__}")
+        print(f"{'='*60}\n")
+        
         logger.info(f"TalentIntelligenceService: Initialized with {type(self.parsing_engine).__name__}")
     
     # =========================================================================
@@ -321,6 +329,13 @@ class TalentIntelligenceService:
         Returns:
             Complete analysis results
         """
+        print(f"\n{'='*60}")
+        print(f"STARTING RESUME ANALYSIS")
+        print(f"{'='*60}")
+        print(f"User: {user.email} (ID: {user.id})")
+        print(f"Job Role: {job_role}")
+        print(f"{'='*60}\n")
+        
         logger.info(f"Starting analysis for user: {user.email}")
         
         # 1. Get document for the user
@@ -419,6 +434,9 @@ class TalentIntelligenceService:
                     except:
                         pass
         
+        print(f"\n[STEP 1] Document loaded: {len(resume_raw_text)} characters")
+        print(f"[STEP 1] Document preview: {resume_raw_text[:200]}...")
+        
         logger.info(f"  role_description: {job_role_obj.role_description[:120] if job_role_obj and job_role_obj.role_description else 'None'}...")
         
         if create_application and job_role_obj:
@@ -428,22 +446,53 @@ class TalentIntelligenceService:
                 defaults={'resume_raw_text': resume_raw_text[:10000]}  # Limit text length
             )
         
+        print(f"\n[STEP 2] Parsing resume with {type(self.parsing_engine).__name__}...")
         logger.info(f"=== STEP: Parsing resume ({type(self.parsing_engine).__name__}) ===")
         # Use the high-quality markdown text for parsing
         parsed = self.parsing_engine.parse(resume_raw_text)
         raw_features = {'_parsed_data': parsed}
-        logger.info(f"  Parser output — skills: {len(parsed.get('skills', []))} | tech_skills: {parsed.get('technical_skills', '')[:80]} | projects: {len(parsed.get('projects', []))}")
+        
+        # Print parsed data summary
+        # Parse contact from JSON string if needed
+        contact_data = parsed.get('contact', {})
+        if isinstance(contact_data, str):
+            import json
+            try:
+                contact_data = json.loads(contact_data)
+            except:
+                contact_data = {}
+        
+        full_name = contact_data.get('name', 'N/A') if isinstance(contact_data, dict) else 'N/A'
+        email = contact_data.get('email', 'N/A') if isinstance(contact_data, dict) else 'N/A'
+        
+        print(f"\n[PARSED DATA SUMMARY]")
+        print(f"  - Full name: {full_name}")
+        print(f"  - Email: {email}")
+        print(f"  - Skills count: {len(parsed.get('skills', []))}")
+        print(f"  - Technical skills: {str(parsed.get('technical_skills', ''))[:100]}...")
+        print(f"  - Projects count: {len(parsed.get('projects_list', []))}")
+        print(f"  - Experience count: {len(parsed.get('experience_list', []))}")
+        print(f"  - Education count: {len(parsed.get('education_list', []))}")
+        if parsed.get('education_list'):
+            for i, edu in enumerate(parsed.get('education_list', [])[:2]):
+                print(f"    Education {i+1}: {edu}")
+        
+        logger.info(f"  Parser output — skills: {len(parsed.get('skills', []))} | tech_skills: {parsed.get('technical_skills', '')[:80]} | projects: {len(parsed.get('projects_list', []))}")
         
         # 4b. Store parsed resume data directly to ResumeSection
         if application and raw_features and '_parsed_data' in raw_features:
             parsed_data = raw_features['_parsed_data']
+            print(f"\n[STEP 3] Storing parsed resume sections to database...")
             self._store_parsed_resume_sections(application, parsed_data)
         
         # 5. Apply feature engineering (Phase 2)
+        print(f"\n[STEP 4] Applying feature engineering...")
         engineered_features = self._apply_feature_engineering(
             raw_features, 
             target_job_role=job_role
         )
+        print(f"  Feature engineering complete.")
+        print(f"  - Key features: {list(engineered_features.keys())[:10]}...")
         
         # 5b. Generate embeddings (v2.0 - Phase 2b)
         # Extract text sections from parsed data for embedding
@@ -454,6 +503,7 @@ class TalentIntelligenceService:
         # ALWAYS extract fresh resume sections from raw features for embedding
         # (Don't use cached old data from database)
         resume_sections = self._extract_resume_sections(raw_features, document)
+        print(f"\n[STEP 5] Resume sections for embedding: {list(resume_sections.keys()) if resume_sections else 'None'}")
         logger.info("analyze_resume: extracted fresh sections from raw features for embedding")
         
         role_description = job_role_obj.role_description if job_role_obj else f'{job_role} position'
@@ -464,6 +514,10 @@ class TalentIntelligenceService:
 
         embedding_results = None
         if resume_sections:
+            print(f"\n[STEP 6] Generating embeddings with {type(embedding_engine).__name__}...")
+            print(f"  - Role description: {role_description[:80]}...")
+            print(f"  - Resume sections: {[k for k,v in resume_sections.items() if isinstance(v,str) and v.strip()][:5]}...")
+            
             logger.info(f"=== STEP: Generating embeddings ====")
             logger.info(f"  role_description  : {role_description[:120]}...")
             logger.info(f"  resume sections   : {[k for k,v in resume_sections.items() if isinstance(v,str) and v.strip()]}")
@@ -473,6 +527,11 @@ class TalentIntelligenceService:
                     role_description=role_description,
                     apply_bias_mitigation=True
                 )
+                print(f"\n  [EMBEDDING RESULTS]")
+                print(f"  - Semantic match score: {embedding_results.get('semantic_match_score', 0):.4f}")
+                print(f"  - Model used: {embedding_results.get('model_used', 'unknown')}")
+                print(f"  - Resume vector dimension: {len(embedding_results.get('resume_vector', []))}")
+                
                 logger.info(
                     f"  Embedding done — semantic_match: {embedding_results.get('semantic_match_score', 0):.4f} "
                     f"| resume_vec_dim: {len(embedding_results.get('resume_vector', []))} "
@@ -497,10 +556,12 @@ class TalentIntelligenceService:
         )
         
         # 7. Run ML inference (Phase 3-4) - now with embeddings
+        print(f"\n[STEP 7] Running ML inference...")
         predictions = self._run_ml_inference(
             engineered_features,
             embedding_results=embedding_results
         )
+        print(f"  - Predictions: {predictions}")
         
         # 8. Store predictions
         model_prediction = self._store_predictions(
@@ -509,12 +570,14 @@ class TalentIntelligenceService:
         )
         
         # 9. Apply bias mitigation (Phase 5)
+        print(f"\n[STEP 8] Applying bias mitigation...")
         bias_report = self._apply_bias_mitigation(
             engineered_features,
             predictions
         )
         
         # 10. Generate explainability output (Phase 6) - v2.0 format
+        print(f"\n[STEP 9] Generating explainable output...")
         analysis_result = self._generate_explainable_output(
             user=user,
             features=engineered_features,
@@ -522,6 +585,18 @@ class TalentIntelligenceService:
             bias_report=bias_report,
             embedding_results=embedding_results
         )
+        
+        print(f"\n{'='*60}")
+        print(f"ANALYSIS COMPLETE")
+        print(f"{'='*60}")
+        print(f"User: {user.email}")
+        print(f"Decision: {analysis_result.get('decision', 'N/A')}")
+        print(f"Suitability Score: {analysis_result.get('suitability_score', 0):.4f}")
+        print(f"Semantic Match Score: {analysis_result.get('semantic_match_score', 0):.4f}")
+        print(f"Technical Score: {analysis_result.get('technical_score', 0):.4f}")
+        print(f"Growth Score: {analysis_result.get('growth_score', 0):.4f}")
+        print(f"Communication Score: {analysis_result.get('communication_score', 0):.4f}")
+        print(f"{'='*60}\n")
         
         logger.info(
             f"=== ANALYSIS COMPLETE for '{user.email}' — "
@@ -741,6 +816,11 @@ class TalentIntelligenceService:
         edu_objs = []
         for edu in education_list:
             if not isinstance(edu, dict): continue
+            
+            # Parse GPA value - handle formats like "3.8", "3.8/4.0", "8.5/10"
+            gpa_value = edu.get('gpa')
+            parsed_gpa = self._parse_gpa(gpa_value)
+            
             edu_objs.append(ResumeEducation(
                 application=application,
                 degree=edu.get('degree', ''),
@@ -748,7 +828,7 @@ class TalentIntelligenceService:
                 institution=edu.get('institution', ''),
                 start_year=edu.get('start_year'),
                 end_year=edu.get('end_year'),
-                gpa=edu.get('gpa'),
+                gpa=parsed_gpa,
                 honors=edu.get('honors', '')
             ))
         if edu_objs:
@@ -928,6 +1008,50 @@ class TalentIntelligenceService:
             if skill_name:
                 normalized.append(skill_name.strip())
         return normalized
+    
+    def _parse_gpa(self, gpa_value: Any) -> Optional[float]:
+        """
+        Parse GPA value from various formats.
+        Handles: "3.8", "3.8/4.0", "8.5/10", "3.8 out of 4.0", etc.
+        Returns float or None if parsing fails.
+        """
+        if gpa_value is None:
+            return None
+        
+        # Convert to string if not already
+        gpa_str = str(gpa_value).strip()
+        
+        if not gpa_str:
+            return None
+        
+        try:
+            # Try direct conversion first (for simple formats like "3.8")
+            return float(gpa_str)
+        except (ValueError, TypeError):
+            pass
+        
+        # Handle ratio formats like "3.8/4.0" or "8.5/10"
+        if '/' in gpa_str:
+            parts = gpa_str.split('/')
+            if len(parts) >= 2:
+                try:
+                    # Return just the first part (obtained GPA)
+                    return float(parts[0].strip())
+                except (ValueError, TypeError):
+                    pass
+        
+        # Handle "out of" format like "3.8 out of 4.0"
+        if 'out of' in gpa_str.lower():
+            parts = gpa_str.lower().split('out of')
+            if len(parts) >= 2:
+                try:
+                    return float(parts[0].strip())
+                except (ValueError, TypeError):
+                    pass
+        
+        # If all parsing fails, return None
+        logger.warning(f"Failed to parse GPA value: {gpa_value}")
+        return None
     
     def _get_role_requirements_simple(self, job_role: Optional[str]) -> Dict[str, Any]:
         """Get simplified role requirements."""
@@ -1166,6 +1290,9 @@ class TalentIntelligenceService:
             'suitability_score': round(predictions.get('suitability_score', 0), 2),
             'decision': predictions.get('decision', 'MANUAL_REVIEW'),
             # v2.0 field names
+            'technical_score': round(predictions.get('technical_competency_score', 
+                                   predictions.get('technical_score', 0)), 2),
+            'communication_score': round(predictions.get('communication_score', 0), 2),
             'growth_score': round(predictions.get('growth_score', 
                                    predictions.get('growth_potential_score', 0)), 2),
             'authenticity_score': round(predictions.get('authenticity_score',

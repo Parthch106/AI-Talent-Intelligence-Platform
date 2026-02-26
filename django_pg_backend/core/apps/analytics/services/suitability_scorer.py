@@ -37,9 +37,9 @@ class SuitabilityScorer:
     # Decision thresholds (learned from validation data)
     # These should be optimized via ROC curve analysis
     DEFAULT_THRESHOLDS = {
-        'INTERVIEW_SHORTLIST': 0.80,
-        'TECHNICAL_ASSIGNMENT': 0.65,
-        'MANUAL_REVIEW': 0.50,
+        'INTERVIEW_SHORTLIST': 0.75,
+        'TECHNICAL_ASSIGNMENT': 0.55,
+        'MANUAL_REVIEW': 0.40,
     }
     
     def __init__(self, thresholds: Optional[Dict[str, float]] = None):
@@ -86,11 +86,12 @@ class SuitabilityScorer:
         base_suitability = ml_predictions.get('suitability_score', 0.5)
         
         # Optionally boost by semantic match if available (from embeddings)
+        # Give more weight to semantic match since it's more reliable for resume-job matching
         if embedding_results and 'semantic_match_score' in embedding_results:
             semantic_match = embedding_results['semantic_match_score']
-            # Light blend with semantic match (learned weight)
-            # This is learned by the model, not hardcoded
-            final_score = 0.7 * base_suitability + 0.3 * semantic_match
+            # Use semantic match as primary factor (60%) with ML model (40%)
+            # This is more appropriate for talent intelligence where role匹配 matters most
+            final_score = 0.4 * base_suitability + 0.6 * semantic_match
         else:
             final_score = base_suitability
         

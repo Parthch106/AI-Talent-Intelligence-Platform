@@ -68,8 +68,8 @@ warnings.filterwarnings('ignore')
 
 class TrainConfig:
     """Configuration for model training."""
-    # Paths - BASE_DIR is already django_pg_backend/core, so we don't add it again
-    DATASET_PATH = BASE_DIR / 'docs' / 'synthetic_resume_dataset_20000_advanced.csv'
+    # Paths - using new high-value dataset
+    DATASET_PATH = BASE_DIR / 'docs' / 'it_resume_dataset_10000_v2.csv'
     MODEL_OUTPUT_DIR = BASE_DIR / 'apps' / 'analytics' / 'management' / 'trained_models'
     
     # Training parameters
