@@ -9,8 +9,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from django.db.models import Q, Avg
+from django.db.models import Q, Avg, Count
 from django.utils import timezone
+from dateutil.relativedelta import relativedelta
 from apps.interns.models import InternProfile
 from apps.projects.models import Project
 from apps.accounts.models import User
@@ -1341,4 +1342,189 @@ class PPOEligibilityDashboardView(APIView):
                 'eligible_count': len(eligible),
                 'potential_count': len(potential),
             }
+        })
+
+
+# ============================================================================
+# HEATMAP VISUALIZATION ENDPOINTS
+# ============================================================================
+
+class TaskHeatmapView(APIView):
+    """
+    API endpoint for GitHub-style task contribution heatmap.
+    Returns daily task completion counts for heatmap visualization.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Get task completion data for heatmap visualization."""
+        user = request.user
+        intern_id = request.query_params.get('intern_id')
+        months = int(request.query_params.get('months', 6))  # Default last 6 months
+
+        # Determine target intern
+        if intern_id:
+            if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+                return Response(
+                    {'error': 'Permission denied'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            target_id = int(intern_id)
+            # Validate manager access
+            if user.role == User.Role.MANAGER:
+                is_valid, error_response = validate_manager_access(user, target_id)
+                if not is_valid:
+                    return error_response
+        else:
+            target_id = user.id
+
+        # Calculate date range
+        end_date = timezone.now().date()
+        start_date = end_date - relativedelta(months=months)
+
+        # Get completed tasks in date range
+        tasks = TaskTracking.objects.filter(
+            intern_id=target_id,
+            status='COMPLETED',
+            completed_at__date__gte=start_date,
+            completed_at__date__lte=end_date
+        ).values('completed_at__date').annotate(
+            count=Count('id')
+        ).order_by('completed_at__date')
+
+        # Create heatmap data
+        heatmap_data = {}
+        for task in tasks:
+            date_str = task['completed_at__date'].strftime('%Y-%m-%d')
+            heatmap_data[date_str] = task['count']
+
+        # Get quality ratings for each day
+        tasks_with_quality = TaskTracking.objects.filter(
+            intern_id=target_id,
+            status='COMPLETED',
+            completed_at__date__gte=start_date,
+            completed_at__date__lte=end_date,
+            quality_rating__isnull=False
+        ).values('completed_at__date').annotate(
+            avg_quality=Avg('quality_rating')
+        )
+
+        quality_data = {}
+        for task in tasks_with_quality:
+            date_str = task['completed_at__date'].strftime('%Y-%m-%d')
+            quality_data[date_str] = round(task['avg_quality'], 1)
+
+        return Response({
+            'heatmap': heatmap_data,
+            'quality': quality_data,
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'end_date': end_date.strftime('%Y-%m-%d'),
+        })
+
+
+class AttendanceHeatmapView(APIView):
+    """
+    API endpoint for monthly attendance heatmap visualization.
+    Returns daily attendance status for heatmap visualization.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Get attendance data for heatmap visualization."""
+        user = request.user
+        intern_id = request.query_params.get('intern_id')
+        months = int(request.query_params.get('months', 6))
+        start_date_param = request.query_params.get('start_date')
+        end_date_param = request.query_params.get('end_date')
+
+        # Determine target intern
+        if intern_id:
+            if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+                return Response(
+                    {'error': 'Permission denied'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            target_id = int(intern_id)
+            if user.role == User.Role.MANAGER:
+                is_valid, error_response = validate_manager_access(user, target_id)
+                if not is_valid:
+                    return error_response
+        else:
+            target_id = user.id
+
+        # Calculate date range
+        if start_date_param and end_date_param:
+            # Use provided date range
+            start_date = timezone.datetime.strptime(start_date_param, '%Y-%m-%d').date()
+            end_date = timezone.datetime.strptime(end_date_param, '%Y-%m-%d').date()
+        else:
+            # Default to last N months
+            end_date = timezone.now().date()
+            start_date = end_date - relativedelta(months=months)
+
+        # Get attendance records
+        attendance = AttendanceRecord.objects.filter(
+            intern_id=target_id,
+            date__gte=start_date,
+            date__lte=end_date
+        ).order_by('date')
+
+        # Create heatmap data with status mapping
+        STATUS_VALUE_MAP = {
+            'PRESENT': 4,       # Full contribution
+            'WORK_FROM_HOME': 3,
+            'LATE': 2,
+            'HALF_DAY': 1,
+            'ABSENT': 0,
+        }
+
+        heatmap_data = {}
+        for record in attendance:
+            date_str = record.date.strftime('%Y-%m-%d')
+            heatmap_data[date_str] = {
+                'status': record.status,
+                'value': STATUS_VALUE_MAP.get(record.status, 0),
+                'hours': record.working_hours,
+            }
+
+        # Calculate monthly summary
+        monthly_summary = {}
+        for record in attendance:
+            month_key = record.date.strftime('%Y-%m')
+            if month_key not in monthly_summary:
+                monthly_summary[month_key] = {
+                    'present': 0,
+                    'absent': 0,
+                    'late': 0,
+                    'half_day': 0,
+                    'wfh': 0,
+                    'total_days': 0,
+                }
+            
+            monthly_summary[month_key]['total_days'] += 1
+            if record.status == 'PRESENT':
+                monthly_summary[month_key]['present'] += 1
+            elif record.status == 'ABSENT':
+                monthly_summary[month_key]['absent'] += 1
+            elif record.status == 'LATE':
+                monthly_summary[month_key]['late'] += 1
+            elif record.status == 'HALF_DAY':
+                monthly_summary[month_key]['half_day'] += 1
+            elif record.status == 'WORK_FROM_HOME':
+                monthly_summary[month_key]['wfh'] += 1
+
+        # Calculate attendance percentage for each month
+        for month_key, data in monthly_summary.items():
+            if data['total_days'] > 0:
+                data['attendance_percentage'] = round(
+                    (data['present'] + data['wfh'] + 0.5 * data['half_day']) / data['total_days'] * 100, 1
+                )
+            else:
+                data['attendance_percentage'] = 0
+
+        return Response({
+            'heatmap': heatmap_data,
+            'monthly_summary': monthly_summary,
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'end_date': end_date.strftime('%Y-%m-%d'),
         })

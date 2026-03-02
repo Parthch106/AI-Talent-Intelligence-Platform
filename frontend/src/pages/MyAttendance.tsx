@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { AttendanceHeatmap, Card } from '../components/common';
 import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, TrendingUp, ChevronLeft, ChevronRight, Filter, Home } from 'lucide-react';
 
 interface AttendanceRecord {
@@ -22,7 +23,9 @@ interface PaginationInfo {
 const MyAttendance: React.FC = () => {
     const { user } = useAuth();
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+    const [heatmapData, setHeatmapData] = useState<Record<string, { status: string; value: number; hours: number }>>({});
     const [loading, setLoading] = useState(true);
+    const [heatmapLoading, setHeatmapLoading] = useState(true);
     const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, wfh: 0, total: 0 });
     const [pagination, setPagination] = useState<PaginationInfo>({
         page: 1,
@@ -39,12 +42,12 @@ const MyAttendance: React.FC = () => {
 
     // Get current month in YYYY-MM format
     const currentDate = new Date();
-    const currentMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
 
     // Fetch data when month/year changes
     useEffect(() => {
         if (user) {
             fetchMyAttendance();
+            fetchHeatmapData();
         }
     }, [user, selectedMonth, selectedYear]);
 
@@ -138,6 +141,44 @@ const MyAttendance: React.FC = () => {
             setAllAttendance([]);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchHeatmapData = async () => {
+        setHeatmapLoading(true);
+        try {
+            // Calculate date range based on filters
+            let startDate: string;
+            let endDate: string;
+            
+            if (selectedMonth) {
+                // Single month selected
+                startDate = `${selectedMonth}-01`;
+                const [year, month] = selectedMonth.split('-').map(Number);
+                const lastDay = new Date(year, month, 0).getDate();
+                endDate = `${selectedMonth}-${String(lastDay).padStart(2, '0')}`;
+            } else if (selectedYear) {
+                // Full year selected
+                startDate = `${selectedYear}-01-01`;
+                endDate = `${selectedYear}-12-31`;
+            } else {
+                // Default to last 6 months
+                startDate = '';
+                endDate = '';
+            }
+            
+            const params: any = { months: 6 };
+            if (startDate && endDate) {
+                params.start_date = startDate;
+                params.end_date = endDate;
+            }
+            
+            const response = await api.get('/analytics/heatmap/attendance/', { params });
+            setHeatmapData(response.data.heatmap || {});
+        } catch (error) {
+            console.error('Error fetching heatmap data:', error);
+        } finally {
+            setHeatmapLoading(false);
         }
     };
 
@@ -317,6 +358,21 @@ const MyAttendance: React.FC = () => {
                         </div>
                     </button>
                 </div>
+
+                {/* Attendance Heatmap */}
+                <Card className="mb-6 p-4">
+                    {heatmapLoading ? (
+                        <div className="flex items-center justify-center h-32">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+                        </div>
+                    ) : (
+                        <AttendanceHeatmap
+                            data={heatmapData}
+                            year={selectedYear}
+                            title="Attendance Overview"
+                        />
+                    )}
+                </Card>
 
                 {/* Filter Section */}
                 <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-white/5 p-6 mb-6">

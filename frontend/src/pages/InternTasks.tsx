@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import { Badge, Button } from '../components/common';
+import { Badge, Button, ContributionHeatmap, Card } from '../components/common';
 import {
     Target, Clock, Award, Calendar, ChevronRight,
     CheckCircle, AlertTriangle, PlayCircle, Filter, Search,
-    Loader2, ChevronDown
+    ChevronDown
 } from 'lucide-react';
 
 interface Task {
@@ -206,7 +206,9 @@ const isOverdue = (dueDate: string, status: string): boolean =>
 const InternTasks: React.FC = () => {
     const { user } = useAuth();
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [heatmapData, setHeatmapData] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
+    const [heatmapLoading, setHeatmapLoading] = useState(true);
     const [filter, setFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [success, setSuccess] = useState('');
@@ -239,9 +241,26 @@ const InternTasks: React.FC = () => {
         }
     };
 
+    const fetchHeatmapData = async () => {
+        if (!user?.id) return;
+
+        setHeatmapLoading(true);
+        try {
+            const res = await axios.get('/analytics/heatmap/tasks/', {
+                params: { months: 6 }
+            });
+            setHeatmapData(res.data.heatmap || {});
+        } catch (err) {
+            console.error('Failed to load heatmap data:', err);
+        } finally {
+            setHeatmapLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (user?.id) {
             fetchTasks();
+            fetchHeatmapData();
         }
     }, [user?.id, user?.role]);
 
@@ -504,6 +523,21 @@ const InternTasks: React.FC = () => {
                         </div>
                     </StatsCard>
                 </div>
+
+                {/* Task Contribution Heatmap */}
+                <Card className="mb-8 p-4">
+                    {heatmapLoading ? (
+                        <div className="flex items-center justify-center h-32">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+                        </div>
+                    ) : (
+                        <ContributionHeatmap
+                            data={heatmapData}
+                            title="Task Contribution"
+                            colorScheme="green"
+                        />
+                    )}
+                </Card>
 
                 <div className="flex flex-col sm:flex-row gap-4 mb-6">
                     <div className="relative flex-1">

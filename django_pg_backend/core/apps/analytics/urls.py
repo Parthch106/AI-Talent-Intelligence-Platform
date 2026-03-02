@@ -17,6 +17,9 @@ from .views import (
     MonthlyEvaluationView,
     DropoutRiskDashboardView,
     PPOEligibilityDashboardView,
+    # Heatmap Views
+    TaskHeatmapView,
+    AttendanceHeatmapView,
 )
 from .views_talent_intelligence import (
     AnalyzeInternView,
@@ -89,4 +92,10 @@ urlpatterns = [
     
     # Applications
     path('applications/', ApplicationListView.as_view(), name='applications'),
+
+    # ============================================================================
+    # HEATMAP VISUALIZATION ENDPOINTS
+    # ============================================================================
+    path('heatmap/tasks/', TaskHeatmapView.as_view(), name='task-heatmap'),
+    path('heatmap/attendance/', AttendanceHeatmapView.as_view(), name='attendance-heatmap'),
 ]
