@@ -1,4 +1,3 @@
-# resume_parser_app.py
 """
 Resume Parser App - GitHub Models
 ==================================

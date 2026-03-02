@@ -831,13 +831,13 @@ const AnalysisPage: React.FC = () => {
                         </Card>
                     )}
                 </div>
-            ) : intelligence ? (
+            ) : selectedInternId ? (
                 <Card className="text-center py-12">
                     <div className="w-20 h-20 mx-auto mb-4 bg-amber-500/10 rounded-2xl flex items-center justify-center">
                         <AlertTriangle size={32} className="text-amber-400" />
                     </div>
-                    <h3 className="text-lg font-medium text-white mb-2">No Analysis Data Available</h3>
-                    <p className="text-slate-400 mb-6">Intelligence data is not available for this intern yet.</p>
+                    <h3 className="text-lg font-medium text-white mb-2">No Analysis Found</h3>
+                    <p className="text-slate-400 mb-6">Click the button below to compute intelligence for this intern.</p>
 
                     {/* Job Role Selector */}
                     <div className="max-w-xs mx-auto mb-4">

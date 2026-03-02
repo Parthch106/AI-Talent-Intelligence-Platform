@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from django.db.models import Q
+from django.db.models import Q, Avg
 from django.utils import timezone
 from apps.interns.models import InternProfile
 from apps.projects.models import Project
@@ -61,35 +61,97 @@ class DashboardStatsView(APIView):
         
         data = {}
 
-        if user.role == 'ADMIN':
-            data['total_managers'] = User.objects.filter(role=User.Role.MANAGER).count()
+        if str(user.role) == str(User.Role.ADMIN):
+            data['total_managers'] = User.objects.filter(role=User.Role.ADMIN).count()
             data['total_interns'] = User.objects.filter(role=User.Role.INTERN).count()
             data['total_projects'] = Project.objects.count()
             data['active_projects'] = Project.objects.filter(status='IN_PROGRESS').count()
             data['role'] = 'ADMIN'
             
-        elif user.role == 'MANAGER':
+        elif str(user.role) == str(User.Role.MANAGER):
             # My Interns (assigned to my projects)
-            my_interns_count = InternProfile.objects.filter(user__assigned_projects__project__mentor=user).distinct().count()
-            data['total_interns'] = my_interns_count
+            try:
+                my_interns_count = InternProfile.objects.filter(user__assigned_projects__project__mentor=user).distinct().count()
+                data['total_interns'] = my_interns_count
+            except Exception as e:
+                data['total_interns'] = 0
             
             # My Projects
             my_projects = Project.objects.filter(mentor=user)
             data['total_projects'] = my_projects.count()
             data['active_projects'] = my_projects.filter(status='IN_PROGRESS').count()
             
-            # Pending Reviews? (Placeholder logic)
-            data['pending_reviews'] = 0 
+            # Pending Reviews - Count tasks submitted by interns in manager's department
+            # that haven't been reviewed yet
+            try:
+                # Check if manager has a department
+                if not user.department:
+                    data['pending_reviews'] = 0
+                else:
+                    # Get interns in manager's department
+                    department_interns = User.objects.filter(
+                        role=User.Role.INTERN,
+                        department=user.department
+                    )
+                    
+                    # Count submitted tasks awaiting review
+                    pending_tasks = TaskTracking.objects.filter(
+                        intern__in=department_interns,
+                        status='SUBMITTED'
+                    ).count()
+                    
+                    data['pending_reviews'] = pending_tasks
+            except Exception as e:
+                logger.warning(f"Error calculating pending reviews: {e}")
+                data['pending_reviews'] = 0
+            
             data['role'] = 'MANAGER'
 
-        elif user.role == 'INTERN':
-            # My Projects
-            my_assignments = user.assigned_projects.all()
-            data['assigned_projects'] = my_assignments.count()
-            data['completed_projects'] = my_assignments.filter(status='COMPLETED').count()
+        elif str(user.role) == str(User.Role.INTERN):
+            # My Project Assignments
+            try:
+                from apps.projects.models import ProjectAssignment
+                my_assignments = ProjectAssignment.objects.filter(intern=user)
+                data['assigned_projects'] = my_assignments.count()
+                data['completed_projects'] = my_assignments.filter(status='COMPLETED').count()
+                data['active_projects'] = my_assignments.filter(status='ACTIVE').count()
+            except Exception as e:
+                data['assigned_projects'] = 0
+                data['completed_projects'] = 0
+                data['active_projects'] = 0
             
-            # My Feedback score (average?) - placeholder
-            data['average_score'] = "N/A"
+            # My Tasks - get from TaskTracking
+            try:
+                from apps.analytics.models import TaskTracking
+                my_tasks = TaskTracking.objects.filter(intern=user)
+                data['total_tasks'] = my_tasks.count()
+                data['completed_tasks'] = my_tasks.filter(status='COMPLETED').count()
+                data['pending_tasks'] = my_tasks.filter(status__in=['ASSIGNED', 'IN_PROGRESS']).count()
+            except Exception as e:
+                data['total_tasks'] = 0
+                data['completed_tasks'] = 0
+                data['pending_tasks'] = 0
+            
+            # My Feedback score - get from Feedback model (use recipient, rating)
+            try:
+                from apps.feedback.models import Feedback
+                feedbacks = Feedback.objects.filter(recipient=user)
+                if feedbacks.exists():
+                    avg_score = feedbacks.aggregate(Avg('rating'))['rating__avg']
+                    data['average_score'] = round(avg_score, 1) if avg_score else "N/A"
+                else:
+                    data['average_score'] = "N/A"
+            except Exception as e:
+                data['average_score'] = "N/A"
+            
+            # Also get from analytics if available
+            try:
+                from apps.analytics.models import InternIntelligence
+                intelligence = InternIntelligence.objects.get(intern=user)
+                data['ai_readiness_score'] = round(intelligence.overall_score * 100, 1) if intelligence.overall_score else 0
+            except Exception:
+                data['ai_readiness_score'] = 0
+            
             data['role'] = 'INTERN'
 
         return Response(data)

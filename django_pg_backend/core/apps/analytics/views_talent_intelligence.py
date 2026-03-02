@@ -410,6 +410,7 @@ class LegacyIntelligenceView(APIView):
             'growth': prediction.growth_score or 0,
             'authenticity': prediction.authenticity_score or 0,
             'semantic_match': prediction.semantic_match_score or 0,
+            'confidence': prediction.confidence_score if prediction.confidence_score else 0.5,
         }
         
         # Build skill profile from structured features
@@ -483,6 +484,7 @@ class LegacyIntelligenceView(APIView):
             'decision': prediction.decision,
             'model_type': prediction.model_type,
             'decision_flags': [],
+            'confidence_score': prediction.confidence_score if prediction.confidence_score else 0.5,
         }
         
         # Add structured feature details if available

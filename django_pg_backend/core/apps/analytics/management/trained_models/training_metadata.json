@@ -1,33 +1,33 @@
 {
-  "training_date": "2026-02-17T13:58:37.953609",
-  "dataset_path": "E:\\CSU Internship\\AI-Talent-Intelligence-Platform\\django_pg_backend\\core\\docs\\synthetic_resume_dataset_20000_advanced.csv",
-  "dataset_size": 20000,
-  "embedding_dim": 384,
+  "training_date": "2026-02-27T13:46:52.596599",
+  "dataset_path": "E:\\CSU Internship\\AI-Talent-Intelligence-Platform\\django_pg_backend\\core\\docs\\it_resume_dataset_10000_v2.csv",
+  "dataset_size": 9996,
+  "embedding_dim": 1024,
   "metrics": {
     "suitability": {
-      "accuracy": 0.74875,
-      "precision": 0.74875,
-      "recall": 1.0,
-      "f1_score": 0.856325947105075,
-      "roc_auc": 0.5,
+      "accuracy": 0.94,
+      "precision": 1.0,
+      "recall": 0.8923766816143498,
+      "f1_score": 0.943127962085308,
+      "roc_auc": 0.9741075726482734,
       "cv_scores": [
-        0.5,
-        0.5,
-        0.5,
-        0.5,
-        0.5
+        0.9718020825416128,
+        0.9768690937650427,
+        0.9682298396290947,
+        0.9738839963559064,
+        0.9732766474339508
       ],
-      "cv_mean": 0.5,
-      "cv_std": 0.0
+      "cv_mean": 0.9728123319451216,
+      "cv_std": 0.0028228074546385383
     },
     "growth": {
-      "r2_score": -1.0251998901367188e-05
+      "r2_score": 0.7908132672309875
     },
     "authenticity": {
-      "precision": 0.74875
+      "precision": 0.995
     },
-    "embedding_dim": 384,
-    "dataset_size": 20000
+    "embedding_dim": 1024,
+    "dataset_size": 2000
   },
   "model_version": "transformer_xgb_v2"
 }

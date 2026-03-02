@@ -1,12 +1,12 @@
 {
-  "model_name": "all-MiniLM-L6-v2",
-  "embedding_dim": 384,
+  "model_name": "BAAI/bge-large-en-v1.5",
+  "embedding_dim": 1024,
   "weights": {
-    "experience": 0.3,
-    "projects": 0.3,
+    "experience": 0.4,
+    "projects": 0.25,
     "skills": 0.2,
     "summary": 0.1,
-    "education": 0.1
+    "education": 0.05
   },
-  "trained_at": "2026-02-17T13:58:37.952957"
+  "trained_at": "2026-02-27T13:46:52.595092"
 }

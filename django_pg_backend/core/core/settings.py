@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+from datetime import timedelta
 from dotenv import load_dotenv
 
 # Load .env from the same directory as settings.py
@@ -20,6 +21,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 # Unset system-level GITHUB_TOKEN to avoid conflicts with AI_TALENT_GITHUB_TOKEN
 if 'GITHUB_TOKEN' in os.environ:
     del os.environ['GITHUB_TOKEN']
+# Note: AI_TALENT_GITHUB_TOKEN is loaded from .env and should NOT be deleted
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -62,6 +64,35 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+}
+
+# =============================================================================
+# JWT Settings (djangorestframework-simplejwt)
+# =============================================================================
+# Use a separate JWT_SECRET_KEY that is at least 32 bytes (64 hex chars)
+# for HS256 algorithm. This is more secure than reusing Django's SECRET_KEY.
+JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', os.getenv('DJANGO_SECRET_KEY', ''))
+
+# Ensure JWT secret is at least 32 bytes for SHA256
+if len(JWT_SECRET_KEY) < 32:
+    import secrets
+    # Generate a secure 32-byte key if not provided or too short
+    JWT_SECRET_KEY = secrets.token_hex(32)
+    print(f"WARNING: JWT_SECRET_KEY was too short. Generated a new secure key. Add JWT_SECRET_KEY to .env for persistence.")
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv('JWT_ACCESS_TOKEN_LIFETIME', 60))),
+    'REFRESH_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv('JWT_REFRESH_TOKEN_LIFETIME', 1440))),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': JWT_SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
 

@@ -50,6 +50,7 @@ from sklearn.metrics import (
     r2_score
 )
 import pickle
+from tqdm import tqdm
 
 # Import our embedding engine
 from apps.analytics.services.embedding_engine import EmbeddingEngine
@@ -99,13 +100,17 @@ class TrainConfig:
 # ============================================================================
 
 def load_dataset(config: TrainConfig) -> pd.DataFrame:
-    """Load the synthetic resume dataset."""
+    """Load the synthetic resume dataset and compute suitability labels based on content."""
     logger.info(f"Loading dataset from {config.DATASET_PATH}")
     
     if not config.DATASET_PATH.exists():
         raise FileNotFoundError(f"Dataset not found at {config.DATASET_PATH}")
     
     df = pd.read_csv(config.DATASET_PATH)
+    
+    # Compute suitability labels based on actual resume content
+    logger.info("Computing suitability labels based on resume content...")
+    df['suitability_label'] = df.apply(compute_suitability_label, axis=1)
     
     # Use smaller subset for faster training
     if config.MAX_SAMPLES and len(df) > config.MAX_SAMPLES:
@@ -152,6 +157,100 @@ def prepare_resume_text(row: pd.Series) -> dict:
     return sections
 
 
+def compute_suitability_label(row: pd.Series) -> int:
+    """
+    Compute suitability label based on actual resume content.
+    
+    This heuristic assigns higher suitability to resumes with:
+    - More technical skills
+    - More years of experience
+    - Higher education
+    - More certifications
+    - More projects
+    - Relevant keywords for the applied role
+    
+    Returns 1 (suitable) or 0 (not suitable)
+    """
+    score = 0.0
+    
+    # 1. Technical Skills (max 25 points)
+    skills = str(row.get('technical_skills', ''))
+    frameworks = str(row.get('frameworks_libraries', ''))
+    tools = str(row.get('tools_technologies', ''))
+    all_skills = skills + ' ' + frameworks + ' ' + tools
+    skill_count = len([s for s in all_skills.split(',') if s.strip()])
+    score += min(skill_count * 1.5, 25)  # Max 25 points
+    
+    # 2. Experience (max 25 points)
+    exp = str(row.get('experience_descriptions', ''))
+    # Count experience entries (split by '|' or 'Machine Learning Engineer' etc.)
+    exp_entries = [e for e in exp.split('|') if e.strip()]
+    exp_count = len(exp_entries)
+    score += min(exp_count * 8, 25)  # Max 25 points, ~3 entries = max
+    
+    # 3. Projects (max 20 points)
+    projects = str(row.get('project_descriptions', ''))
+    project_entries = [p for p in projects.split('|') if p.strip()]
+    project_count = len(project_entries)
+    score += min(project_count * 6, 20)  # Max 20 points
+    
+    # 4. Education (max 15 points)
+    edu = str(row.get('education_text', '')).lower()
+    if 'phd' in edu or 'doctorate' in edu:
+        score += 15
+    elif 'master' in edu or 'm.s' in edu or 'mtech' in edu or 'm.sc' in edu:
+        score += 12
+    elif 'bachelor' in edu or 'b.s' in edu or 'btech' in edu or 'b.sc' in edu:
+        score += 8
+    else:
+        score += 4
+    
+    # Check for top universities (bonus 5 points)
+    top_universities = ['stanford', 'mit', 'berkeley', 'cmu', 'caltech', 'iit', 'harvard', 'princeton', 'yale', 'columbia']
+    if any(uni in edu for uni in top_universities):
+        score += 5
+    
+    # 5. Certifications (max 10 points)
+    certs = str(row.get('certifications', ''))
+    cert_count = len([c for c in certs.split(',') if c.strip()])
+    score += min(cert_count * 3, 10)  # Max 10 points
+    
+    # 6. Role-specific keywords (max 5 points)
+    role = str(row.get('applied_role', '')).lower()
+    full_text = (str(row.get('professional_summary', '')) + ' ' + 
+                str(row.get('technical_skills', '')) + ' ' + 
+                str(row.get('experience_descriptions', ''))).lower()
+    
+    # ML Engineer keywords
+    if 'ml_engineer' in role or 'machine learning engineer' in role:
+        ml_keywords = ['tensorflow', 'pytorch', 'deep learning', 'neural network', 'nlp', 
+                      'computer vision', 'scikit-learn', 'xgboost', 'mlops', 'deployment']
+        for kw in ml_keywords:
+            if kw in full_text:
+                score += 1
+    # Data Scientist keywords
+    elif 'data scientist' in role:
+        ds_keywords = ['python', 'sql', 'statistics', 'machine learning', 'data analysis',
+                      'visualization', 'tableau', 'pandas', 'numpy', 'a/b testing']
+        for kw in ds_keywords:
+            if kw in full_text:
+                score += 1
+    # Full Stack Developer
+    elif 'full stack' in role:
+        fs_keywords = ['react', 'angular', 'vue', 'node.js', 'express', 'django', 
+                      'flask', 'postgresql', 'mongodb', 'docker', 'kubernetes']
+        for kw in fs_keywords:
+            if kw in full_text:
+                score += 1
+    else:
+        # Generic scoring
+        if any(kw in full_text for kw in ['python', 'java', 'programming', 'developer', 'engineer']):
+            score += 2
+    
+    # Threshold: score >= 50 = suitable (suitable = 1)
+    return 1 if score >= 50 else 0
+
+
 # ============================================================================
 # EMBEDDING GENERATION
 # ============================================================================
@@ -163,9 +262,12 @@ def generate_embeddings(df: pd.DataFrame, embedding_engine: EmbeddingEngine, bat
     all_embeddings = []
     total = len(df)
     
-    for idx, row in df.iterrows():
-        if idx % 1000 == 0:
-            logger.info(f"Processing {idx}/{total} ({100*idx/total:.1f}%)")
+    # Progress bar with tqdm
+    progress_bar = tqdm(df.iterrows(), total=total, desc="Generating Embeddings", unit="resume")
+    
+    for idx, row in progress_bar:
+        # Update progress bar postfix with current progress
+        progress_bar.set_postfix({"progress": f"{idx + 1}/{total}"})
         
         # Prepare resume sections
         sections = prepare_resume_text(row)
@@ -490,3 +592,4 @@ class Command(BaseCommand):
             
         except Exception as e:
             raise CommandError(f'Training failed: {str(e)}')
+

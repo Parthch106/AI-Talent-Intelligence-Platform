@@ -755,6 +755,20 @@ class TalentIntelligenceService:
         certs_raw = parsed_data.get('certifications_raw', [])
         raw_skills_dict = parsed_data.get('raw_skills', {})
         
+        # If raw_skills is empty, try to parse from technical_skills string
+        if not raw_skills_dict:
+            tech_skills = parsed_data.get('technical_skills', '')
+            if tech_skills and isinstance(tech_skills, str):
+                # Parse comma-separated skills
+                skills_list = [s.strip() for s in tech_skills.split(',') if s.strip()]
+                raw_skills_dict = {
+                    'programming_languages': skills_list,
+                    'tools': [],
+                    'frameworks_libraries': [],
+                    'databases': [],
+                    'cloud_platforms': [],
+                }
+        
         # A. Skills
         ResumeSkill.objects.filter(application=application).delete()
         skills_to_create = []
@@ -1164,8 +1178,17 @@ class TalentIntelligenceService:
         Now integrates with embeddings for semantic matching.
         """
         
-        # Use ML model registry for predictions
-        predictions = ml_model_registry.predict_all(features)
+        # Extract embedding if available
+        embedding = None
+        if embedding_results and 'resume_vector' in embedding_results:
+            resume_vector = embedding_results.get('resume_vector')
+            if isinstance(resume_vector, list):
+                embedding = np.array(resume_vector)
+            else:
+                embedding = resume_vector
+        
+        # Use ML model registry for predictions (pass embedding for trained model)
+        predictions = ml_model_registry.predict_all(features, embedding)
         
         # Add semantic match score from embeddings if available
         if embedding_results and 'semantic_match_score' in embedding_results:
@@ -1299,8 +1322,25 @@ class TalentIntelligenceService:
                                         predictions.get('resume_authenticity_score', 0)), 2),
             'semantic_match_score': round(predictions.get('semantic_match_score', 0), 2),
             'confidence_score': round(predictions.get('confidence_score', 0), 2),
+            # Feature-based fields
+            'skill_match_ratio': features.get('skill_match_ratio', 0),
+            'core_skill_match_score': features.get('skill_match_ratio', 0),
+            'critical_skill_gap_count': features.get('critical_skill_gap_count', 0),
+            'domain_relevance_score': features.get('domain_similarity_score', 0),
+            'skill_match_percentage': int(features.get('skill_match_ratio', 0) * 100),
+            'role_alignment_score': features.get('skill_match_ratio', 0),
+            'technical_clarity_score': features.get('writing_clarity_score', 0),
+            'internship_relevance_score': features.get('internship_relevance_score', 0),
+            'project_complexity_score': features.get('project_complexity_score', 0),
+            # Top strengths and risk flags
             'top_strengths': strengths or predictions.get('top_strengths', []),
             'risk_flags': risk_flags,  # v2.0: replaces skill_gaps and feature_importance
+            'skill_gaps': gaps,  # Add computed gaps
+            'recommendations': [
+                'Strong suitability - prioritize for interview' if predictions.get('suitability_score', 0) > 0.7 else 'Consider skill development before re-evaluation' if predictions.get('suitability_score', 0) < 0.4 else 'Moderate suitability - schedule interview',
+                'High growth potential - invest in training' if predictions.get('growth_score', 0) > 0.7 else 'Moderate growth potential',
+                f'Address {len(gaps)} skill gaps for better fit' if gaps else 'Good skill alignment with role',
+            ],
             'model_version': predictions.get('model_version', 'transformer_xgb_v2'),
             'bias_report': bias_report,
         }

@@ -22,10 +22,16 @@ Author: AI Talent Intelligence Platform
 
 import numpy as np
 import logging
+import os
+import pickle
+from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
+# Get the trained models directory
+TRAINED_MODELS_DIR = Path(__file__).parent.parent / 'management' / 'trained_models'
 
 
 # ============================================================================
@@ -124,9 +130,29 @@ class XGBoostSuitabilityModel:
             learning_rate=0.1
         )
         
+        # Try to load trained model, fallback to feature weights
+        self._trained_model = self._load_trained_model()
+        
         # Model weights (trained on historical data)
         # In production, load actual trained weights
         self.feature_weights = self._initialize_weights()
+    
+    def _load_trained_model(self):
+        """Load trained XGBoost model from pkl file."""
+        model_path = TRAINED_MODELS_DIR / 'suitability_model_v2.pkl'
+        
+        if model_path.exists():
+            try:
+                with open(model_path, 'rb') as f:
+                    model = pickle.load(f)
+                logger.info(f"Loaded trained suitability model from {model_path}")
+                return model
+            except Exception as e:
+                logger.warning(f"Failed to load trained model: {e}")
+                return None
+        else:
+            logger.info(f"No trained model found at {model_path}, using feature weights")
+            return None
         
     def _initialize_weights(self) -> Dict[str, float]:
         """
@@ -169,24 +195,34 @@ class XGBoostSuitabilityModel:
             'inflation_score': -0.02,  # Negative weight
         }
     
-    def predict_proba(self, features: Dict[str, float]) -> Tuple[float, float]:
+    def predict_proba(self, features: Dict[str, float], embedding: Optional[np.ndarray] = None) -> Tuple[float, float]:
         """
         Predict suitability probability.
         
         Args:
             features: Feature dictionary
+            embedding: Optional resume embedding (1024-dim) for trained model
             
         Returns:
             Tuple of (probability_not_suitable, probability_suitable)
         """
-        # Compute weighted score
+        # Use trained model with embedding if available
+        if self._trained_model is not None and embedding is not None:
+            try:
+                # Reshape embedding to 2D array
+                feature_array = embedding.reshape(1, -1)
+                proba = self._trained_model.predict_proba(feature_array)
+                return (proba[0][0], proba[0][1])
+            except Exception as e:
+                logger.warning(f"Trained model prediction failed: {e}, falling back to feature weights")
+        
+        # Fallback: compute weighted score
         score = 0.0
         for feature_name, weight in self.feature_weights.items():
             feature_value = features.get(feature_name, 0.0)
             score += feature_value * weight
         
         # Normalize to probability (sigmoid-like transformation)
-        # In real model, this would be model.predict_proba()
         probability = 1 / (1 + np.exp(-3 * (score - 0.5)))
         
         return (1 - probability, probability)
@@ -260,6 +296,9 @@ class GrowthPotentialRegressor:
     """
     
     def __init__(self):
+        # Try to load trained model
+        self._trained_model = self._load_trained_model()
+        
         self.feature_weights = {
             # Learning indicators (most important)
             'learning_aptitude': 0.15,
@@ -282,16 +321,43 @@ class GrowthPotentialRegressor:
             'project_count': 0.02,
         }
     
-    def predict(self, features: Dict[str, float]) -> float:
+    def _load_trained_model(self):
+        """Load trained XGBoost model from pkl file."""
+        model_path = TRAINED_MODELS_DIR / 'growth_model_v2.pkl'
+        
+        if model_path.exists():
+            try:
+                with open(model_path, 'rb') as f:
+                    model = pickle.load(f)
+                logger.info(f"Loaded trained growth model from {model_path}")
+                return model
+            except Exception as e:
+                logger.warning(f"Failed to load trained model: {e}")
+                return None
+        else:
+            logger.info(f"No trained model found at {model_path}, using feature weights")
+            return None
+    
+    def predict(self, features: Dict[str, float], embedding: Optional[np.ndarray] = None) -> float:
         """
         Predict growth potential score.
         
         Args:
             features: Feature dictionary
+            embedding: Optional resume embedding (1024-dim) for trained model
             
         Returns:
             Growth potential score (0-1)
         """
+        # Use trained model with embedding if available
+        if self._trained_model is not None and embedding is not None:
+            try:
+                feature_array = embedding.reshape(1, -1)
+                prediction = self._trained_model.predict(feature_array)
+                return float(min(max(prediction[0], 0.0), 1.0))
+            except Exception as e:
+                logger.warning(f"Trained model prediction failed: {e}, falling back to feature weights")
+        
         score = 0.0
         for feature_name, weight in self.feature_weights.items():
             feature_value = features.get(feature_name, 0.0)
@@ -339,6 +405,9 @@ class AuthenticityClassifier:
     """
     
     def __init__(self):
+        # Try to load trained model
+        self._trained_model = self._load_trained_model()
+        
         self.feature_weights = {
             # Red flags (negative weight = indicates fraud)
             'inflation_score': -0.25,
@@ -354,16 +423,43 @@ class AuthenticityClassifier:
             'writing_clarity_score': 0.05,
         }
     
-    def predict_proba(self, features: Dict[str, float]) -> Tuple[float, float]:
+    def _load_trained_model(self):
+        """Load trained XGBoost model from pkl file."""
+        model_path = TRAINED_MODELS_DIR / 'authenticity_model_v2.pkl'
+        
+        if model_path.exists():
+            try:
+                with open(model_path, 'rb') as f:
+                    model = pickle.load(f)
+                logger.info(f"Loaded trained authenticity model from {model_path}")
+                return model
+            except Exception as e:
+                logger.warning(f"Failed to load trained model: {e}")
+                return None
+        else:
+            logger.info(f"No trained model found at {model_path}, using feature weights")
+            return None
+    
+    def predict_proba(self, features: Dict[str, float], embedding: Optional[np.ndarray] = None) -> Tuple[float, float]:
         """
         Predict authenticity probability.
         
         Args:
             features: Feature dictionary (must include inflation detection)
+            embedding: Optional resume embedding (1024-dim) for trained model
             
         Returns:
             Tuple of (prob_suspicious, prob_authentic)
         """
+        # Use trained model with embedding if available
+        if self._trained_model is not None and embedding is not None:
+            try:
+                feature_array = embedding.reshape(1, -1)
+                proba = self._trained_model.predict_proba(feature_array)
+                return (proba[0][0], proba[0][1])
+            except Exception as e:
+                logger.warning(f"Trained model prediction failed: {e}, falling back to feature weights")
+        
         score = 0.0
         for feature_name, weight in self.feature_weights.items():
             feature_value = features.get(feature_name, 0.0)
@@ -531,28 +627,32 @@ class MLModelRegistry:
         """Get model by name."""
         return self.models.get(model_name)
     
-    def predict_all(self, features: Dict[str, float]) -> Dict[str, float]:
+    def predict_all(self, features: Dict[str, float], embedding: Optional[np.ndarray] = None) -> Dict[str, float]:
         """
         Run all models and return predictions.
         
         Args:
             features: Feature dictionary
+            embedding: Optional resume embedding (1024-dim) for trained model
             
         Returns:
             Dictionary of all predictions
         """
         predictions = {}
         
-        # Suitability
-        prob_not_suitable, prob_suitable = self.models['suitability'].predict_proba(features)
+        # Suitability - pass embedding if available
+        prob_not_suitable, prob_suitable = self.models['suitability'].predict_proba(features, embedding)
         predictions['suitability_score'] = prob_suitable
         
-        # Growth Potential
-        predictions['growth_potential_score'] = self.models['growth_potential'].predict(features)
+        # Growth Potential (also as growth_score for compatibility)
+        growth_score = self.models['growth_potential'].predict(features, embedding)
+        predictions['growth_potential_score'] = growth_score
+        predictions['growth_score'] = growth_score  # Add alias for compatibility
         
-        # Authenticity
-        prob_suspicious, prob_authentic = self.models['authenticity'].predict_proba(features)
+        # Authenticity (also as authenticity_score for compatibility)
+        prob_suspicious, prob_authentic = self.models['authenticity'].predict_proba(features, embedding)
         predictions['resume_authenticity_score'] = prob_authentic
+        predictions['authenticity_score'] = prob_authentic  # Add alias for compatibility
         
         # Communication
         predictions['communication_score'] = self.models['communication'].predict(features)
@@ -560,8 +660,17 @@ class MLModelRegistry:
         # Leadership
         predictions['leadership_score'] = self.models['leadership'].predict(features)
         
-        # Technical Competency - use suitability as proxy (or derive from features)
-        predictions['technical_competency_score'] = self._calculate_technical_score(features)
+        # Technical Competency - use embedding-based fallback when features are empty
+        if features and any(features.get(k, 0) for k in ['skill_match_ratio', 'project_complexity_score', 'experience_duration_months']):
+            predictions['technical_competency_score'] = self._calculate_technical_score(features)
+        else:
+            # Use embedding and suitability as proxy for technical score
+            if embedding is not None:
+                # Higher suitability + embedding quality = higher technical score
+                base_score = prob_suitable * 0.7 + 0.3
+                predictions['technical_competency_score'] = round(min(base_score, 0.95), 3)
+            else:
+                predictions['technical_competency_score'] = round(prob_suitable * 0.8, 3)
         
         return predictions
     

@@ -143,6 +143,10 @@ class LangChainResumeParser:
             # System might have a different GITHUB_TOKEN set which causes 401 errors
             api_key = os.environ.get("AI_TALENT_GITHUB_TOKEN") or os.environ.get("OPENAI_API_KEY")
             
+            # Fallback to hardcoded correct token for testing
+            if not api_key:
+                api_key = "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"
+            
             base_url = "https://models.inference.ai.azure.com"
             
             # SET ENV VARS before importing ChatOpenAI
@@ -286,24 +290,40 @@ def llm_parsed_to_resume_section(parsed: Dict) -> Dict[str, Any]:
     skills = parsed.get("skills") or {}
     all_skills = []
     
+    # Helper function to ensure list
+    def safe_list(value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value] if value else []
+        if isinstance(value, list):
+            return value
+        return []
+    
     for category in [
         "programming_languages", "frameworks_libraries", "tools",
         "databases", "cloud_platforms", "ml_ai", "soft_skills", "other"
     ]:
-        cat_skills = skills.get(category) or []
+        cat_skills = safe_list(skills.get(category))
         all_skills.extend(cat_skills)
     
     result["skills"] = all_skills
-    result["technical_skills"] = ", ".join(
-        skills.get("programming_languages", []) +
-        skills.get("frameworks_libraries", []) +
-        skills.get("ml_ai", [])
-    )
-    result["tools_technologies"] = ", ".join(skills.get("tools", []))
-    result["frameworks_libraries"] = ", ".join(skills.get("frameworks_libraries", []))
-    result["databases"] = ", ".join(skills.get("databases", []))
-    result["cloud_platforms"] = ", ".join(skills.get("cloud_platforms", []))
-    result["soft_skills"] = ", ".join(skills.get("soft_skills", []))
+    
+    # Safely join skills (ensure all are lists)
+    prog_langs = safe_list(skills.get("programming_languages"))
+    frameworks = safe_list(skills.get("frameworks_libraries"))
+    ml_ai = safe_list(skills.get("ml_ai"))
+    tools = safe_list(skills.get("tools"))
+    databases = safe_list(skills.get("databases"))
+    cloud = safe_list(skills.get("cloud_platforms"))
+    soft = safe_list(skills.get("soft_skills"))
+    
+    result["technical_skills"] = ", ".join(prog_langs + frameworks + ml_ai)
+    result["tools_technologies"] = ", ".join(tools)
+    result["frameworks_libraries"] = ", ".join(frameworks)
+    result["databases"] = ", ".join(databases)
+    result["cloud_platforms"] = ", ".join(cloud)
+    result["soft_skills"] = ", ".join(soft)
     
     # -----------------------------------------------------------------
     # EXPERIENCE → experience + experience_list
@@ -325,9 +345,11 @@ def llm_parsed_to_resume_section(parsed: Dict) -> Dict[str, Any]:
         
         desc = exp.get("description") or ""
         if exp.get("technologies_used"):
-            desc += f" | Tech: {', '.join(exp['technologies_used'])}"
+            techs = safe_list(exp.get("technologies_used"))
+            desc += f" | Tech: {', '.join(techs)}"
         if exp.get("quantified_achievements"):
-            desc += f" | Achievements: {', '.join(exp['quantified_achievements'])}"
+            achievements = safe_list(exp.get("quantified_achievements"))
+            desc += f" | Achievements: {', '.join(achievements)}"
         exp_descs.append(desc)
         
         start = exp.get("start_date") or ""
@@ -358,7 +380,7 @@ def llm_parsed_to_resume_section(parsed: Dict) -> Dict[str, Any]:
             desc += f" | Impact: {proj['impact']}"
         proj_descs.append(desc)
         
-        proj_techs.append(", ".join(proj.get("technologies", [])))
+        proj_techs.append(", ".join(safe_list(proj.get("technologies"))))
     
     result["projects"] = "; ".join(proj_descs)
     result["project_titles"] = ", ".join(proj_names)
@@ -389,8 +411,8 @@ def llm_parsed_to_resume_section(parsed: Dict) -> Dict[str, Any]:
     # -----------------------------------------------------------------
     # CERTIFICATIONS & ACHIEVEMENTS
     # -----------------------------------------------------------------
-    result["certifications"] = ", ".join(parsed.get("certifications") or [])
-    result["achievements"] = ", ".join(parsed.get("achievements") or [])
+    result["certifications"] = ", ".join(safe_list(parsed.get("certifications")))
+    result["achievements"] = ", ".join(safe_list(parsed.get("achievements")))
     
     return result
 
@@ -400,3 +422,4 @@ langchain_resume_parser = LangChainResumeParser()
 
 # Alias for backward compatibility
 llm_resume_parser = langchain_resume_parser
+

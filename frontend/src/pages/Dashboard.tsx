@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, TrendingUp, Users, CheckCircle2, FolderKanban, Zap, ArrowRight, Clock, Award, Activity } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertCircle, TrendingUp, Users, CheckCircle2, FolderKanban, Zap, ArrowRight, Clock, Award, Activity, Bell, FileText, CheckSquare } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
@@ -24,23 +25,64 @@ interface Project {
 
 const Dashboard: React.FC = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [stats, setStats] = useState<any>({});
     const [assignedProjects, setAssignedProjects] = useState<Project[]>([]);
+    const [activities, setActivities] = useState<any[]>([]);
+    const [alerts, setAlerts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Don't fetch until we have user info
+        if (!user) {
+            setLoading(false);
+            return;
+        }
+        
         const fetchData = async () => {
+            setLoading(true);
             try {
-                const statsRes = api.get('/analytics/summary/');
-                const projectsRes = api.get('/projects/projects/');
+                // Fetch all data with individual error handling
+                let statsData = {};
+                let projectsData: any[] = [];
+                let activities: any[] = [];
+                let alerts: any[] = [];
 
-                const [statsData, projectsData] = await Promise.all([statsRes, projectsRes]);
+                try {
+                    const res = await api.get('/analytics/summary/');
+                    statsData = res.data;
+                } catch (e) {
+                    console.warn('Failed to fetch stats:', e);
+                }
 
-                setStats(statsData.data);
+                try {
+                    const res = await api.get('/projects/projects/');
+                    projectsData = res.data;
+                } catch (e) {
+                    console.warn('Failed to fetch projects:', e);
+                }
+
+                try {
+                    const res = await api.get('/notifications/activity/');
+                    activities = res.data.activities || [];
+                } catch (e) {
+                    console.warn('Failed to fetch activities:', e);
+                }
+
+                try {
+                    const res = await api.get('/notifications/dashboard/');
+                    alerts = res.data.alerts || [];
+                } catch (e) {
+                    console.warn('Failed to fetch alerts:', e);
+                }
+
+                setStats(statsData);
+                setActivities(activities);
+                setAlerts(alerts);
 
                 // For interns, filter to show only assigned projects
                 if (user?.role === 'INTERN') {
-                    setAssignedProjects(projectsData.data);
+                    setAssignedProjects(projectsData);
                 }
             } catch (error: any) {
                 console.error("Failed to fetch dashboard data", error);
@@ -186,22 +228,43 @@ const Dashboard: React.FC = () => {
                 {/* Recent Activity */}
                 <Card className="lg:col-span-2" icon={<Activity size={20} />} title="Recent Activity" subtitle="Your latest updates">
                     <div className="space-y-4">
-                        {[1, 2, 3].map((_, i) => (
-                            <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 transition-colors cursor-pointer group">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center border border-purple-500/20">
-                                    <Zap size={16} className="text-purple-400" />
+                        {activities.length > 0 ? (
+                            activities.slice(0, 5).map((activity, i) => (
+                                <div 
+                                    key={i} 
+                                    className="flex items-center gap-4 p-4 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 transition-colors cursor-pointer group"
+                                    onClick={() => activity.link && navigate(activity.link)}
+                                >
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${
+                                        activity.color === 'green' ? 'bg-emerald-500/20 border-emerald-500/20' :
+                                        activity.color === 'purple' ? 'bg-purple-500/20 border-purple-500/20' :
+                                        'bg-blue-500/20 border-blue-500/20'
+                                    }`}>
+                                        {activity.icon === 'check-circle' ? (
+                                            <CheckSquare size={16} className="text-emerald-400" />
+                                        ) : activity.icon === 'clipboard' ? (
+                                            <FileText size={16} className="text-purple-400" />
+                                        ) : (
+                                            <Zap size={16} className="text-purple-400" />
+                                        )}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-sm text-white group-hover:text-purple-200 transition-colors">
+                                            {activity.description}
+                                        </p>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            {new Date(activity.created_at).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                    <ArrowRight size={16} className="text-slate-500 group-hover:text-purple-400 group-hover:translate-x-1 transition-all" />
                                 </div>
-                                <div className="flex-1">
-                                    <p className="text-sm text-white group-hover:text-purple-200 transition-colors">
-                                        {user?.role === 'ADMIN' && "System-wide activity log"}
-                                        {user?.role === 'MANAGER' && "Recent submissions from your interns"}
-                                        {user?.role === 'INTERN' && "Your recent updates"}
-                                    </p>
-                                    <p className="text-xs text-slate-500 mt-1">Click to view details</p>
-                                </div>
-                                <ArrowRight size={16} className="text-slate-500 group-hover:text-purple-400 group-hover:translate-x-1 transition-all" />
+                            ))
+                        ) : (
+                            <div className="text-center py-8 text-slate-500">
+                                <Activity size={32} className="mx-auto mb-2 opacity-50" />
+                                <p>No recent activity</p>
                             </div>
-                        ))}
+                        )}
                     </div>
                 </Card>
 
@@ -213,24 +276,43 @@ const Dashboard: React.FC = () => {
                     subtitle="Important notifications"
                 >
                     <div className="space-y-3">
-                        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                                <span className="text-sm font-medium text-red-400">System Alert</span>
+                        {alerts.length > 0 ? (
+                            alerts.map((alert, i) => (
+                                <div key={i} className={`p-4 rounded-xl border ${
+                                    alert.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20' :
+                                    alert.type === 'error' ? 'bg-red-500/10 border-red-500/20' :
+                                    'bg-blue-500/10 border-blue-500/20'
+                                }`}>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className={`w-2 h-2 rounded-full animate-pulse ${
+                                            alert.type === 'warning' ? 'bg-amber-500' :
+                                            alert.type === 'error' ? 'bg-red-500' :
+                                            'bg-blue-500'
+                                        }`}></div>
+                                        <span className={`text-sm font-medium ${
+                                            alert.type === 'warning' ? 'text-amber-400' :
+                                            alert.type === 'error' ? 'text-red-400' :
+                                            'text-blue-400'
+                                        }`}>
+                                            {alert.title}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-slate-400">
+                                        {alert.message}
+                                    </p>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                                    <span className="text-sm font-medium text-emerald-400">All Clear</span>
+                                </div>
+                                <p className="text-sm text-slate-400">
+                                    No alerts at this time.
+                                </p>
                             </div>
-                            <p className="text-sm text-slate-400">
-                                System alerts will appear here with detailed information.
-                            </p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                                <span className="text-sm font-medium text-amber-400">Reminder</span>
-                            </div>
-                            <p className="text-sm text-slate-400">
-                                Upcoming deadlines and important dates.
-                            </p>
-                        </div>
+                        )}
                     </div>
                 </Card>
             </div>
