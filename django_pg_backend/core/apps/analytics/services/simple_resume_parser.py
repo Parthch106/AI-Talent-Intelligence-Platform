@@ -459,6 +459,30 @@ class SimpleResumeParser:
         """Extract skills from full text if no skills section found."""
         return self._parse_skills_section(text)
     
+    # ---------------------------------------------------------------------------
+    # Date extraction helper
+    # ---------------------------------------------------------------------------
+    DATE_RANGE_RE = re.compile(
+        r'\(?'
+        r'((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)'
+        r'[\s\-./]*\d{2,4})'
+        r'[\s\-–/to]*'
+        r'((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)'
+        r'[\s\-./]*\d{2,4}|\d{4}|present|current|now)'
+        r'\)?'
+        r'|\(?'
+        r'(\d{4})[\s\-–/to]+(\d{4}|present|current|now)'
+        r'\)?',
+        re.IGNORECASE
+    )
+
+    def _extract_date_range(self, text: str) -> str:
+        """Return the first date range found in text, or empty string."""
+        m = self.DATE_RANGE_RE.search(text)
+        if not m:
+            return ''
+        return m.group(0).strip(' ()').strip()
+
     def _parse_experience_section(self, text: str) -> Dict[str, Any]:
         """Parse experience section into structured lists."""
         result = {
@@ -468,7 +492,7 @@ class SimpleResumeParser:
             'experience_list': []
         }
         
-        # Split by double newlines or lines that look like a job title (bolded text or certain keywords)
+        # Split by double newlines or lines that look like a job title
         blocks = re.split(r'\n\n|\n(?=[A-Z][\w\s&]{5,50}(?:\s+\||$|\r))', text)
         
         titles = []
@@ -479,33 +503,35 @@ class SimpleResumeParser:
             lines = [l.strip() for l in block.split('\n') if l.strip()]
             if not lines: continue
             
-            # Header line heuristic
             header = lines[0]
             
-            # Try to extract title, company, duration from header
-            # Pattern: Title | Company | Duration
-            parts = [p.strip() for p in header.split('|')]
-            title = parts[0] if len(parts) > 0 else ""
-            company = parts[1] if len(parts) > 1 else ""
-            duration = parts[2] if len(parts) > 2 else ""
+            # --- Duration: pull from parentheses OR inline date range ---
+            duration = self._extract_date_range(header)
+            # Remove duration from header to isolate title/company
+            header_clean = self.DATE_RANGE_RE.sub('', header).strip(' |()')
             
-            # If no | separators, use regex
-            if not duration:
-                date_match = re.search(r'(\d{4}\s*[-–to]+\s*(?:\d{4}|present|current)|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[^ \n]*\s+\d{4}\s*[-–to]+\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[^ \n]*\s+\d{4}|present|current))', header, re.IGNORECASE)
-                if date_match:
-                    duration = date_match.group(0)
+            # Split remaining by | to get title and company
+            parts = [p.strip() for p in header_clean.split('|')]
+            title = parts[0].strip()
+            company = parts[1].strip() if len(parts) > 1 else ''
             
-            # Clean title
+            # If company still has a location appended, separate it
+            # e.g. "SAP & Edunet Foundation  Gujarat, India" → keep as company
+            location = ''
+            loc_match = re.search(r',\s*[A-Z][a-z]+(?:,\s*[A-Z][a-z]+)?\s*$', company)
+            if loc_match:
+                location = loc_match.group(0).strip(', ')
+                company = company[:loc_match.start()].strip()
+            
+            # Clean title: remove leftover parentheses
             title = re.sub(r'\(.*?\)', '', title).strip()
             
-            # Description is everything else
             desc = " ".join(lines[1:])
             
             if title and desc:
                 titles.append(title)
                 durations.append(duration)
                 descriptions.append(desc)
-                # Extract technologies for this specific experience item
                 exp_techs = []
                 for tech in self.PROGRAMMING_LANGUAGES + self.FRAMEWORKS + self.TOOLS:
                     if re.search(rf'\b{re.escape(tech)}\b', block.lower()):
@@ -515,11 +541,16 @@ class SimpleResumeParser:
                 result['experience_list'].append({
                     'title': title,
                     'company': company,
-                    'location': '',
+                    'location': location,
+                    'start_date': '',
+                    'end_date': '',
                     'duration': duration,
+                    'is_current': bool(re.search(r'present|current|now', duration, re.I)),
+                    'is_internship': bool(re.search(r'intern', title, re.I)),
                     'description': desc,
                     'technologies': exp_techs,
-                    'technologies_used': exp_techs  # For compatibility with service
+                    'technologies_used': exp_techs,
+                    'quantified_achievements': []
                 })
         
         result['experience_titles'] = ' | '.join(titles)
@@ -546,8 +577,7 @@ class SimpleResumeParser:
             'projects_list': []
         }
         
-        # Split by double newlines or lines that clearly look like new project headers
-        # Use 'Project title:' as a strong marker if present
+        # Split on 'Project title:' markers when present, else on blank lines
         if 'project title:' in text.lower():
             blocks = re.split(r'\n(?=project title:)', text, flags=re.I)
         else:
@@ -558,43 +588,73 @@ class SimpleResumeParser:
         technologies = []
         
         for block in blocks:
-            # Remove 'Project title:' prefix from the block for cleaner parsing
+            # Remove 'Project title:' prefix
             block_clean = re.sub(r'^\s*project title:\s*', '', block, flags=re.I)
             lines = [l.strip() for l in block_clean.split('\n') if l.strip()]
             if not lines: continue
             
-            # First line is likely the title if it doesn't start with a bullet
-            title_candidate = lines[0]
-            # Strip links like [ [Link](...) ] OCT-2024
-            title = re.sub(r'\[\s*\[Link\].*?\]', '', title_candidate).strip()
-            # Strip year markers if appended
-            title = re.sub(r'(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[-\s]\d{4}', '', title, flags=re.I).strip()
-            title = title.strip(' |-,')
-                
-            if len(title) > 100 or len(title) < 3: continue
+            title_line = lines[0]
+
+            # --- Extract GitHub URL ---
+            github_url = ''
+            github_match = re.search(r'\(?(https?://github\.com/[^\s\)\]]+)\)?', title_line, re.I)
+            if github_match:
+                github_url = github_match.group(1)
+            # Also capture [Link](URL) markdown style
+            if not github_url:
+                md_link = re.search(r'\[\w+\]\((https?://github\.com/[^\)]+)\)', title_line, re.I)
+                if md_link:
+                    github_url = md_link.group(1)
+
+            # --- Extract project date ---
+            project_date = self._extract_date_range(title_line)
+            if not project_date:
+                # Try standalone month-year like "OCT-2024" or "OCT 2024"
+                mono_match = re.search(
+                    r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[\s\-]\d{4}\b',
+                    title_line, re.I
+                )
+                if mono_match:
+                    project_date = mono_match.group(0)
+
+            # --- Clean title: strip link markdown, dates, URLs ---
+            title = re.sub(r'\[\s*\[?\w+\]?\([^)]+\)\s*\]', '', title_line)  # [[Link](url)]
+            title = re.sub(r'https?://\S+', '', title)                         # bare URLs
+            title = self.DATE_RANGE_RE.sub('', title)                           # date ranges
+            title = re.sub(
+                r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[\s\-]\d{4}\b',
+                '', title, flags=re.I
+            )
+            title = title.strip(' |-,[]()').strip()
+
+            if len(title) > 100 or len(title) < 3:
+                continue
             
-            # Check for header collision (Summary, Experience, etc.)
+            # Skip pure section headers
             if any(kw in title.lower() for kws in self.SECTION_KEYWORDS.values() for kw in kws):
-                if len(title) < 20: continue
+                if len(title) < 20:
+                    continue
 
             desc = " ".join(lines[1:])
-            
-            # Extract techs
+
+            # Extract techs from the whole block
             proj_techs = []
             for tech in self.PROGRAMMING_LANGUAGES + self.FRAMEWORKS + self.TOOLS:
                 if re.search(rf'\b{re.escape(tech)}\b', block.lower()):
                     proj_techs.append(tech)
-            
             proj_techs = list(set(proj_techs))
-            
+
             titles.append(title)
             descriptions.append(desc)
             technologies.extend(proj_techs)
-            
+
             result['projects_list'].append({
                 'name': title,
                 'description': desc,
-                'technologies': proj_techs
+                'technologies': proj_techs,
+                'github_url': github_url,
+                'date': project_date,
+                'impact': None
             })
             
         result['project_titles'] = ' | '.join(titles)
@@ -615,55 +675,98 @@ class SimpleResumeParser:
     def _parse_education_robust(self, text: str) -> Dict[str, Any]:
         """Parse education section into structured lists."""
         edu_list = []
-        # Pre-process: join lines that seem to belong to the same degree/entry
-        # e.g., Degree on line 1, Institution on line 2
         lines = [l.strip() for l in text.split('\n') if l.strip()]
         
-        merged_lines = []
+        DEGREE_PAT = re.compile(
+            r'(bachelor|master|phd|b\.sc|m\.sc|b\.tech|m\.tech'
+            r'|b\.e\.|m\.e\.|secondary|intermediate|diploma'
+            r'|graduate|undergraduate|science|arts|commerce|engineering)',
+            re.I
+        )
+        YEAR_PAT = re.compile(r'(?:19|20)\d{2}(?:[-–\s/to]+(?:(?:19|20)\d{2}|(?:july|june|may|april|march|february|january|dec|nov|oct|sep|aug|jul|jun|may|apr|mar|feb|jan)[\s,]*\d{2,4}))?', re.I)
+        GPA_PAT  = re.compile(r'(?:cgpa|gpa)[\s:\-]*(\d+\.?\d*)', re.I)
+
+        # Two-pass merge: join consecutive non-degree lines into the degree entry above them
+        # so separate lines like "2021-2025  CGPA - 9" get merged in.
+        merged = []
         i = 0
         while i < len(lines):
             line = lines[i]
-            # If it's a short line followed by an institution or university line, merge them
-            if i + 1 < len(lines) and any(kw in lines[i+1].lower() for kw in ['college', 'university', 'institute', 'school']):
-                merged_lines.append(line + " " + lines[i+1])
-                i += 2
+            # If this line has a degree keyword, try to absorb the next few lines
+            if DEGREE_PAT.search(line):
+                combined = line
+                j = i + 1
+                while j < len(lines) and j < i + 4:
+                    next_line = lines[j]
+                    # Stop absorption if next line looks like a new section header
+                    if any(kw == next_line.lower() for kws in self.SECTION_KEYWORDS.values() for kw in kws):
+                        break
+                    # Stop if next line itself has a degree (new entry)
+                    if DEGREE_PAT.search(next_line) and j != i + 1:
+                        break
+                    combined += '  ' + next_line
+                    j += 1
+                merged.append(combined)
+                i = j
             else:
-                merged_lines.append(line)
+                merged.append(line)
                 i += 1
 
-        for line in merged_lines:
-            line_lower = line.lower()
-            # Only skip if it's strictly a header line
-            if len(line) < 20 and any(kw in line_lower for kw in self.SECTION_KEYWORDS['education']):
+        for line in merged:
+            # Skip pure short headers
+            if len(line) < 15 and any(kw in line.lower() for kw in self.SECTION_KEYWORDS['education']):
                 continue
-                
-            degree_pattern = r'(bachelor|master|phd|b\.sc|m\.sc|b\.tech|m\.tech|b\.e\.|m\.e\.|secondary|intermediate|diploma|graduate|undergraduate|science|arts|commerce|engineering)'
-            degree_match = re.search(degree_pattern, line_lower)
-            
-            if degree_match:
-                # Extract year (e.g., 2021 - 2025 or 2025)
-                year_match = re.search(r'((?:19|20)\d{2}[-\s/–to]+(?:19|20)\d{2}|(?:19|20)\d{2})', line)
-                year = year_match.group(0) if year_match else ''
-                
-                # Extract GPA / CGPA
-                # Handles "CGPA - 9", "CGPA: 9.0", "9.0/10"
-                gpa_match = re.search(r'(?:gpa|cgpa)[:\s\-]*(\d+\.?\d*)', line_lower)
-                gpa = gpa_match.group(1) if gpa_match else ''
-                
-                # Clean line to extract institution
-                inst = re.sub(degree_pattern, '', line, flags=re.I)
-                inst = re.sub(r'((?:19|20)\d{2}[-\s/–to]+(?:19|20)\d{2}|(?:19|20)\d{2})', '', inst)
-                inst = re.sub(r'(?:gpa|cgpa)[:\s\-]*(\d+\.?\d*)', '', inst, flags=re.I)
-                inst = inst.strip(' |-,()[]')
-                
-                edu_list.append({
-                    'degree': degree_match.group(0).upper(),
-                    'institution': inst[:150], # Increased limit for multi-line merge
-                    'year': year,
-                    'gpa': gpa
-                })
-        
-        text_summary = " \n ".join([f"{e['degree']} from {e['institution']} ({e['year']})" for e in edu_list])
+
+            deg_match = DEGREE_PAT.search(line)
+            if not deg_match:
+                continue
+
+            # Year
+            year_match = YEAR_PAT.search(line)
+            year = year_match.group(0).strip() if year_match else ''
+
+            # GPA — search across whole combined line
+            gpa_match = GPA_PAT.search(line)
+            gpa = gpa_match.group(1) if gpa_match else ''
+
+            # Field of study heuristic: text between degree keyword and institution keyword
+            field_match = re.search(
+                r'(?:of|in)\s+([\w\s&]+?)(?:\s+(?:at|from|,|\[|\())',
+                line, re.I
+            )
+            field_of_study = field_match.group(1).strip() if field_match else ''
+
+            # Institution: strip degree, field, year, gpa, brackets
+            inst = line
+            inst = DEGREE_PAT.sub('', inst)
+            inst = YEAR_PAT.sub('', inst)
+            inst = GPA_PAT.sub('', inst)
+            inst = re.sub(r'\b(of|in|at|from)\b', '', inst, flags=re.I)
+            inst = re.sub(r'[\[\]\(\)]', '', inst)
+            # Strip "Relevant Coursework:" and everything after it
+            inst = re.sub(r'relevant coursework[\s\S]*', '', inst, flags=re.I)
+            inst = re.sub(r'\s{2,}', ' ', inst).strip(' ,-|')
+            # Take the longest segment that looks like an institution name
+            candidates = [p.strip() for p in re.split(r',|\|', inst) if p.strip()]
+            if candidates:
+                inst = max(candidates, key=len)
+
+            edu_list.append({
+                'degree': deg_match.group(0).upper(),
+                'field_of_study': field_of_study,
+                'institution': inst[:150],
+                'year': year,
+                'gpa': gpa,
+                'start_date': '',
+                'end_date': '',
+                'location': ''
+            })
+
+        text_summary = " | ".join(
+            [f"{e['degree']} in {e['field_of_study']} at {e['institution']} ({e['year']})"
+             if e.get('field_of_study') else
+             f"{e['degree']} at {e['institution']} ({e['year']})" for e in edu_list]
+        )
         return {'text': text_summary, 'list': edu_list}
 
     def _extract_education_from_text_robust(self, text: str) -> Dict[str, Any]:

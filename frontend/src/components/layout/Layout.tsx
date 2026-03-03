@@ -23,9 +23,11 @@ const Layout: React.FC = () => {
             {/* Sidebar */}
             <Sidebar />
 
-            {/* Main Content */}
-            <div className="ml-64 relative z-10">
-                <Header />
+            {/* Header - now handles its own fixed positioning */}
+            <Header />
+
+            {/* Main Content - with top padding to account for fixed header */}
+            <div className="ml-64 pt-16 relative z-10">
                 <main className="p-6 md:p-8 lg:p-10">
                     <Outlet />
                 </main>

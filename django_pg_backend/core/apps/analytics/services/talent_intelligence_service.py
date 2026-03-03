@@ -794,17 +794,39 @@ class TalentIntelligenceService:
         exp_objs = []
         for exp in experience_list:
             if not isinstance(exp, dict): continue
+            
+            # Simple parser stores dates in 'duration' — split into start/end
+            start_date = exp.get('start_date', '') or ''
+            end_date   = exp.get('end_date', '') or ''
+            if not start_date and not end_date:
+                duration = exp.get('duration', '') or ''
+                if duration:
+                    import re as _re
+                    # Pattern: MON-YEAR-MON-YEAR  (e.g. JAN-2025-JUN-2025)
+                    # Split at the boundary between a 4-digit year and the next month abbreviation
+                    m = _re.match(
+                        r'^(.+?\d{2,4})\s*[-\u2013/]\s*'
+                        r'((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{4}|present|current).*)$',
+                        duration, _re.I
+                    )
+                    if m:
+                        start_date = m.group(1).strip()
+                        end_date   = m.group(2).strip()
+                    else:
+                        start_date = duration
+                        end_date   = ''
+            
             exp_objs.append(ResumeExperience(
                 application=application,
                 title=exp.get('title', ''),
                 company=exp.get('company', ''),
                 location=exp.get('location', ''),
-                start_date=exp.get('start_date', ''),
-                end_date=exp.get('end_date', ''),
+                start_date=start_date,
+                end_date=end_date,
                 is_current=exp.get('is_current', False),
                 is_internship=exp.get('is_internship', False),
                 description=exp.get('description', ''),
-                technologies=exp.get('technologies_used', [])
+                technologies=exp.get('technologies_used', []) or exp.get('technologies', [])
             ))
         if exp_objs:
             ResumeExperience.objects.bulk_create(exp_objs)
@@ -814,13 +836,17 @@ class TalentIntelligenceService:
         proj_objs = []
         for proj in projects_list:
             if not isinstance(proj, dict): continue
+            # If there's no impact text but we have a date, store date as impact
+            impact = proj.get('impact') or ''
+            if not impact and proj.get('date'):
+                impact = proj.get('date', '')
             proj_objs.append(ResumeProject(
                 application=application,
                 name=proj.get('name', ''),
                 description=proj.get('description', ''),
                 technologies=proj.get('technologies', []),
-                github_url=proj.get('github_url'),
-                impact=proj.get('impact', '')
+                github_url=proj.get('github_url') or '',
+                impact=impact
             ))
         if proj_objs:
             ResumeProject.objects.bulk_create(proj_objs)

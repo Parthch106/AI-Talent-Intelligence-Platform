@@ -94,6 +94,7 @@ interface IntelligenceData {
             location: string;
             start_date: string;
             end_date: string;
+            duration?: string;       // simple parser field
             is_current: boolean;
             is_internship: boolean;
             description: string;
@@ -105,6 +106,7 @@ interface IntelligenceData {
             technologies: string[];
             github_url: string;
             impact: string;
+            date?: string;           // simple parser field
         }>;
         education: Array<{
             degree: string;
@@ -112,6 +114,7 @@ interface IntelligenceData {
             institution: string;
             start_year: string;
             end_year: string;
+            year?: string;           // simple parser field
             gpa: string;
             honors: string;
         }>;
@@ -203,14 +206,25 @@ const AnalysisPage: React.FC = () => {
         setError('');
         setSuccessMessage('');
         try {
-            const response = await api.post(`/analytics/intelligence/compute/${internId}/`, {
+            // First, trigger the computation
+            await api.post(`/analytics/intelligence/compute/${internId}/`, {
                 job_role: selectedJobRole
             });
-            setIntelligence(response.data);
             setSuccessMessage('Intelligence computed successfully!');
+            
+            // Then fetch fresh data from GET endpoint to get complete response 
+            // including resume_document and structured_resume
+            try {
+                const fetchResponse = await api.get(`/analytics/intelligence/?intern_id=${internId}&job_role=${selectedJobRole}`);
+                setIntelligence(fetchResponse.data);
+            } catch (fetchError) {
+                // If GET fails, try using the POST response as fallback
+                console.warn('Failed to fetch fresh data, using compute response');
+                // The POST response doesn't have all fields, but at least scores will show
+            }
         } catch (err: any) {
             console.error('Compute Intelligence Error:', err);
-            setError(err.response?.data?.error || 'Failed to compute intelligence');
+            setError(err.response?.data?.error || err.response?.data?.detail || 'Failed to compute intelligence');
         } finally {
             setComputing(false);
         }
@@ -690,7 +704,10 @@ const AnalysisPage: React.FC = () => {
                                                     </div>
                                                 </div>
                                                 <div className="text-sm font-medium text-slate-500 bg-slate-800/50 px-2.5 py-1 rounded-md h-fit">
-                                                    {exp.start_date} — {exp.is_current ? 'Present' : exp.end_date}
+                                                    {exp.start_date && exp.end_date
+                                                        ? `${exp.start_date} — ${exp.is_current ? 'Present' : exp.end_date}`
+                                                        : exp.duration || 'Date not specified'
+                                                    }
                                                 </div>
                                             </div>
                                             <p className="text-sm text-slate-400 leading-relaxed mb-3 whitespace-pre-wrap">{exp.description}</p>
@@ -724,7 +741,12 @@ const AnalysisPage: React.FC = () => {
                                                     )}
                                                 </div>
                                                 <p className="text-xs text-slate-400 mb-2 line-clamp-2">{project.description}</p>
-                                                <div className="text-[11px] text-amber-400 font-medium mb-2">{project.impact}</div>
+                                                {(project.date || project.impact) && (
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        {project.date && <span className="text-[11px] text-slate-500 font-medium">{project.date}</span>}
+                                                        {project.impact && <span className="text-[11px] text-amber-400 font-medium">{project.impact}</span>}
+                                                    </div>
+                                                )}
                                                 <div className="flex flex-wrap gap-1">
                                                     {project.technologies.map((tech, tIdx) => (
                                                         <span key={tIdx} className="text-[9px] bg-slate-700/50 text-slate-300 px-1.5 py-0.5 rounded">
@@ -749,7 +771,11 @@ const AnalysisPage: React.FC = () => {
                                                         <h4 className="font-bold text-white text-sm">{edu.degree} in {edu.field_of_study}</h4>
                                                         <p className="text-xs text-purple-400">{edu.institution}</p>
                                                     </div>
-                                                    <div className="text-xs text-slate-500">{edu.start_year} - {edu.end_year}</div>
+                                                    <div className="text-xs text-slate-500">
+                                                        {edu.start_year && edu.end_year
+                                                            ? `${edu.start_year} - ${edu.end_year}`
+                                                            : edu.year || ''}
+                                                    </div>
                                                 </div>
                                                 {edu.gpa && <div className="mt-2 text-xs font-medium text-slate-300">GPA: {edu.gpa}</div>}
                                                 {edu.honors && <p className="mt-1 text-[10px] text-slate-400 uppercase tracking-tight">{edu.honors}</p>}

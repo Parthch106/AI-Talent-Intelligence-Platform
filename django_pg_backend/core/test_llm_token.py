@@ -10,7 +10,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 import django
 django.setup()
 
-token = os.environ.get('GITHUB_TOKEN')
+token = os.environ.get('AI_TALENT_GITHUB_TOKEN') or os.environ.get('GITHUB_TOKEN')
 print(f'Token loaded: {token[:20]}...' if token else 'NO TOKEN')
 
 # Test API
