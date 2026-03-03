@@ -28,7 +28,8 @@ ResumeSection columns:
 
 import re
 import logging
-from typing import Dict, List, Any
+import json
+from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,8 @@ class SimpleResumeParser:
     PROGRAMMING_LANGUAGES = [
         'python', 'java', 'javascript', 'typescript', 'c', 'c++', 'c#', 
         'go', 'rust', 'ruby', 'php', 'swift', 'kotlin', 'scala', 'r',
-        'matlab', 'perl', 'shell', 'bash'
+        'matlab', 'perl', 'shell', 'bash', 'dart', 'html', 'css', 'sql',
+        'objective-c', 'lua', 'assembly', 'fortran', 'cobol'
     ]
     
     FRAMEWORKS = [
@@ -50,51 +52,61 @@ class SimpleResumeParser:
         'angular', 'vue', 'next.js', 'nuxt.js', 'node.js', 'asp.net',
         'laravel', 'rails', 'nestjs', 'tensorflow', 'pytorch', 'keras',
         'scikit-learn', 'huggingface', 'langchain', 'xgboost', 'lightgbm',
-    ]  # Note: no duplicates — flask/fastapi were previously listed twice
+        'bootstrap', 'tailwind', 'jquery', 'redux', 'flutter', 'react native',
+        'ionic', 'cordova', 'electron', 'symfony', 'codeigniter', 'cakephp'
+    ]
     
     DATABASES = [
         'sql', 'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch',
-        'sqlite', 'oracle', 'cassandra', 'dynamodb', 'firebase'
+        'sqlite', 'oracle', 'cassandra', 'dynamodb', 'firebase', 'mariadb',
+        'ms sql', 'microsoft sql server', 'couchdb', 'neo4j', 'influxdb'
     ]
     
-    CLOUD = ['aws', 'azure', 'gcp', 'google cloud', 'amazon web services']
+    CLOUD = [
+        'aws', 'azure', 'gcp', 'google cloud', 'amazon web services',
+        'heroku', 'digitalocean', 'netlify', 'vercel', 'firebase',
+        'ibm cloud', 'oracle cloud', 'linode'
+    ]
     
     TOOLS = [
         'git', 'github', 'gitlab', 'docker', 'kubernetes', 'jenkins',
-        'jira', 'confluence', 'postman', 'tableau', 'power bi', 'jupyter'
+        'jira', 'confluence', 'postman', 'tableau', 'power bi', 'jupyter',
+        'vscode', 'intellij', 'pycharm', 'vim', 'bitbucket', 'ansible',
+        'terraform', 'prometheus', 'grafana', 'trello', 'slack', 'notion'
+    ]
+
+    SOFT_SKILLS = [
+        'leadership', 'communication', 'teamwork', 'problem solving',
+        'critical thinking', 'time management', 'adaptability', 'creativity',
+        'emotional intelligence', 'mentoring', 'collaboration', 'presentation'
     ]
     
     # Section keywords for detection
     SECTION_KEYWORDS = {
-        'summary': ['objective', 'summary', 'profile', 'about'],
-        'skills': ['skill', 'technical skill', 'technologies', 'tech stack', 'competencies'],
-        'experience': ['experience', 'employment', 'work history', 'internship', 'professional experience'],
-        'project': ['project', 'project work', 'academic project'],
-        'education': ['education', 'academic', 'qualification', 'degree'],
-        'certification': ['certification', 'certificate', 'certified'],
-        'achievement': ['achievement', 'award', 'honor', 'recognition'],
-        'extracurricular': ['extracurricular', 'activity', 'leadership', 'volunteer']
+        'summary': ['objective', 'summary', 'profile', 'about', 'professional profile', 'executive summary'],
+        'skills': ['skill', 'technical skill', 'technologies', 'tech stack', 'competencies', 'expertise', 'capabilities'],
+        'experience': ['experience', 'employment', 'work history', 'internship', 'professional experience', 'background', 'professional experience / training', 'industrial training'],
+        'project': ['project', 'project work', 'academic project', 'personal project', 'open source', 'project title'],
+        'education': ['education', 'academic', 'qualification', 'degree', 'schooling', 'university'],
+        'certification': ['certification', 'certificate', 'certified', 'license', 'credential'],
+        'achievement': ['achievement', 'award', 'honor', 'recognition', 'accomplishment'],
+        'extracurricular': ['extracurricular', 'activity', 'leadership', 'volunteer', 'hobby', 'interest']
     }
     
     def __init__(self):
         """Initialize the parser."""
         self.raw_text = ""
         
-    def parse(self, text: str) -> Dict[str, str]:
+    def parse(self, text: str) -> Dict[str, Any]:
         """
         Parse resume text and return dict matching ResumeSection columns.
-        
-        Args:
-            text: Raw resume text
-            
-        Returns:
-            Dictionary with ResumeSection field names and values
+        Enhanced to include structured lists for V2 analytics schema.
         """
         self.raw_text = text
-        text_lower = text.lower()
         
-        # Initialize result dict with all ResumeSection fields
+        # Initialize result dict with all ResumeSection fields + structured fields
         result = {
+            # Legacy/ResumeSection fields
             'professional_summary': '',
             'technical_skills': '',
             'tools_technologies': '',
@@ -111,10 +123,31 @@ class SimpleResumeParser:
             'education_text': '',
             'certifications': '',
             'achievements': '',
-            'extracurriculars': ''
+            'extracurriculars': '',
+            
+            # V2 Structured fields
+            'contact': {},
+            'skills': [],
+            'experience_list': [],
+            'projects_list': [],
+            'education_list': [],
+            'raw_skills': {
+                'programming_languages': [],
+                'frameworks_libraries': [],
+                'databases': [],
+                'cloud_platforms': [],
+                'tools': [],
+                'soft_skills': []
+            }
         }
         
-        # Step 1: Extract professional summary from top of resume
+        # Pre-process text to remove Markdown bolding and common PDF artifacts
+        text = text.replace('**', '').replace('#', '').replace('__', '')
+        # Remove common bullet variations at the start of lines to avoid confusing them with headers
+        text = re.sub(r'^\s*[•\*\-]\s+', '', text, flags=re.MULTILINE)
+        
+        # Step 1: Extract contact info and professional summary from top
+        result['contact'] = self._extract_contact_info(text)
         result['professional_summary'] = self._extract_summary(text)
         
         # Step 2: Split into sections and extract each
@@ -132,7 +165,9 @@ class SimpleResumeParser:
                 proj_data = self._parse_projects_section(section_content)
                 result.update(proj_data)
             elif section_name == 'education':
-                result['education_text'] = self._parse_education(section_content)
+                edu_data = self._parse_education_robust(section_content)
+                result['education_text'] = edu_data['text']
+                result['education_list'] = edu_data['list']
             elif section_name == 'certification':
                 result['certifications'] = self._parse_certifications(section_content)
             elif section_name == 'achievement':
@@ -143,57 +178,131 @@ class SimpleResumeParser:
             skills_data = self._extract_skills_from_full_text(text)
             result.update(skills_data)
         
-        # Always try to extract education if not found
-        if not result['education_text']:
-            result['education_text'] = self._extract_education_from_text(text)
+        # Always try to extract education if not found or incomplete
+        if not result['education_list']:
+            target_text = sections.get('education', text)
+            edu_data = self._extract_education_from_text_robust(target_text)
+            result['education_text'] = edu_data['text']
+            result['education_list'] = edu_data['list']
         
-        # Always try to extract experience if not found
-        if not result['experience_descriptions']:
-            exp_data = self._extract_experience_from_text(text)
-            if exp_data['experience_titles']:
-                result['experience_titles'] = exp_data['experience_titles']
-            if exp_data['experience_descriptions']:
-                result['experience_descriptions'] = exp_data['experience_descriptions']
-            if exp_data['experience_duration_text']:
-                result['experience_duration_text'] = exp_data['experience_duration_text']
+        # Always try to extract experience if not found or incomplete
+        if not result['experience_list']:
+            target_text = sections.get('experience', text)
+            exp_data = self._extract_experience_from_text_robust(target_text)
+            result.update(exp_data)
         
         # Always try to extract projects if not found
-        if not result['project_titles']:
-            proj_data = self._extract_projects_from_text(text)
-            if proj_data['project_titles']:
-                result['project_titles'] = proj_data['project_titles']
-            if proj_data['project_descriptions']:
-                result['project_descriptions'] = proj_data['project_descriptions']
-            if proj_data['project_technologies']:
-                result['project_technologies'] = proj_data['project_technologies']
+        if not result['projects_list']:
+            target_text = sections.get('project', text)
+            proj_data = self._extract_projects_from_text_robust(target_text)
+            result.update(proj_data)
         
-        # If professional_summary is still empty, use experience content as fallback
-        if not result['professional_summary'] and result['experience_descriptions']:
-            exp_text = result['experience_descriptions']
-            if len(exp_text) > 50:
-                result['professional_summary'] = exp_text[:200] + '...' if len(exp_text) > 200 else exp_text
+        # =====================================================================
+        # ALIGNMENT WITH LLM PARSER SCHEMA (V2)
+        # =====================================================================
         
-        # Clean up education_text - remove .html prefix
-        if result['education_text'] and result['education_text'].startswith('.html'):
-            result['education_text'] = result['education_text'][5:].strip()
+        # 1. contact -> store as JSON string (matching llm_resume_parser.py)
+        contact_obj = result.get('contact', {})
+        result['contact'] = json.dumps({
+            "name": contact_obj.get("name") or "",
+            "email": contact_obj.get("email") or "",
+            "phone": contact_obj.get("phone") or "",
+            "linkedin": next((l for l in contact_obj.get("links", []) if 'linkedin.com' in l), ""),
+            "github": next((l for l in contact_obj.get("links", []) if 'github.com' in l), ""),
+            "location": contact_obj.get("location") or "",
+        })
+
+        # 2. Ensure all structured list fields exist
+        result['skills'] = result.get('skills') or []
+        result['experience_list'] = result.get('experience_list') or []
+        result['projects_list'] = result.get('projects_list') or []
+        result['education_list'] = result.get('education_list') or []
+
+        # 3. Ensure legacy/alias string fields exist (matching llm_resume_parser.py)
+        result['experience'] = "; ".join([e.get('description', '') for e in result['experience_list']])
+        result['projects'] = "; ".join([p.get('description', '') for p in result['projects_list']])
+        result['education'] = result.get('education_text') or ""
         
-        # Add legacy keys for feature engineering compatibility
-        result['skills'] = result['technical_skills'].split(', ') if result['technical_skills'] else []
-        result['experience'] = result['experience_descriptions']
-        result['education'] = result['education_text']
-        result['projects'] = result['project_titles'].split(' | ') if result['project_titles'] else []
-        result['tools'] = result['tools_technologies'].split(', ') if result['tools_technologies'] else []
-        result['certifications'] = result['certifications'].split('\n') if result['certifications'] else []
-        
+        # 4. Fill in missing fields with empty strings/defaults
+        schema_defaults = {
+            "professional_summary": "",
+            "technical_skills": "",
+            "tools_technologies": "",
+            "frameworks_libraries": "",
+            "databases": "",
+            "cloud_platforms": "",
+            "soft_skills": "",
+            "experience_titles": "",
+            "experience_descriptions": "",
+            "experience_duration_text": "",
+            "project_titles": "",
+            "project_descriptions": "",
+            "project_technologies": "",
+            "certifications": "",
+            "achievements": "",
+        }
+        for field, default in schema_defaults.items():
+            if field not in result:
+                result[field] = default
+
         return result
+
+    def _extract_contact_info(self, text: str) -> Dict[str, Any]:
+        """Extract name, email, phone, and links from resume."""
+        contact = {'name': '', 'email': '', 'phone': '', 'links': []}
+        
+        # 1. Extract Email
+        email_pattern = r'[a-zA-Z0-9._%+-]+ @ [a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+        # Adjust for potential spaces from PDF extraction
+        text_clean = text.replace(' @ ', '@')
+        email_match = re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', text_clean)
+        if email_match:
+            contact['email'] = email_match.group(0)
+            
+        # 2. Extract Phone
+        phone_patterns = [
+            r'(\+\d{1,3}[- ]?)?\(?\d{3}\)?[- ]?\d{3}[- ]?\d{4}',  # US
+            r'(\+\d{1,3}[- ]?)?\d{10}',                           # IN / Simple 10 digit
+            r'\d{3}[- ]\d{3}[- ]\d{4}'                            # Fragmented
+        ]
+        for pattern in phone_patterns:
+            phone_match = re.search(pattern, text)
+            if phone_match:
+                contact['phone'] = phone_match.group(0).strip()
+                break
+                
+        # 3. Extract Links
+        link_patterns = [
+            r'linkedin\.com/in/[a-zA-Z0-9-]+',
+            r'github\.com/[a-zA-Z0-9-]+',
+            r'behance\.net/[a-zA-Z0-9-]+',
+            r'portfolio:?\s*(https?://[^\s]+)'
+        ]
+        for pattern in link_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for m in matches:
+                contact['links'].append(m)
+                
+        # 4. Extract Name (Heuristic: first non-empty line that isn't contact info)
+        lines = text.split('\n')
+        for line in lines[:10]:
+            clean_line = line.replace('#', '').replace('*', '').strip()
+            if not clean_line: continue
+            if any(x in clean_line.lower() for x in ['email', 'phone', '@', 'linkedin', 'resume', 'curriculum']):
+                continue
+            # Look for 2-3 capitalized words
+            if 3 < len(clean_line) < 30 and re.match(r'^[A-Z][a-z]+(\s[A-Z][a-z]+){1,2}$', clean_line):
+                contact['name'] = clean_line
+                break
+                
+        return contact
     
     def _extract_summary(self, text: str) -> str:
         """Extract professional summary from top of resume."""
-        # Clean up HTML first
-        text = re.sub(r'<[^>]+>', ' ', text)  # Remove HTML tags
-        text = re.sub(r'\s+', ' ', text)  # Normalize whitespace
+        # Clean up HTML first (preserving structural spaces)
+        text_no_html = re.sub(r'<[^>]+>', ' ', text)
         
-        lines = text.split('\n')
+        lines = text_no_html.split('\n')
         summary_lines = []
         
         for i, line in enumerate(lines[:20]):  # Check first 20 lines
@@ -224,13 +333,24 @@ class SimpleResumeParser:
                             summary_lines.append(next_line)
                 break
             
+            # Stop collecting if we hit ANY section header
+            # Section headers are usually short (1-4 words) and contain a section keyword
+            words = line_lower.split()
+            if len(words) < 5 and any(kw in line_lower for kws in self.SECTION_KEYWORDS.values() for kw in kws):
+                break
+            
+            # Skip if it looks like a header (uppercase, short, followed by colon or newline)
+            if len(line) < 30 and re.match(r'^[A-Z\s/]+[:\s]*$', line):
+                break # Summary should not cross into headers
+            
             # Otherwise, collect substantial lines that could be summary
-            if len(line) > 30 and len(line) < 200:
-                if not any(kw in line_lower for kw in ['skill', 'experience', 'education', 'project', 
-                                                        'certification', 'achievement', 'employment']):
-                    summary_lines.append(line)
+            if 30 < len(line) < 500:
+                # Extra check: don't include lines that are just skill lists
+                if line.count(',') > 5 or line.count('|') > 3:
+                    continue
+                summary_lines.append(line)
                     
-        return ' '.join(summary_lines[:3])
+        return ' '.join(summary_lines[:2])
     
     def _split_into_sections(self, text: str) -> Dict[str, str]:
         """Split text into sections based on keywords."""
@@ -241,10 +361,26 @@ class SimpleResumeParser:
         section_positions = []
         for section_name, keywords in self.SECTION_KEYWORDS.items():
             for keyword in keywords:
-                pattern = rf'^\s*{re.escape(keyword)}[\s:]*$'
+                # Flexible header detection: 
+                # Start of line, optional symbols, keyword (maybe plural), optional colon/punctuation, spaces, end of line
+                # We handle the 's?' for pluralization manually for each keyword if needed
+                # But here we use a regex that matches common header patterns
+                pattern = rf'^\s*[\#\-\*]*\s*({re.escape(keyword)}s?)[\s:/]*$'
                 matches = list(re.finditer(pattern, text_lower, re.MULTILINE))
                 for match in matches:
                     section_positions.append((match.start(), section_name))
+        
+        # If no sections found, try a looser match (must be a single line starting with keyword)
+        if not section_positions:
+             for section_name, keywords in self.SECTION_KEYWORDS.items():
+                for keyword in keywords:
+                    pattern = rf'^\s*({re.escape(keyword)}s?)[\s:/]*.*$'
+                    matches = list(re.finditer(pattern, text_lower, re.MULTILINE))
+                    for match in matches:
+                        # Only accept if it's a short line
+                        line_match = text_lower[match.start():text_lower.find('\n', match.start())]
+                        if len(line_match.split()) < 5:
+                            section_positions.append((match.start(), section_name))
         
         # Sort by position
         section_positions.sort(key=lambda x: x[0])
@@ -263,7 +399,7 @@ class SimpleResumeParser:
                 
         return sections
     
-    def _parse_skills_section(self, text: str) -> Dict[str, str]:
+    def _parse_skills_section(self, text: str) -> Dict[str, Any]:
         """Parse skills section into categories."""
         result = {
             'technical_skills': '',
@@ -271,482 +407,296 @@ class SimpleResumeParser:
             'frameworks_libraries': '',
             'databases': '',
             'cloud_platforms': '',
-            'soft_skills': ''
+            'soft_skills': '',
+            'raw_skills': {
+                'programming_languages': [],
+                'frameworks_libraries': [],
+                'databases': [],
+                'cloud_platforms': [],
+                'tools': [],
+                'soft_skills': []
+            }
         }
         
         text_lower = text.lower()
-        
-        # Extract all skills using pattern matching
-        found_skills = {
-            'programming': [],
-            'frameworks': [],
-            'databases': [],
-            'cloud': [],
-            'tools': [],
-            'other': []
-        }
         
         # Check each category
         for skill in self.PROGRAMMING_LANGUAGES:
-            if skill in text_lower:
-                found_skills['programming'].append(skill)
+            if re.search(rf'\b{re.escape(skill)}\b', text_lower):
+                result['raw_skills']['programming_languages'].append(skill)
                 
         for skill in self.FRAMEWORKS:
-            if skill in text_lower:
-                found_skills['frameworks'].append(skill)
+            if re.search(rf'\b{re.escape(skill)}\b', text_lower):
+                result['raw_skills']['frameworks_libraries'].append(skill)
                 
         for skill in self.DATABASES:
-            if skill in text_lower:
-                found_skills['databases'].append(skill)
+            if re.search(rf'\b{re.escape(skill)}\b', text_lower):
+                result['raw_skills']['databases'].append(skill)
                 
         for skill in self.CLOUD:
-            if skill in text_lower:
-                found_skills['cloud'].append(skill)
+            if re.search(rf'\b{re.escape(skill)}\b', text_lower):
+                result['raw_skills']['cloud_platforms'].append(skill)
                 
         for skill in self.TOOLS:
-            if skill in text_lower:
-                found_skills['tools'].append(skill)
+            if re.search(rf'\b{re.escape(skill)}\b', text_lower):
+                result['raw_skills']['tools'].append(skill)
+
+        for skill in self.SOFT_SKILLS:
+            if re.search(rf'\b{re.escape(skill)}\b', text_lower):
+                result['raw_skills']['soft_skills'].append(skill)
         
         # Build result strings
-        all_skills = found_skills['programming'] + found_skills['frameworks']
-        result['technical_skills'] = ', '.join(all_skills) if all_skills else ', '.join(found_skills['programming'])
-        result['frameworks_libraries'] = ', '.join(found_skills['frameworks'])
-        result['databases'] = ', '.join(found_skills['databases'])
-        result['cloud_platforms'] = ', '.join(found_skills['cloud'])
-        result['tools_technologies'] = ', '.join(found_skills['tools'])
+        result['technical_skills'] = ', '.join(result['raw_skills']['programming_languages'] + result['raw_skills']['frameworks_libraries'])
+        result['frameworks_libraries'] = ', '.join(result['raw_skills']['frameworks_libraries'])
+        result['databases'] = ', '.join(result['raw_skills']['databases'])
+        result['cloud_platforms'] = ', '.join(result['raw_skills']['cloud_platforms'])
+        result['tools_technologies'] = ', '.join(result['raw_skills']['tools'])
+        result['soft_skills'] = ', '.join(result['raw_skills']['soft_skills'])
         
         return result
     
-    def _extract_skills_from_full_text(self, text: str) -> Dict[str, str]:
+    def _extract_skills_from_full_text(self, text: str) -> Dict[str, Any]:
         """Extract skills from full text if no skills section found."""
-        text_lower = text.lower()
-        
-        result = {
-            'technical_skills': '',
-            'tools_technologies': '',
-            'frameworks_libraries': '',
-            'databases': '',
-            'cloud_platforms': '',
-            'soft_skills': ''
-        }
-        
-        programming = [s for s in self.PROGRAMMING_LANGUAGES if s in text_lower]
-        frameworks = [s for s in self.FRAMEWORKS if s in text_lower]
-        databases = [s for s in self.DATABASES if s in text_lower]
-        cloud = [s for s in self.CLOUD if s in text_lower]
-        tools = [s for s in self.TOOLS if s in text_lower]
-        
-        # Combine programming and frameworks as technical_skills
-        result['technical_skills'] = ', '.join(programming + frameworks)
-        result['frameworks_libraries'] = ', '.join(frameworks)
-        result['databases'] = ', '.join(databases)
-        result['cloud_platforms'] = ', '.join(cloud)
-        result['tools_technologies'] = ', '.join(tools)
-        
-        return result
+        return self._parse_skills_section(text)
     
-    def _parse_experience_section(self, text: str) -> Dict[str, str]:
-        """Parse experience section."""
+    def _parse_experience_section(self, text: str) -> Dict[str, Any]:
+        """Parse experience section into structured lists."""
         result = {
             'experience_titles': '',
             'experience_descriptions': '',
-            'experience_duration_text': ''
+            'experience_duration_text': '',
+            'experience_list': []
         }
         
-        lines = text.split('\n')
+        # Split by double newlines or lines that look like a job title (bolded text or certain keywords)
+        blocks = re.split(r'\n\n|\n(?=[A-Z][\w\s&]{5,50}(?:\s+\||$|\r))', text)
+        
         titles = []
-        descriptions = []
         durations = []
+        descriptions = []
         
-        current_job = []
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            line_lower = line.lower()
+        for block in blocks:
+            lines = [l.strip() for l in block.split('\n') if l.strip()]
+            if not lines: continue
             
-            # Skip section header
-            if any(kw in line_lower for kw in self.SECTION_KEYWORDS['experience']):
-                continue
-                
-            # Check if this is a job entry (has title/company and date)
-            # Patterns: "Job Title | Company | Date" or "Job Title at Company"
-            job_pattern = r'([A-Z][a-zA-Z\s]+(?:Engineer|Developer|Intern|Analyst|Manager|Scientist|Lead|Consultant))'
-            date_pattern = r'(\d{4}\s*[-–to]+\s*\d{4}|\d{4}\s*[-–to]+\s*present|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec\s+\d{4})'
+            # Header line heuristic
+            header = lines[0]
             
-            has_job_title = re.search(job_pattern, line)
-            has_date = re.search(date_pattern, line, re.IGNORECASE)
+            # Try to extract title, company, duration from header
+            # Pattern: Title | Company | Duration
+            parts = [p.strip() for p in header.split('|')]
+            title = parts[0] if len(parts) > 0 else ""
+            company = parts[1] if len(parts) > 1 else ""
+            duration = parts[2] if len(parts) > 2 else ""
             
-            if has_job_title and has_date:
-                # Save previous job
-                if current_job:
-                    descriptions.append(' '.join(current_job))
-                    current_job = []
-                    
-                # Extract this job
-                titles.append(has_job_title.group(1))
-                durations.append(has_date.group(1))
-                current_job.append(line)
-            else:
-                # Add to description
-                current_job.append(line)
+            # If no | separators, use regex
+            if not duration:
+                date_match = re.search(r'(\d{4}\s*[-–to]+\s*(?:\d{4}|present|current)|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[^ \n]*\s+\d{4}\s*[-–to]+\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[^ \n]*\s+\d{4}|present|current))', header, re.IGNORECASE)
+                if date_match:
+                    duration = date_match.group(0)
+            
+            # Clean title
+            title = re.sub(r'\(.*?\)', '', title).strip()
+            
+            # Description is everything else
+            desc = " ".join(lines[1:])
+            
+            if title and desc:
+                titles.append(title)
+                durations.append(duration)
+                descriptions.append(desc)
+                # Extract technologies for this specific experience item
+                exp_techs = []
+                for tech in self.PROGRAMMING_LANGUAGES + self.FRAMEWORKS + self.TOOLS:
+                    if re.search(rf'\b{re.escape(tech)}\b', block.lower()):
+                        exp_techs.append(tech)
+                exp_techs = list(set(exp_techs))
+
+                result['experience_list'].append({
+                    'title': title,
+                    'company': company,
+                    'location': '',
+                    'duration': duration,
+                    'description': desc,
+                    'technologies': exp_techs,
+                    'technologies_used': exp_techs  # For compatibility with service
+                })
         
-        # Don't forget last job
-        if current_job:
-            descriptions.append(' '.join(current_job))
-        
-        result['experience_titles'] = ' | '.join(titles) if titles else ''
-        result['experience_descriptions'] = ' '.join(descriptions) if descriptions else ''
-        result['experience_duration_text'] = ' | '.join(durations) if durations else ''
+        result['experience_titles'] = ' | '.join(titles)
+        result['experience_duration_text'] = ' | '.join(durations)
+        result['experience_descriptions'] = ' '.join(descriptions)
         
         return result
-    
-    def _parse_projects_section(self, text: str) -> Dict[str, str]:
-        """Parse projects section."""
+
+    def _extract_experience_from_text_robust(self, text: str) -> Dict[str, Any]:
+        """Extract experience from text block."""
+        # Clean the text: if it starts with the section keyword, remove it
+        cleaned_text = text
+        for kw in self.SECTION_KEYWORDS['experience']:
+            cleaned_text = re.sub(rf'^\s*{re.escape(kw)}s?[\s:]*', '', cleaned_text, flags=re.I | re.M)
+        
+        return self._parse_experience_section(cleaned_text)
+
+    def _parse_projects_section(self, text: str) -> Dict[str, Any]:
+        """Parse projects section into structured lists."""
         result = {
             'project_titles': '',
             'project_descriptions': '',
-            'project_technologies': ''
+            'project_technologies': '',
+            'projects_list': []
         }
         
-        lines = text.split('\n')
+        # Split by double newlines or lines that clearly look like new project headers
+        # Use 'Project title:' as a strong marker if present
+        if 'project title:' in text.lower():
+            blocks = re.split(r'\n(?=project title:)', text, flags=re.I)
+        else:
+            blocks = re.split(r'\n\n|\n(?=[A-Z][\w\s]{5,40}(?:$|\n))', text)
+        
         titles = []
         descriptions = []
         technologies = []
         
-        current_project = []
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            line_lower = line.lower()
+        for block in blocks:
+            # Remove 'Project title:' prefix from the block for cleaner parsing
+            block_clean = re.sub(r'^\s*project title:\s*', '', block, flags=re.I)
+            lines = [l.strip() for l in block_clean.split('\n') if l.strip()]
+            if not lines: continue
             
-            # Skip section header
-            if any(kw in line_lower for kw in self.SECTION_KEYWORDS['project']):
-                continue
+            # First line is likely the title if it doesn't start with a bullet
+            title_candidate = lines[0]
+            # Strip links like [ [Link](...) ] OCT-2024
+            title = re.sub(r'\[\s*\[Link\].*?\]', '', title_candidate).strip()
+            # Strip year markers if appended
+            title = re.sub(r'(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[-\s]\d{4}', '', title, flags=re.I).strip()
+            title = title.strip(' |-,')
                 
-            # Check if this is a project name (short line with specific patterns)
-            # Project names often have | GitHub or are short with specific keywords
-            if len(line) < 60 and ('|' in line or 'github' in line_lower or any(kw in line_lower for kw in ['built', 'developed', 'created'])):
-                # Skip contact info lines with |
-                if 'email' in line_lower or 'phone' in line_lower or '@' in line:
-                    continue
-                    
-                # Save previous project
-                if current_project:
-                    proj_text = ' '.join(current_project)
-                    descriptions.append(proj_text)
-                    
-                    # Extract technologies from project text
-                    proj_techs = []
-                    for tech in self.FRAMEWORKS + self.TOOLS + self.PROGRAMMING_LANGUAGES:
-                        if tech in proj_text.lower():
-                            proj_techs.append(tech)
-                    technologies.extend(proj_techs)
-                    
-                    current_project = []
-                
-                # Extract title (first part before |)
-                title = line.split('|')[0].strip()
-                # Additional filter on title
-                title_lower = title.lower()
-                if title and len(title) > 2 and not any(kw in title_lower for kw in ['email', 'phone', 'linkedin']):
-                    titles.append(title)
-                    current_project.append(line)
-            else:
-                current_project.append(line)
-        
-        # Don't forget last project
-        if current_project:
-            proj_text = ' '.join(current_project)
-            descriptions.append(proj_text)
-            for tech in self.FRAMEWORKS + self.TOOLS + self.PROGRAMMING_LANGUAGES:
-                if tech in proj_text.lower():
-                    technologies.append(tech)
-        
-        result['project_titles'] = ' | '.join(titles) if titles else ''
-        result['project_descriptions'] = ' '.join(descriptions) if descriptions else ''
+            if len(title) > 100 or len(title) < 3: continue
+            
+            # Check for header collision (Summary, Experience, etc.)
+            if any(kw in title.lower() for kws in self.SECTION_KEYWORDS.values() for kw in kws):
+                if len(title) < 20: continue
+
+            desc = " ".join(lines[1:])
+            
+            # Extract techs
+            proj_techs = []
+            for tech in self.PROGRAMMING_LANGUAGES + self.FRAMEWORKS + self.TOOLS:
+                if re.search(rf'\b{re.escape(tech)}\b', block.lower()):
+                    proj_techs.append(tech)
+            
+            proj_techs = list(set(proj_techs))
+            
+            titles.append(title)
+            descriptions.append(desc)
+            technologies.extend(proj_techs)
+            
+            result['projects_list'].append({
+                'name': title,
+                'description': desc,
+                'technologies': proj_techs
+            })
+            
+        result['project_titles'] = ' | '.join(titles)
+        result['project_descriptions'] = ' '.join(descriptions)
         result['project_technologies'] = ', '.join(list(set(technologies)))
         
         return result
-    
-    def _parse_education(self, text: str) -> str:
-        """Parse education section."""
-        lines = text.split('\n')
-        edu_entries = []
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            line_lower = line.lower()
+
+    def _extract_projects_from_text_robust(self, text: str) -> Dict[str, Any]:
+        """Extract projects from text block."""
+        # Clean the text: if it starts with the section keyword, remove it
+        cleaned_text = text
+        for kw in self.SECTION_KEYWORDS['project']:
+            cleaned_text = re.sub(rf'^\s*{re.escape(kw)}s?[\s:]*', '', cleaned_text, flags=re.I | re.M)
             
-            # Skip section header
-            if any(kw in line_lower for kw in self.SECTION_KEYWORDS['education']):
+        return self._parse_projects_section(cleaned_text)
+    
+    def _parse_education_robust(self, text: str) -> Dict[str, Any]:
+        """Parse education section into structured lists."""
+        edu_list = []
+        # Pre-process: join lines that seem to belong to the same degree/entry
+        # e.g., Degree on line 1, Institution on line 2
+        lines = [l.strip() for l in text.split('\n') if l.strip()]
+        
+        merged_lines = []
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            # If it's a short line followed by an institution or university line, merge them
+            if i + 1 < len(lines) and any(kw in lines[i+1].lower() for kw in ['college', 'university', 'institute', 'school']):
+                merged_lines.append(line + " " + lines[i+1])
+                i += 2
+            else:
+                merged_lines.append(line)
+                i += 1
+
+        for line in merged_lines:
+            line_lower = line.lower()
+            # Only skip if it's strictly a header line
+            if len(line) < 20 and any(kw in line_lower for kw in self.SECTION_KEYWORDS['education']):
                 continue
                 
-            # Look for degree patterns
-            degree_pattern = r'(bachelor|master|phd|b\.sc|m\.sc|b\.tech|m\.tech|b\.e\.|m\.e\.)'
-            if re.search(degree_pattern, line_lower):
-                # Extract year
-                year_match = re.search(r'(19|20)\d{2}', line)
+            degree_pattern = r'(bachelor|master|phd|b\.sc|m\.sc|b\.tech|m\.tech|b\.e\.|m\.e\.|secondary|intermediate|diploma|graduate|undergraduate|science|arts|commerce|engineering)'
+            degree_match = re.search(degree_pattern, line_lower)
+            
+            if degree_match:
+                # Extract year (e.g., 2021 - 2025 or 2025)
+                year_match = re.search(r'((?:19|20)\d{2}[-\s/–to]+(?:19|20)\d{2}|(?:19|20)\d{2})', line)
                 year = year_match.group(0) if year_match else ''
                 
-                # Extract GPA
-                gpa_match = re.search(r'gpa[:\s]*(\d+\.?\d*)', line_lower)
-                gpa = f"GPA: {gpa_match.group(1)}" if gpa_match else ''
+                # Extract GPA / CGPA
+                # Handles "CGPA - 9", "CGPA: 9.0", "9.0/10"
+                gpa_match = re.search(r'(?:gpa|cgpa)[:\s\-]*(\d+\.?\d*)', line_lower)
+                gpa = gpa_match.group(1) if gpa_match else ''
                 
-                parts = [line, year, gpa]
-                edu_entries.append(' | '.join([p for p in parts if p]))
+                # Clean line to extract institution
+                inst = re.sub(degree_pattern, '', line, flags=re.I)
+                inst = re.sub(r'((?:19|20)\d{2}[-\s/–to]+(?:19|20)\d{2}|(?:19|20)\d{2})', '', inst)
+                inst = re.sub(r'(?:gpa|cgpa)[:\s\-]*(\d+\.?\d*)', '', inst, flags=re.I)
+                inst = inst.strip(' |-,()[]')
+                
+                edu_list.append({
+                    'degree': degree_match.group(0).upper(),
+                    'institution': inst[:150], # Increased limit for multi-line merge
+                    'year': year,
+                    'gpa': gpa
+                })
         
-        return ' \n '.join(edu_entries)
-    
+        text_summary = " \n ".join([f"{e['degree']} from {e['institution']} ({e['year']})" for e in edu_list])
+        return {'text': text_summary, 'list': edu_list}
+
+    def _extract_education_from_text_robust(self, text: str) -> Dict[str, Any]:
+        """Extract education from text block."""
+        cleaned_text = text
+        for kw in self.SECTION_KEYWORDS['education']:
+            cleaned_text = re.sub(rf'^\s*{re.escape(kw)}s?[\s:]*', '', cleaned_text, flags=re.I | re.M)
+            
+        return self._parse_education_robust(cleaned_text)
+
     def _parse_certifications(self, text: str) -> str:
         """Parse certifications."""
         lines = text.split('\n')
         certs = []
-        
         for line in lines:
             line = line.strip()
-            if not line:
+            if not line: continue
+            if any(kw in line.lower() for kw in self.SECTION_KEYWORDS['certification']):
                 continue
-                
-            line_lower = line.lower()
-            
-            # Skip section header
-            if any(kw in line_lower for kw in self.SECTION_KEYWORDS['certification']):
-                continue
-                
-            # Look for certification patterns
-            cert_patterns = [
-                r'aws\s+(certified|certification)',
-                r'azure\s+(certified|certification)',
-                r'google\s+cloud',
-                r'certificate',
-                r'certified'
-            ]
-            
-            if any(re.search(p, line_lower) for p in cert_patterns):
-                # Extract year if present
-                year_match = re.search(r'(19|20)\d{2}', line)
-                year = year_match.group(0) if year_match else ''
-                
-                cert = line
-                if year:
-                    cert = f"{line} ({year})"
-                certs.append(cert)
-        
+            certs.append(line)
         return ' \n '.join(certs)
     
     def _parse_achievements(self, text: str) -> str:
         """Parse achievements."""
         lines = text.split('\n')
         achievements = []
-        
         for line in lines:
             line = line.strip()
-            if not line:
+            if not line: continue
+            if any(kw in line.lower() for kw in self.SECTION_KEYWORDS['achievement']):
                 continue
-                
-            line_lower = line.lower()
-            
-            # Skip section header
-            if any(kw in line_lower for kw in self.SECTION_KEYWORDS['achievement']):
-                continue
-                
-            # Look for achievement patterns
-            achievement_patterns = [
-                r'award',
-                r'honor',
-                r'winner',
-                r'achievement',
-                r'recognition',
-                r'dean.*list',
-                r'published'
-            ]
-            
-            if any(re.search(p, line_lower) for p in achievement_patterns):
-                achievements.append(line)
-        
+            achievements.append(line)
         return ' \n '.join(achievements)
-    
-    def _extract_education_from_text(self, text: str) -> str:
-        """Extract education from full text."""
-        text_lower = text.lower()
-        edu_entries = []
-        
-        # Look for degree patterns
-        degree_patterns = [
-            r'(bachelor|master|phd|b\.sc|m\.sc|b\.tech|m\.tech|b\.e\.|m\.e\.)[^.]*',
-        ]
-        
-        for pattern in degree_patterns:
-            matches = re.findall(pattern, text_lower)
-            for match in matches:
-                # Find surrounding context
-                idx = text_lower.find(match)
-                if idx != -1:
-                    # Get surrounding text
-                    start = max(0, idx - 20)
-                    end = min(len(text), idx + len(match) + 30)
-                    context = text[start:end].strip()
-                    if context and context not in edu_entries:
-                        edu_entries.append(context)
-        
-        return ' | '.join(edu_entries[:5])
-    
-    def _extract_experience_from_text(self, text: str) -> Dict[str, str]:
-        """Extract experience from full text."""
-        text_lower = text.lower()
-        
-        result = {
-            'experience_titles': '',
-            'experience_descriptions': '',
-            'experience_duration_text': ''
-        }
-        
-        # Look for job title patterns
-        job_patterns = [
-            r'([A-Z][a-zA-Z]+(?: Engineer| Developer| Scientist| Analyst| Manager| Intern| Lead| Consultant))',
-        ]
-        
-        titles = []
-        durations = []
-        descriptions = []
-        
-        for pattern in job_patterns:
-            matches = re.findall(pattern, text)
-            for match in matches:
-                if len(match) > 3 and match not in titles:
-                    titles.append(match)
-                    
-                    # Try to find duration for this job
-                    idx = text.find(match)
-                    if idx != -1:
-                        context = text[idx:idx+100]
-                        date_match = re.search(r'(\d{4}\s*[-–to]+\s*\d{4}|\d{4}\s*[-–to]+\s*present)', context, re.IGNORECASE)
-                        if date_match:
-                            durations.append(date_match.group(1))
-        
-        # Get experience section if exists
-        exp_match = re.search(r'experience.{0,200}', text_lower)
-        if exp_match:
-            descriptions.append(exp_match.group(0))
-        
-        result['experience_titles'] = ' | '.join(titles[:5])
-        result['experience_descriptions'] = ' '.join(descriptions[:3])
-        result['experience_duration_text'] = ' | '.join(durations[:5])
-        
-        return result
-    
-    def _extract_projects_from_text(self, text: str) -> Dict[str, str]:
-        """Extract projects from full text."""
-        result = {
-            'project_titles': '',
-            'project_descriptions': '',
-            'project_technologies': ''
-        }
-        
-        text_lower = text.lower()
-        
-        # Look for project section
-        project_keywords = ['project', 'projects', 'work samples', 'portfolio']
-        
-        titles = []
-        techs = []
-        
-        # Try to find a projects section first
-        lines = text.split('\n')
-        in_project_section = False
-        
-        for i, line in enumerate(lines):
-            line_lower = line.lower()
-            
-            # Check if we're entering a project section
-            for kw in project_keywords:
-                if kw in line_lower and len(line) < 50:
-                    in_project_section = True
-                    continue
-            
-            if in_project_section:
-                line = line.strip()
-                if not line:
-                    continue
-                
-                # Skip contact info
-                if 'email' in line_lower or '@' in line or 'phone' in line_lower:
-                    continue
-                if 'linkedin' in line_lower or 'github.com' in line_lower:
-                    continue
-                
-                # Look for lines that might be project names
-                if len(line) > 10 and len(line) < 80:
-                    # Exclude common non-project lines
-                    exclude_patterns = ['experience', 'education', 'skills', 'certification', 
-                                       'achievement', 'summary', 'objective', 'contact', 'name']
-                    is_excluded = any(p in line_lower for p in exclude_patterns)
-                    
-                    if not is_excluded:
-                        titles.append(line)
-                        for tech in self.FRAMEWORKS + self.TOOLS + self.PROGRAMMING_LANGUAGES:
-                            if tech in line_lower:
-                                techs.append(tech)
-        
-        # If no project section found, try more aggressive extraction
-        # Look for lines that start with a project-like pattern
-        if not titles:
-            for line in lines:
-                line = line.strip()
-                line_lower = line.lower()
-                
-                # Skip contact info - CRITICAL - must be first
-                if any(x in line_lower for x in ['email', 'phone', '@', 'linkedin', 'github.com']):
-                    continue
-                
-                # Skip if it's a header
-                if len(line) < 30 and any(kw in line_lower for kw in 
-                    ['education', 'experience', 'skills', 'project', 'certification', 
-                     'achievement', 'summary', 'objective', 'contact', 'name', 'profile']):
-                    continue
-                
-                # Look for lines with | that could be projects
-                if '|' in line:
-                    parts = re.split(r'[|]', line)
-                    title = parts[0].strip()
-                    # Additional check on title itself
-                    title_lower = title.lower()
-                    if title and len(title) > 5 and len(title) < 60:
-                        if '@' not in title and 'email' not in title_lower and 'phone' not in title_lower:
-                            titles.append(title)
-                            # Extract tech from rest of line
-                            rest = '|'.join(parts[1:])
-                            for tech in self.FRAMEWORKS + self.TOOLS + self.PROGRAMMING_LANGUAGES:
-                                if tech in rest.lower():
-                                    techs.append(tech)
-        
-        # Last resort: use tech stack lines as project indicators
-        if not titles:
-            # Look for lines that mention technologies
-            tech_count = 0
-            for line in lines:
-                line_lower = line.lower()
-                for tech in self.FRAMEWORKS + self.TOOLS + self.PROGRAMMING_LANGUAGES:
-                    if tech in line_lower:
-                        tech_count += 1
-                if tech_count >= 2 and len(line.strip()) > 20:
-                    # This looks like a tech-related line, could be project
-                    titles.append(line.strip()[:50])
-                    break
-        
-        result['project_titles'] = ' | '.join(titles[:5])
-        result['project_technologies'] = ', '.join(list(set(techs))[:10])
-        
-        return result
 
 
 # Singleton instance
