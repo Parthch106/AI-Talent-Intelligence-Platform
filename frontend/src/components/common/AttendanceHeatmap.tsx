@@ -177,7 +177,7 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
       
       {/* Month labels */}
       <div className="flex mb-2 ml-10">
-        {MONTHS.map((month, idx) => (
+        {MONTHS.map((month) => (
           <div
             key={month}
             className="text-xs text-slate-500"

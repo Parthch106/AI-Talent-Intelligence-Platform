@@ -1,16 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, TrendingUp, Users, CheckCircle2, FolderKanban, Zap, ArrowRight, Clock, Award, Activity, Bell, FileText, CheckSquare } from 'lucide-react';
+import { AlertCircle, TrendingUp, Users, CheckCircle2, FolderKanban, Zap, ArrowRight, Clock, Award, Activity, FileText, CheckSquare } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
-
-interface User {
-    id: number;
-    full_name: string;
-    email: string;
-}
 
 interface Project {
     id: number;

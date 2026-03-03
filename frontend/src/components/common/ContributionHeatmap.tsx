@@ -5,7 +5,6 @@ interface HeatmapProps {
   year?: number;
   title?: string;
   colorScheme?: 'green' | 'blue' | 'purple';
-  emptyText?: string;
   onCellClick?: (date: string, value: number) => void;
 }
 
@@ -21,7 +20,6 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
   year = new Date().getFullYear(),
   title = 'Contribution Heatmap',
   colorScheme = 'green',
-  emptyText = 'No activity',
   onCellClick,
 }) => {
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);

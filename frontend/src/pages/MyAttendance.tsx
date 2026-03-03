@@ -40,8 +40,6 @@ const MyAttendance: React.FC = () => {
     const [selectedStatus, setSelectedStatus] = useState<string>('');
     const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>([]);
 
-    // Get current month in YYYY-MM format
-    const currentDate = new Date();
 
     // Fetch data when month/year changes
     useEffect(() => {
