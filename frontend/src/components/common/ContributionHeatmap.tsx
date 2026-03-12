@@ -55,7 +55,8 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
     
     // Start from January 1st of the selected year
     const startDate = new Date(year, 0, 1);
-    const endDate = new Date(year, 11, 31);
+    // Get last day of December for the selected year
+    const endDate = new Date(year + 1, 0, 0);
     
     // Adjust to start from the first Sunday before or on Jan 1
     const calendarStart = new Date(startDate);
@@ -71,7 +72,7 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
       const week: { date: Date; value: number; isCurrentYear: boolean }[] = [];
       
       for (let i = 0; i < 7; i++) {
-        const dateStr = currentDate.toISOString().split('T')[0];
+        const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
         const isCurrentYear = currentDate.getFullYear() === year;
         
         week.push({
@@ -154,7 +155,7 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
 
   const handleClick = (date: Date, value: number, isCurrentYear: boolean) => {
     if (onCellClick && isCurrentYear) {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       onCellClick(dateStr, value);
     }
   };

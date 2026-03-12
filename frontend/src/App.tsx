@@ -13,12 +13,18 @@ import FeedbackPage from './pages/FeedbackPage';
 import DocumentsPage from './pages/DocumentsPage';
 import AnalysisPage from './pages/AnalysisPage';
 import MonitoringDashboard from './pages/MonitoringDashboard';
+import MonitoringOverviewPage from './pages/MonitoringOverview';
+import MonitoringTasksPage from './pages/MonitoringTasks';
+import MonitoringAttendancePage from './pages/MonitoringAttendance';
+import MonitoringReportsPage from './pages/MonitoringReports';
 import ProfilePage from './pages/ProfilePage';
 import UploadWeeklyReport from './pages/UploadWeeklyReport';
 import InternTasks from './pages/InternTasks';
 import MyAttendance from './pages/MyAttendance';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import LearningPath from './pages/LearningPath';
+import PerformanceAnalytics from './pages/PerformanceAnalytics';
 
 const App: React.FC = () => {
   return (
@@ -38,12 +44,16 @@ const App: React.FC = () => {
             <Route path="/feedback" element={<FeedbackPage />} />
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/analysis" element={<AnalysisPage />} />
-            <Route path="/monitoring/*" element={<MonitoringDashboard />} />
+            <Route path="/monitoring" element={<MonitoringOverviewPage />} />
+            <Route path="/tasks" element={<MonitoringTasksPage />} />
+            <Route path="/attendance" element={<MonitoringAttendancePage />} />
+            <Route path="/reports" element={<MonitoringReportsPage />} />
             <Route path="/upload-report" element={<UploadWeeklyReport />} />
             <Route path="/my-tasks" element={<InternTasks />} />
             <Route path="/my-attendance" element={<MyAttendance />} />
             <Route path="/manager" element={<ManagerDashboard />} />
-            <Route path="/reports" element={<div className="p-6 text-slate-400">Reports Coming Soon</div>} />
+            <Route path="/learning-path" element={<LearningPath />} />
+            <Route path="/performance" element={<PerformanceAnalytics />} />
           </Route>
 
           {/* Catch all */}

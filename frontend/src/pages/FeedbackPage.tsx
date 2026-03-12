@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { MessageSquare, Plus, X, Star, User, Calendar, ThumbsUp, TrendingUp } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { MessageSquare, Plus, X, Star, User, Calendar, ThumbsUp, TrendingUp, CheckCircle, AlertCircle, Clock, Filter, ArrowUpDown, Target, AlertTriangle } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
@@ -13,26 +13,132 @@ interface User {
     role: string;
 }
 
+interface ProjectInfo {
+    id: number;
+    name: string;
+    description: string;
+    status: string;
+    mentor: number | null;
+    mentor_name: string | null;
+    repository_url: string | null;
+    tech_stack: string[];
+    start_date: string;
+    end_date: string | null;
+}
+
+interface TaskInfo {
+    id: number;
+    task_id: string;
+    title: string;
+    description: string;
+    intern: User;
+    status: string;
+    priority: string;
+    due_date: string;
+    assigned_at: string;
+    submitted_at: string | null;
+    completed_at: string | null;
+    estimated_hours: number;
+    actual_hours: number;
+    quality_rating: number | null;
+    code_review_score: number | null;
+    bug_count: number;
+    mentor_feedback: string;
+    rework_required: boolean;
+    project_assignment: number | null;
+    project_name: string | null;
+    project_description: string | null;
+    mentor_name: string | null;
+}
+
 interface Feedback {
     id: number;
     reviewer: User;
     recipient: User;
+    project: ProjectInfo | null;
+    task: TaskInfo | null;
+    task_status: string | null;
     feedback_type: string;
     rating: number;
     comments: string;
     strengths: string;
     areas_for_improvement: string;
+    is_read: boolean;
+    read_at: string | null;
     created_at: string;
 }
 
 interface NewFeedback {
     recipient_id: number;
+    task_id?: number;
     feedback_type: string;
+    task_status?: string;
     rating: number;
     comments: string;
     strengths: string;
     areas_for_improvement: string;
 }
+
+// Helper function to get task status badge
+const getTaskStatusBadge = (status: string | null) => {
+    if (!status) return null;
+    
+    const variants: Record<string, 'success' | 'warning' | 'danger' | 'info'> = {
+        'COMPLETED_APPROVED': 'success',
+        'COMPLETED_REWORK': 'danger',
+        'IN_PROGRESS': 'info',
+    };
+    
+    const labels: Record<string, string> = {
+        'COMPLETED_APPROVED': 'Approved',
+        'COMPLETED_REWORK': 'Needs Rework',
+        'IN_PROGRESS': 'In Progress',
+    };
+    
+    return (
+        <Badge variant={variants[status] || 'default'}>
+            {labels[status] || status}
+        </Badge>
+    );
+};
+
+// Helper function to get task priority badge
+const getPriorityBadge = (priority: string | null) => {
+    if (!priority) return null;
+    
+    const variants: Record<string, 'success' | 'warning' | 'danger' | 'info'> = {
+        'LOW': 'info',
+        'MEDIUM': 'warning',
+        'HIGH': 'danger',
+        'CRITICAL': 'danger',
+    };
+    
+    return (
+        <Badge variant={variants[priority] || 'default'}>
+            {priority}
+        </Badge>
+    );
+};
+
+// Helper function to get task status from TaskTracking
+const getTaskTrackingBadge = (status: string | null) => {
+    if (!status) return null;
+    
+    const variants: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
+        'COMPLETED': 'success',
+        'IN_PROGRESS': 'info',
+        'SUBMITTED': 'warning',
+        'REVIEWED': 'info',
+        'ASSIGNED': 'default',
+        'REWORK': 'danger',
+    };
+    
+    return (
+        <Badge variant={variants[status] || 'default'}>
+            {status}
+        </Badge>
+    );
+};
 
 const FeedbackPage: React.FC = () => {
     const { user } = useAuth();
@@ -44,10 +150,19 @@ const FeedbackPage: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState<'given' | 'received'>('given');
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    // Filtering and sorting state
+    const [feedbackTypeFilter, setFeedbackTypeFilter] = useState<string>('all');
+    const [taskStatusFilter, setTaskStatusFilter] = useState<string>('all');
+    const [ratingFilter, setRatingFilter] = useState<string>('all');
+    const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'rating_high' | 'rating_low'>('newest');
+    const [searchQuery, setSearchQuery] = useState('');
 
     const [newFeedback, setNewFeedback] = useState<NewFeedback>({
         recipient_id: 0,
         feedback_type: 'WEEKLY',
+        task_status: '',
         rating: 5,
         comments: '',
         strengths: '',
@@ -58,6 +173,14 @@ const FeedbackPage: React.FC = () => {
         try {
             const feedbackRes = await api.get('/feedback/');
             setFeedback(feedbackRes.data);
+
+            // Fetch unread count
+            try {
+                const unreadRes = await api.get('/feedback/unread_count/');
+                setUnreadCount(unreadRes.data.unread_count || 0);
+            } catch (e) {
+                // Ignore error for unread count
+            }
 
             // Fetch interns based on role
             if (user?.role === 'MANAGER') {
@@ -91,11 +214,17 @@ const FeedbackPage: React.FC = () => {
         setError('');
 
         try {
-            await api.post('/feedback/', newFeedback);
+            // Prepare feedback data - only include task_id and task_status for TASK type
+            const feedbackData = {
+                ...newFeedback,
+                ...(newFeedback.feedback_type !== 'TASK' && { task_status: null }),
+            };
+            await api.post('/feedback/', feedbackData);
             setShowModal(false);
             setNewFeedback({
                 recipient_id: 0,
                 feedback_type: 'WEEKLY',
+                task_status: '',
                 rating: 5,
                 comments: '',
                 strengths: '',
@@ -116,6 +245,7 @@ const FeedbackPage: React.FC = () => {
             case 'MID_TERM': return <Badge variant="warning" withDot>Mid-term</Badge>;
             case 'FINAL': return <Badge variant="danger" withDot>Final</Badge>;
             case 'MANAGER_REVIEW': return <Badge variant="indigo" withDot>Manager Review</Badge>;
+            case 'TASK': return <Badge variant="success" withDot>Task Feedback</Badge>;
             default: return <Badge variant="default">{type}</Badge>;
         }
     };
@@ -123,6 +253,63 @@ const FeedbackPage: React.FC = () => {
     const getInitials = (name: string) => {
         return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'NA';
     };
+
+    // Filter and sort feedback
+    const filteredFeedback = useMemo(() => {
+        let filtered = [...feedback];
+        
+        // Filter based on tab
+        if (activeTab === 'given') {
+            filtered = filtered.filter(f => f.reviewer.id === user?.id);
+        } else {
+            filtered = filtered.filter(f => f.recipient.id === user?.id);
+        }
+        
+        // Apply feedback type filter
+        if (feedbackTypeFilter !== 'all') {
+            filtered = filtered.filter(f => f.feedback_type === feedbackTypeFilter);
+        }
+        
+        // Apply task status filter
+        if (taskStatusFilter !== 'all') {
+            filtered = filtered.filter(f => f.task_status === taskStatusFilter);
+        }
+        
+        // Apply rating filter
+        if (ratingFilter !== 'all') {
+            filtered = filtered.filter(f => f.rating === parseInt(ratingFilter));
+        }
+        
+        // Apply search query
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(f => 
+                f.comments.toLowerCase().includes(query) ||
+                f.recipient.full_name.toLowerCase().includes(query) ||
+                f.reviewer.full_name.toLowerCase().includes(query) ||
+                (f.task?.title && f.task.title.toLowerCase().includes(query)) ||
+                (f.task?.project_name && f.task.project_name.toLowerCase().includes(query))
+            );
+        }
+        
+        // Apply sorting
+        switch (sortBy) {
+            case 'newest':
+                filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                break;
+            case 'oldest':
+                filtered.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                break;
+            case 'rating_high':
+                filtered.sort((a, b) => b.rating - a.rating);
+                break;
+            case 'rating_low':
+                filtered.sort((a, b) => a.rating - b.rating);
+                break;
+        }
+        
+        return filtered;
+    }, [feedback, activeTab, feedbackTypeFilter, taskStatusFilter, ratingFilter, sortBy, searchQuery, user]);
 
     if (loading) {
         return (
@@ -137,9 +324,8 @@ const FeedbackPage: React.FC = () => {
 
     const canGiveFeedback = user?.role === 'ADMIN' || user?.role === 'MANAGER';
 
-    // Filter feedback based on tab
-    const givenFeedback = feedback.filter(f => f.reviewer.id === user?.id);
-    const receivedFeedback = feedback.filter(f => f.recipient.id === user?.id);
+    // Use filtered feedback
+    const displayedFeedback = filteredFeedback;
 
     const getRecipients = () => {
         if (user?.role === 'ADMIN') {
@@ -179,7 +365,7 @@ const FeedbackPage: React.FC = () => {
                             : 'text-slate-400 hover:text-white'
                             }`}
                     >
-                        Given ({givenFeedback.length})
+                        Given ({displayedFeedback.length})
                     </button>
                 )}
                 <button
@@ -189,13 +375,82 @@ const FeedbackPage: React.FC = () => {
                         : 'text-slate-400 hover:text-white'
                         }`}
                 >
-                    Received ({receivedFeedback.length})
+                    Received ({displayedFeedback.length})
                 </button>
+            </div>
+
+            {/* Filters and Search */}
+            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                <div className="flex flex-wrap gap-4 items-center">
+                    {/* Search */}
+                    <div className="flex-1 min-w-[200px]">
+                        <input
+                            type="text"
+                            placeholder="Search feedback, names, tasks..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                        />
+                    </div>
+
+                    {/* Feedback Type Filter */}
+                    <select
+                        value={feedbackTypeFilter}
+                        onChange={(e) => setFeedbackTypeFilter(e.target.value)}
+                        className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    >
+                        <option value="all">All Types</option>
+                        <option value="WEEKLY">Weekly</option>
+                        <option value="PROJECT">Project</option>
+                        <option value="MID_TERM">Mid-term</option>
+                        <option value="FINAL">Final</option>
+                        <option value="MANAGER_REVIEW">Manager Review</option>
+                        <option value="TASK">Task</option>
+                    </select>
+
+                    {/* Task Status Filter */}
+                    <select
+                        value={taskStatusFilter}
+                        onChange={(e) => setTaskStatusFilter(e.target.value)}
+                        className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    >
+                        <option value="all">All Task Status</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="COMPLETED_APPROVED">Approved</option>
+                        <option value="COMPLETED_REWORK">Needs Rework</option>
+                    </select>
+
+                    {/* Rating Filter */}
+                    <select
+                        value={ratingFilter}
+                        onChange={(e) => setRatingFilter(e.target.value)}
+                        className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    >
+                        <option value="all">All Ratings</option>
+                        <option value="5">5 Stars</option>
+                        <option value="4">4 Stars</option>
+                        <option value="3">3 Stars</option>
+                        <option value="2">2 Stars</option>
+                        <option value="1">1 Star</option>
+                    </select>
+
+                    {/* Sort */}
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    >
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="rating_high">Highest Rated</option>
+                        <option value="rating_low">Lowest Rated</option>
+                    </select>
+                </div>
             </div>
 
             {/* Feedback List */}
             <div className="space-y-4">
-                {(activeTab === 'given' ? givenFeedback : receivedFeedback).length === 0 ? (
+                {displayedFeedback.length === 0 ? (
                     <Card className="text-center py-12">
                         <div className="w-20 h-20 mx-auto mb-4 bg-slate-800/50 rounded-2xl flex items-center justify-center">
                             <MessageSquare size={32} className="text-slate-500" />
@@ -217,7 +472,7 @@ const FeedbackPage: React.FC = () => {
                         )}
                     </Card>
                 ) : (
-                    (activeTab === 'given' ? givenFeedback : receivedFeedback).map((item) => (
+                    displayedFeedback.map((item) => (
                         <Card key={item.id} hover className="group">
                             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                                 {/* User Info */}
@@ -251,6 +506,116 @@ const FeedbackPage: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Task Information - Show if linked to a task */}
+                            {item.task && (
+                                <div className="mt-3 space-y-3">
+                                    {/* Task Header */}
+                                    <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <Target size={14} className="text-purple-400" />
+                                                <span className="text-sm font-medium text-purple-300">
+                                                    {item.task.title}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {getTaskStatusBadge(item.task_status)}
+                                                {getTaskTrackingBadge(item.task.status)}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Task ID and Priority */}
+                                        <div className="flex items-center gap-4 text-xs text-slate-400">
+                                            <span>ID: {item.task.task_id}</span>
+                                            {getPriorityBadge(item.task.priority)}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Project Information */}
+                                    {item.task.project_name && (
+                                        <div className="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Project</span>
+                                            </div>
+                                            <p className="text-sm text-white font-medium">{item.task.project_name}</p>
+                                            {item.task.project_description && (
+                                                <p className="text-xs text-slate-400 mt-1 line-clamp-2">{item.task.project_description}</p>
+                                            )}
+                                        </div>
+                                    )}
+                                    
+                                    {/* Task Details Grid */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                        {/* Deadline */}
+                                        <div className="p-2 bg-slate-800/50 rounded-lg">
+                                            <div className="flex items-center gap-1 text-slate-400 mb-1">
+                                                <Clock size={12} />
+                                                <span>Due Date</span>
+                                            </div>
+                                            <p className="text-white">
+                                                {item.task.due_date ? new Date(item.task.due_date).toLocaleDateString() : 'N/A'}
+                                            </p>
+                                        </div>
+                                        
+                                        {/* Hours */}
+                                        <div className="p-2 bg-slate-800/50 rounded-lg">
+                                            <div className="flex items-center gap-1 text-slate-400 mb-1">
+                                                <Clock size={12} />
+                                                <span>Est. Hours</span>
+                                            </div>
+                                            <p className="text-white">
+                                                {item.task.estimated_hours}h
+                                            </p>
+                                        </div>
+                                        
+                                        {/* Quality Rating */}
+                                        {item.task.quality_rating !== null && (
+                                            <div className="p-2 bg-slate-800/50 rounded-lg">
+                                                <div className="flex items-center gap-1 text-slate-400 mb-1">
+                                                    <Star size={12} className="text-amber-400" />
+                                                    <span>Quality</span>
+                                                </div>
+                                                <p className="text-white">{item.task.quality_rating}/5</p>
+                                            </div>
+                                        )}
+                                        
+                                        {/* Code Review */}
+                                        {item.task.code_review_score !== null && (
+                                            <div className="p-2 bg-slate-800/50 rounded-lg">
+                                                <div className="flex items-center gap-1 text-slate-400 mb-1">
+                                                    <CheckCircle size={12} className="text-emerald-400" />
+                                                    <span>Code Review</span>
+                                                </div>
+                                                <p className="text-white">{item.task.code_review_score}%</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Mentor */}
+                                    {item.task.mentor_name && (
+                                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                                            <User size={12} />
+                                            <span>Mentor: <span className="text-slate-300">{item.task.mentor_name}</span></span>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Intern */}
+                                    {item.task.intern && (
+                                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                                            <User size={12} />
+                                            <span>Intern: <span className="text-slate-300">{item.task.intern.full_name}</span></span>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Task Description */}
+                                    {item.task.description && (
+                                        <div className="p-2 bg-slate-800/30 rounded-lg">
+                                            <p className="text-xs text-slate-400 line-clamp-2">{item.task.description}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Comments */}
                             <div className="mt-4 p-4 bg-slate-800/30 rounded-xl border border-white/5">
@@ -358,6 +723,7 @@ const FeedbackPage: React.FC = () => {
                                             <option value="MID_TERM">Mid-term Evaluation</option>
                                             <option value="FINAL">Final Evaluation</option>
                                             <option value="MANAGER_REVIEW">Manager Review</option>
+                                            <option value="TASK">Task Feedback</option>
                                         </>
                                     ) : (
                                         <>
@@ -365,10 +731,28 @@ const FeedbackPage: React.FC = () => {
                                             <option value="PROJECT">Project Review</option>
                                             <option value="MID_TERM">Mid-term Evaluation</option>
                                             <option value="FINAL">Final Evaluation</option>
+                                            <option value="MANAGER_REVIEW">Manager Review</option>
+                                            <option value="TASK">Task Feedback</option>
                                         </>
                                     )}
                                 </select>
                             </div>
+
+                            {/* Task Status - Show when TASK feedback type is selected */}
+                            {newFeedback.feedback_type === 'TASK' && (
+                                <div className="group">
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">Task Status *</label>
+                                    <select
+                                        value={newFeedback.task_status || ''}
+                                        onChange={e => setNewFeedback(prev => ({ ...prev, task_status: e.target.value }))}
+                                        className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
+                                    >
+                                        <option value="IN_PROGRESS">In Progress</option>
+                                        <option value="COMPLETED_APPROVED">Complete - Approved</option>
+                                        <option value="COMPLETED_REWORK">Complete - Needs Rework</option>
+                                    </select>
+                                </div>
+                            )}
 
                             <div className="group">
                                 <label className="block text-sm font-medium text-slate-300 mb-3">Rating *</label>

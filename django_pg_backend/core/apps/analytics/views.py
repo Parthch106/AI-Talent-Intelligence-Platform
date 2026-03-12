@@ -1360,7 +1360,7 @@ class TaskHeatmapView(APIView):
         """Get task completion data for heatmap visualization."""
         user = request.user
         intern_id = request.query_params.get('intern_id')
-        months = int(request.query_params.get('months', 6))  # Default last 6 months
+        months = int(request.query_params.get('months', 12))  # Default last 12 months
 
         # Determine target intern
         if intern_id:
@@ -1433,7 +1433,7 @@ class AttendanceHeatmapView(APIView):
         """Get attendance data for heatmap visualization."""
         user = request.user
         intern_id = request.query_params.get('intern_id')
-        months = int(request.query_params.get('months', 6))
+        months = int(request.query_params.get('months', 12))
         start_date_param = request.query_params.get('start_date')
         end_date_param = request.query_params.get('end_date')
 
@@ -1528,3 +1528,595 @@ class AttendanceHeatmapView(APIView):
             'start_date': start_date.strftime('%Y-%m-%d'),
             'end_date': end_date.strftime('%Y-%m-%d'),
         })
+
+
+# ============================================================================
+# RL DYNAMIC TASK ASSIGNMENT & LEARNING PATH API VIEWS
+# ============================================================================
+
+
+class RLAssignTaskView(APIView):
+    """
+    POST /api/analytics/rl/assign-task/
+
+    Returns an RL-powered task difficulty recommendation for an intern.
+    Managers/Admins trigger this; the result is a recommendation, not a direct assignment.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+
+        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+            return Response({'error': 'Only managers and admins can request task recommendations.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        intern_id = request.data.get('intern_id')
+        if not intern_id:
+            return Response({'error': 'intern_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            intern = User.objects.get(id=int(intern_id), role=User.Role.INTERN)
+        except User.DoesNotExist:
+            return Response({'error': 'Intern not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        is_valid, err = validate_manager_access(user, intern.id)
+        if not is_valid:
+            return err
+
+        try:
+            from apps.analytics.services.rl_task_assigner import assign_task_recommendation
+            result = assign_task_recommendation(intern.id)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"RLAssignTaskView error: {e}")
+            return Response({'error': 'Failed to generate recommendation.', 'detail': str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class RLOptimalDifficultyView(APIView):
+    """
+    GET /api/analytics/rl/optimal-difficulty/<intern_id>/
+
+    Returns the current optimal task difficulty level (1-5) for an intern,
+    based on the RL agent's Q-table (greedy policy, no exploration).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, intern_id):
+        user = request.user
+
+        # Interns can check their own; managers/admins can check any
+        if user.role == User.Role.INTERN and user.id != intern_id:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if user.role == User.Role.MANAGER:
+            is_valid, err = validate_manager_access(user, intern_id)
+            if not is_valid:
+                return err
+
+        try:
+            from apps.analytics.services.rl_task_assigner import get_optimal_difficulty, get_state
+            optimal = get_optimal_difficulty(intern_id)
+            state_vector = get_state(intern_id)
+
+            DIFFICULTY_LABELS = {1: 'Easy', 2: 'Easy-Medium', 3: 'Moderate', 4: 'Hard', 5: 'Very Hard'}
+
+            return Response({
+                'intern_id': intern_id,
+                'optimal_difficulty': optimal,
+                'difficulty_label': DIFFICULTY_LABELS.get(optimal, 'Moderate'),
+                'state_vector': state_vector,
+                'state_keys': [
+                    'avg_quality', 'completion_rate', 'growth_velocity',
+                    'avg_difficulty_handled', 'days_in_internship_norm',
+                    'skill_count_norm', 'avg_skill_mastery',
+                    'engagement_score_norm', 'retention_score'
+                ],
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"RLOptimalDifficultyView error: {e}")
+            return Response({'error': 'Failed to compute difficulty.', 'detail': str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class LearningPathView(APIView):
+    """
+    POST /api/analytics/learning-path/<intern_id>/   → Generate & save learning path
+    GET  /api/analytics/learning-path/<intern_id>/   → Get current learning path
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _check_access(self, request_user, intern_id):
+        """Returns (ok, error_response)"""
+        if request_user.role == User.Role.INTERN:
+            if request_user.id != intern_id:
+                return False, Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        elif request_user.role == User.Role.MANAGER:
+            return validate_manager_access(request_user, intern_id)
+        return True, None
+
+    def post(self, request, intern_id):
+        """Generate and persist a new learning path."""
+        ok, err = self._check_access(request.user, intern_id)
+        if not ok:
+            return err
+
+        try:
+            User.objects.get(id=intern_id, role=User.Role.INTERN)
+        except User.DoesNotExist:
+            return Response({'error': 'Intern not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        target_role = request.data.get('target_role', '')
+        if not target_role:
+            # Try to infer from existing applications
+            try:
+                from apps.analytics.models import Application
+                app = Application.objects.filter(intern_id=intern_id).order_by('-created_at').first()
+                if app:
+                    target_role = app.job_role.role_title
+            except Exception:
+                pass
+
+        if not target_role:
+            return Response({'error': 'target_role is required (or intern must have an application).'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from apps.analytics.services.learning_path_optimizer import generate_and_save_path
+            result = generate_and_save_path(intern_id, target_role)
+            return Response(result, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            logger.error(f"LearningPathView.post error: {e}")
+            # Check if it's a database table issue
+            if 'relation' in str(e) and 'does not exist' in str(e):
+                return Response({
+                    'error': 'Learning Path system not fully configured.',
+                    'detail': 'Required database tables are missing. Please contact administrator.',
+                    'required_tables': ['analytics_skillprofile', 'analytics_tasktemplate', 'analytics_learningpath', 'analytics_rlexperiencebuffer']
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            return Response({'error': 'Failed to generate learning path.', 'detail': str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def get(self, request, intern_id):
+        """Get the intern's current learning path."""
+        ok, err = self._check_access(request.user, intern_id)
+        if not ok:
+            return err
+
+        try:
+            from apps.analytics.services.learning_path_optimizer import get_path_progress
+            data = get_path_progress(intern_id)
+            if data is None:
+                return Response({'message': 'No learning path generated yet. Use POST to generate one.'},
+                                status=status.HTTP_404_NOT_FOUND)
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"LearningPathView.get error: {e}")
+            # Check if it's a database table issue
+            if 'relation' in str(e) and 'does not exist' in str(e):
+                return Response({
+                    'error': 'Learning Path system not fully configured.',
+                    'detail': 'Required database tables are missing.',
+                    'message': 'Please contact administrator to set up the RL system.'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            return Response({'error': 'Failed to retrieve learning path.', 'detail': str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class LearningPathProgressView(APIView):
+    """
+    GET  /api/analytics/learning-path/<intern_id>/progress/  → Next milestone + full progress
+    POST /api/analytics/learning-path/<intern_id>/progress/  → Update skill mastery / advance pointer
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, intern_id):
+        user = request.user
+        if user.role == User.Role.INTERN and user.id != intern_id:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            from apps.analytics.services.learning_path_optimizer import recommend_next_milestone, get_path_progress
+            progress = get_path_progress(intern_id)
+            if progress is None:
+                return Response({'message': 'No learning path found.'}, status=status.HTTP_404_NOT_FOUND)
+
+            next_ms = recommend_next_milestone(intern_id)
+            progress['next_milestone'] = next_ms
+            return Response(progress, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"LearningPathProgressView.get error: {e}")
+            if 'relation' in str(e) and 'does not exist' in str(e):
+                return Response({
+                    'error': 'Learning Path system not fully configured.',
+                    'detail': 'Required database tables are missing.'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def post(self, request, intern_id):
+        """Update skill mastery → may advance learning path pointer."""
+        user = request.user
+        if user.role == User.Role.INTERN and user.id != intern_id:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+        skill_id = request.data.get('skill_id')
+        mastery = request.data.get('mastery')
+
+        if not skill_id or mastery is None:
+            return Response({'error': 'skill_id and mastery (0.0-1.0) are required.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            mastery = float(mastery)
+            if not (0.0 <= mastery <= 1.0):
+                return Response({'error': 'mastery must be between 0.0 and 1.0.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({'error': 'mastery must be a float.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from apps.analytics.services.learning_path_optimizer import update_progress, get_path_progress
+            update_progress(intern_id, skill_id, mastery)
+            progress = get_path_progress(intern_id)
+            return Response({
+                'message': f"Mastery for '{skill_id}' updated to {mastery}.",
+                'progress': progress,
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"LearningPathProgressView.post error: {e}")
+            if 'relation' in str(e) and 'does not exist' in str(e):
+                return Response({
+                    'error': 'Learning Path system not fully configured.',
+                    'detail': 'Required database tables are missing.'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ============================================================================
+# Performance Evaluation Output Layer
+# ============================================================================
+
+class PerformanceEvaluationView(APIView):
+    """
+    POST /api/analytics/performance/evaluate/
+    
+    Evaluates intern performance and returns:
+    1. Performance Status (Thriving / Coping / Struggling / High Risk)
+    2. Diagnosis based on weak metrics
+    3. AI Suggestions for Improvement
+    4. Personalized Learning Path
+    
+    This is the main output layer for the RL system.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        
+        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+            return Response(
+                {'error': 'Only managers and admins can evaluate intern performance.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        intern_id = request.data.get('intern_id')
+        target_role = request.data.get('target_role')  # Optional
+        
+        if not intern_id:
+            return Response(
+                {'error': 'intern_id is required.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            intern = User.objects.get(id=int(intern_id), role=User.Role.INTERN)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'Intern not found.'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check access
+        if user.role == User.Role.MANAGER:
+            is_valid, err = validate_manager_access(user, intern.id)
+            if not is_valid:
+                return err
+        
+        try:
+            from apps.analytics.services.performance_evaluator import evaluate_intern_performance
+            result = evaluate_intern_performance(intern.id, target_role)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"PerformanceEvaluationView error: {e}")
+            return Response(
+                {'error': 'Failed to evaluate performance.', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PerformanceStatusView(APIView):
+    """
+    GET /api/analytics/performance/status/<intern_id>/
+    
+    Quick performance status check - returns status and score only.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, intern_id):
+        user = request.user
+        
+        # Interns can check their own; managers/admins can check any
+        if user.role == User.Role.INTERN and user.id != intern_id:
+            return Response(
+                {'error': 'Permission denied.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if user.role == User.Role.MANAGER:
+            is_valid, err = validate_manager_access(user, intern_id)
+            if not is_valid:
+                return err
+        
+        try:
+            from apps.analytics.services.performance_evaluator import get_performance_status
+            result = get_performance_status(intern_id)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"PerformanceStatusView error: {e}")
+            return Response(
+                {'error': 'Failed to get performance status.', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PerformanceSuggestionsView(APIView):
+    """
+    GET /api/analytics/performance/suggestions/<intern_id>/
+    
+    Returns diagnosis and improvement suggestions for an intern.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, intern_id):
+        user = request.user
+        
+        if user.role == User.Role.INTERN and user.id != intern_id:
+            return Response(
+                {'error': 'Permission denied.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if user.role == User.Role.MANAGER:
+            is_valid, err = validate_manager_access(user, intern_id)
+            if not is_valid:
+                return err
+        
+        try:
+            from apps.analytics.services.performance_evaluator import get_improvement_suggestions
+            result = get_improvement_suggestions(intern_id)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"PerformanceSuggestionsView error: {e}")
+            return Response(
+                {'error': 'Failed to get suggestions.', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PerformanceDashboardView(APIView):
+    """
+    GET /api/analytics/performance/dashboard/<intern_id>/
+    
+    Returns a complete performance dashboard with all metrics,
+    status, diagnosis, suggestions, and learning path.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, intern_id):
+        user = request.user
+        
+        if user.role == User.Role.INTERN and user.id != intern_id:
+            return Response(
+                {'error': 'Permission denied.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if user.role == User.Role.MANAGER:
+            is_valid, err = validate_manager_access(user, intern_id)
+            if not is_valid:
+                return err
+        
+        target_role = request.query_params.get('target_role')
+        
+        try:
+            from apps.analytics.services.performance_evaluator import evaluate_intern_performance
+            result = evaluate_intern_performance(intern_id, target_role)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"PerformanceDashboardView error: {e}")
+            return Response(
+                {'error': 'Failed to get dashboard data.', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+# ============================================================================
+# LLM Task Generator - AI-Powered Task Suggestions
+# ============================================================================
+
+class LLMTaskSuggestionView(APIView):
+    """
+    POST /api/analytics/llm/generate-tasks/
+    
+    Generate AI-powered task suggestions for an intern based on their:
+    - Current skills
+    - Completed tasks
+    - Ongoing tasks
+    - Project requirements
+    - Target role
+    
+    The manager can review the suggestions before assigning them.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        
+        # Only managers and admins can generate task suggestions
+        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+            return Response(
+                {'error': 'Only managers and admins can generate task suggestions.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        intern_id = request.data.get('intern_id')
+        project_requirements = request.data.get('project_requirements')
+        target_role = request.data.get('target_role')
+        num_suggestions = request.data.get('num_suggestions', 3)
+        
+        if not intern_id:
+            return Response(
+                {'error': 'intern_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Get intern info
+            try:
+                intern = User.objects.get(id=intern_id, role=User.Role.INTERN)
+            except User.DoesNotExist:
+                return Response(
+                    {'error': 'Intern not found.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Get intern's skills from ResumeSkill through Application
+            from apps.analytics.models import ResumeSkill
+            skills = list(ResumeSkill.objects.filter(
+                application__intern_id=intern_id
+            ).values_list('name', flat=True))
+            
+            # Get completed tasks
+            from apps.analytics.models import TaskTracking
+            completed_tasks = list(TaskTracking.objects.filter(
+                intern_id=intern_id,
+                status='COMPLETED'
+            ).values(
+                'title', 'description', 'status', 
+                'quality_rating', 'completed_at'
+            ))
+            
+            # Get ongoing tasks
+            ongoing_tasks = list(TaskTracking.objects.filter(
+                intern_id=intern_id,
+                status__in=['ASSIGNED', 'IN_PROGRESS', 'SUBMITTED']
+            ).values(
+                'title', 'description', 'status', 'due_date'
+            ))
+            
+            # Get the target role from applications if not provided
+            if not target_role:
+                from apps.analytics.models import Application
+                app = Application.objects.filter(
+                    intern_id=intern_id, 
+                    application_status='OFFERED'
+                ).first()
+                if app and app.job_role:
+                    target_role = app.job_role.role_title
+            
+            # Generate task suggestions using LLM
+            from apps.analytics.services.llm_task_generator import get_task_generator
+            generator = get_task_generator()
+            
+            result = generator.generate_task_suggestions(
+                intern_name=intern.full_name or intern.email,
+                intern_skills=skills,
+                completed_tasks=completed_tasks,
+                ongoing_tasks=ongoing_tasks,
+                project_requirements=project_requirements,
+                target_role=target_role,
+                num_suggestions=num_suggestions
+            )
+            
+            if 'error' in result:
+                return Response(
+                    {'error': result.get('error', 'Failed to generate tasks')},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            return Response({
+                'intern_id': intern_id,
+                'intern_name': intern.full_name or intern.email,
+                'tasks': result.get('tasks', []),
+                'summary': result.get('summary', ''),
+                'message': f'Generated {len(result.get("tasks", []))} task suggestions'
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"LLMTaskSuggestionView error: {e}")
+            return Response(
+                {'error': 'Failed to generate task suggestions.', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class LLMTaskReviewView(APIView):
+    """
+    POST /api/analytics/llm/review-task/
+    
+    Review a task before assignment. The manager can modify the task
+    and get AI feedback on whether it's appropriate for the intern.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        
+        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+            return Response(
+                {'error': 'Only managers and admins can review tasks.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        intern_id = request.data.get('intern_id')
+        task_data = request.data.get('task')
+        
+        if not intern_id or not task_data:
+            return Response(
+                {'error': 'intern_id and task are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Get intern's skills through Application
+            from apps.analytics.models import ResumeSkill
+            skills = list(ResumeSkill.objects.filter(
+                application__intern_id=intern_id
+            ).values_list('name', flat=True))
+            
+            # Get intern name
+            intern = User.objects.get(id=intern_id)
+            
+            # Review the task using LLM
+            from apps.analytics.services.llm_task_generator import get_task_generator
+            generator = get_task_generator()
+            
+            result = generator.review_task(
+                task_data=task_data,
+                intern_name=intern.full_name or intern.email,
+                intern_skills=skills
+            )
+            
+            return Response({
+                'review': result,
+                'task': task_data
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"LLMTaskReviewView error: {e}")
+            return Response(
+                {'error': 'Failed to review task.', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+

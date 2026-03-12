@@ -145,7 +145,7 @@ const ProfilePage: React.FC = () => {
         // Only parse skills when saving, not on every keystroke
     };
 
-    const getSkillsValue = () => {
+    const _getSkillsValue = () => {
         const skills = formData.profile.skills;
         if (!skills || !Array.isArray(skills)) return '';
         return skills.join(', ');

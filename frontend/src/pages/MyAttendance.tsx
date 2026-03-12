@@ -165,7 +165,7 @@ const MyAttendance: React.FC = () => {
                 endDate = '';
             }
             
-            const params: any = { months: 6 };
+            const params: any = { months: 12 };
             if (startDate && endDate) {
                 params.start_date = startDate;
                 params.end_date = endDate;

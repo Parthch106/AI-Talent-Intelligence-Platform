@@ -4,7 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import {
     LayoutDashboard, Users, FolderKanban, MessageSquare,
     FileText, Brain, Monitor, Settings, ChevronRight,
-    Sparkles, LogOut, Zap, User, Upload, Target
+    Sparkles, LogOut, Zap, User, Upload, Target, BookOpen, Activity,
+    Home, CheckSquare, Calendar, FileText as ReportIcon
 } from 'lucide-react';
 
 interface NavItem {
@@ -22,7 +23,7 @@ const Sidebar: React.FC = () => {
     const mainNavItems: NavItem[] = [
         { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
         { name: 'Profile', path: '/profile', icon: <User size={20} /> },
-        { name: 'Interns', path: '/interns', icon: <Users size={20} />, badge: '12' },
+        { name: 'Interns', path: '/interns', icon: <Users size={20} /> },
         { name: 'Projects', path: '/projects', icon: <FolderKanban size={20} /> },
         { name: 'Feedback', path: '/feedback', icon: <MessageSquare size={20} /> },
         { name: 'Documents', path: '/documents', icon: <FileText size={20} /> },
@@ -30,7 +31,16 @@ const Sidebar: React.FC = () => {
 
     const adminNavItems: NavItem[] = [
         { name: 'Analysis', path: '/analysis', icon: <Brain size={20} />, roles: ['ADMIN', 'MANAGER'] },
-        { name: 'Monitoring', path: '/monitoring', icon: <Monitor size={20} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Learning Path', path: '/learning-path', icon: <BookOpen size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
+        { name: 'Performance', path: '/performance', icon: <Activity size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
+    ];
+
+    // Monitoring sub-pages (separate pages, not tabs)
+    const monitoringNavItems: NavItem[] = [
+        { name: 'Overview', path: '/monitoring', icon: <Home size={18} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Tasks', path: '/tasks', icon: <CheckSquare size={18} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Attendance', path: '/attendance', icon: <Calendar size={18} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Reports', path: '/reports', icon: <ReportIcon size={18} />, roles: ['ADMIN', 'MANAGER'] },
     ];
 
     const internNavItems: NavItem[] = [
@@ -149,6 +159,45 @@ const Sidebar: React.FC = () => {
                                         <span className="relative z-10 font-medium">{item.name}</span>
                                         {isActive(item.path) && (
                                             <ChevronRight size={16} className="relative z-10 ml-auto text-indigo-400 animate-pulse" />
+                                        )}
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {/* Monitoring Navigation */}
+                {filterByRole(monitoringNavItems).length > 0 && (
+                    <div className="mb-6">
+                        <p className="px-3 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Monitor size={12} className="text-cyan-400" />
+                            Monitoring
+                        </p>
+                        <ul className="space-y-1">
+                            {filterByRole(monitoringNavItems).map((item) => (
+                                <li key={item.path}>
+                                    <Link
+                                        to={item.path}
+                                        className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group ${isActive(item.path)
+                                            ? 'text-white'
+                                            : 'text-slate-400 hover:text-white'
+                                            }`}
+                                    >
+                                        {isActive(item.path) && (
+                                            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-indigo-500/20 rounded-xl border border-cyan-500/30">
+                                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b from-cyan-400 to-blue-400 rounded-r-full"></div>
+                                            </div>
+                                        )}
+                                        <span className={`relative z-10 transition-all duration-300 ${isActive(item.path)
+                                            ? 'text-cyan-400 scale-110'
+                                            : 'group-hover:scale-110 group-hover:text-cyan-400'
+                                            }`}>
+                                            {item.icon}
+                                        </span>
+                                        <span className="relative z-10 font-medium">{item.name}</span>
+                                        {isActive(item.path) && (
+                                            <ChevronRight size={16} className="relative z-10 ml-auto text-cyan-400 animate-pulse" />
                                         )}
                                     </Link>
                                 </li>

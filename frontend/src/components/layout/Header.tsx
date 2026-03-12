@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Bell, X, LogOut, ChevronDown, Mail, Settings, Shield, Zap, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Bell, LogOut, ChevronDown, Mail, Settings, Zap, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -32,6 +32,18 @@ const Header: React.FC = () => {
                 const response = await api.get('/notifications/');
                 setNotifications(response.data.notifications || []);
                 setUnreadCount(response.data.unread_count || 0);
+                
+                // Also fetch feedback unread count for interns
+                if (user.role === 'INTERN') {
+                    try {
+                        const feedbackRes = await api.get('/feedback/unread_count/');
+                        const feedbackUnread = feedbackRes.data.unread_count || 0;
+                        // Add feedback count to total
+                        setUnreadCount(prev => prev + feedbackUnread);
+                    } catch (e) {
+                        // Ignore - feedback count is optional
+                    }
+                }
             } catch (err) {
                 console.error('Failed to fetch notifications:', err);
             } finally {

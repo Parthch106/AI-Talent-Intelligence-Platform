@@ -247,7 +247,7 @@ const InternTasks: React.FC = () => {
         setHeatmapLoading(true);
         try {
             const res = await axios.get('/analytics/heatmap/tasks/', {
-                params: { months: 6 }
+                params: { months: 12 }
             });
             setHeatmapData(res.data.heatmap || {});
         } catch (err) {

@@ -20,6 +20,19 @@ from .views import (
     # Heatmap Views
     TaskHeatmapView,
     AttendanceHeatmapView,
+    # RL & Learning Path Views
+    RLAssignTaskView,
+    RLOptimalDifficultyView,
+    LearningPathView,
+    LearningPathProgressView,
+    # Performance Evaluation Output Layer
+    PerformanceEvaluationView,
+    PerformanceStatusView,
+    PerformanceSuggestionsView,
+    PerformanceDashboardView,
+    # LLM Task Generator
+    LLMTaskSuggestionView,
+    LLMTaskReviewView,
 )
 from .views_talent_intelligence import (
     AnalyzeInternView,
@@ -98,4 +111,26 @@ urlpatterns = [
     # ============================================================================
     path('heatmap/tasks/', TaskHeatmapView.as_view(), name='task-heatmap'),
     path('heatmap/attendance/', AttendanceHeatmapView.as_view(), name='attendance-heatmap'),
+
+    # ============================================================================
+    # RL DYNAMIC TASK ASSIGNMENT & LEARNING PATH ENDPOINTS
+    # ============================================================================
+    path('rl/assign-task/', RLAssignTaskView.as_view(), name='rl-assign-task'),
+    path('rl/optimal-difficulty/<int:intern_id>/', RLOptimalDifficultyView.as_view(), name='rl-optimal-difficulty'),
+    path('learning-path/<int:intern_id>/', LearningPathView.as_view(), name='learning-path'),
+    path('learning-path/<int:intern_id>/progress/', LearningPathProgressView.as_view(), name='learning-path-progress'),
+
+    # ============================================================================
+    # PERFORMANCE EVALUATION OUTPUT LAYER
+    # ============================================================================
+    path('performance/evaluate/', PerformanceEvaluationView.as_view(), name='performance-evaluate'),
+    path('performance/status/<int:intern_id>/', PerformanceStatusView.as_view(), name='performance-status'),
+    path('performance/suggestions/<int:intern_id>/', PerformanceSuggestionsView.as_view(), name='performance-suggestions'),
+    path('performance/dashboard/<int:intern_id>/', PerformanceDashboardView.as_view(), name='performance-dashboard'),
+
+    # ============================================================================
+    # LLM TASK GENERATOR - AI POWERED TASK SUGGESTIONS
+    # ============================================================================
+    path('llm/generate-tasks/', LLMTaskSuggestionView.as_view(), name='llm-generate-tasks'),
+    path('llm/review-task/', LLMTaskReviewView.as_view(), name='llm-review-task'),
 ]

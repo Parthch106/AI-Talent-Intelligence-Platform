@@ -103,7 +103,7 @@ const MonitoringDashboard: React.FC = () => {
     const [attendanceForm, setAttendanceForm] = useState({
         date: new Date().toISOString().split('T')[0], status: 'PRESENT', check_in_time: '', check_out_time: '', notes: '',
     });
-    const [reportForm, setReportForm] = useState({
+    const [_reportForm, _setReportForm] = useState({
         week_start_date: '', week_end_date: '', tasks_completed: 0, tasks_in_progress: 0, tasks_blocked: 0,
         accomplishments: '', challenges: '', learnings: '', next_week_goals: '', self_rating: 5,
     });
@@ -447,6 +447,8 @@ const MonitoringDashboard: React.FC = () => {
                                 canCreate={user?.role === 'ADMIN' || user?.role === 'MANAGER'}
                                 onStatusChange={handleTaskStatusChange}
                                 onRefresh={fetchData}
+                                internId={selectedIntern || undefined}
+                                internName={interns.find(i => i.id === selectedIntern)?.full_name || interns.find(i => i.id === selectedIntern)?.email || undefined}
                             />
                         )}
                         {activeTab === 'attendance' && (

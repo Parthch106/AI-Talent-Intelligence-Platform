@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, FileText, CheckCircle, Clock, AlertTriangle, ChevronRight, Download, Eye } from 'lucide-react';
+import { Plus, FileText, CheckCircle, Clock, AlertTriangle, ChevronRight, Download } from 'lucide-react';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';

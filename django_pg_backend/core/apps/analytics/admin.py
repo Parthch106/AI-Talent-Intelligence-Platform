@@ -16,6 +16,11 @@ from .models import (
     HiringOutcome,
     GrowthTracking,
     ModelRegistry,
+    # RL Models
+    SkillProfile,
+    TaskTemplate,
+    LearningPath,
+    RLExperienceBuffer,
 )
 
 
@@ -140,3 +145,38 @@ class ModelRegistryAdmin(admin.ModelAdmin):
     list_display = ('model_name', 'model_version', 'training_accuracy', 'f1_score', 'created_at')
     list_filter = ('model_name',)
     search_fields = ('model_name', 'model_version')
+
+
+# ============================================================================
+# RL Dynamic Task Assignment & Learning Path Models
+# ============================================================================
+
+@admin.register(SkillProfile)
+class SkillProfileAdmin(admin.ModelAdmin):
+    list_display = ('intern', 'skill_name', 'mastery_level', 'learning_rate', 'last_updated')
+    list_filter = ('skill_name', 'last_updated')
+    search_fields = ('intern__full_name', 'intern__email', 'skill_name')
+    ordering = ('-mastery_level',)
+
+
+@admin.register(TaskTemplate)
+class TaskTemplateAdmin(admin.ModelAdmin):
+    list_display = ('title', 'difficulty', 'action_type', 'estimated_hours', 'success_probability', 'learning_value', 'is_active')
+    list_filter = ('difficulty', 'action_type', 'is_active')
+    search_fields = ('title', 'description')
+
+
+@admin.register(LearningPath)
+class LearningPathAdmin(admin.ModelAdmin):
+    list_display = ('intern', 'target_role_title', 'current_position', 'completion_percentage', 'updated_at')
+    list_filter = ('job_role', 'updated_at')
+    search_fields = ('intern__full_name', 'intern__email', 'target_role_title')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(RLExperienceBuffer)
+class RLExperienceBufferAdmin(admin.ModelAdmin):
+    list_display = ('intern', 'action', 'reward', 'done', 'timestamp')
+    list_filter = ('action', 'done', 'timestamp')
+    search_fields = ('intern__full_name', 'intern__email', 'action')
+    readonly_fields = ('timestamp',)

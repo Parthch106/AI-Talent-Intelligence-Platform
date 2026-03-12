@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Calendar, CheckCircle, X, Clock, Home } from 'lucide-react';
-import Card from '../common/Card';
+import { Plus, Calendar } from 'lucide-react';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 

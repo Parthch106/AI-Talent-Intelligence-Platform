@@ -1292,3 +1292,181 @@ class ModelRegistry(models.Model):
     
     def __str__(self):
         return f"{self.model_name} v{self.model_version}"
+
+
+# ============================================================================
+# RL DYNAMIC TASK ASSIGNMENT & LEARNING PATH OPTIMIZATION MODELS
+# ============================================================================
+
+
+class SkillProfile(models.Model):
+    """
+    Tracks intern skill mastery for the RL agent state representation.
+    Updated whenever a task is completed or a milestone is reached.
+    """
+    intern = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='skill_profiles',
+        limit_choices_to={'role': 'INTERN'}
+    )
+    skill_name = models.CharField(max_length=100, help_text="Normalized skill name (e.g., Python, Django)")
+    mastery_level = models.FloatField(
+        default=0.0,
+        help_text="Skill mastery level (0.0–1.0). 0=no knowledge, 1=expert."
+    )
+    learning_rate = models.FloatField(
+        default=0.1,
+        help_text="How quickly the intern learns this skill (0.0–1.0)."
+    )
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['intern', 'skill_name']
+        ordering = ['-mastery_level']
+        verbose_name = "Skill Profile"
+        verbose_name_plural = "Skill Profiles"
+
+    def __str__(self):
+        return f"{self.intern.email} | {self.skill_name} ({self.mastery_level:.2f})"
+
+
+class TaskTemplate(models.Model):
+    """
+    Library of reusable task templates with RL-relevant metadata.
+    Used by the RL agent as the action space for task recommendations.
+    """
+    DIFFICULTY_CHOICES = [(i, str(i)) for i in range(1, 6)]
+
+    ACTION_TYPE_CHOICES = [
+        ('EASY_TASK', 'Easy Task (Difficulty 1-2)'),
+        ('MODERATE_TASK', 'Moderate Task (Difficulty 3)'),
+        ('HARD_TASK', 'Hard Task (Difficulty 4-5)'),
+        ('SKILL_GAP_TASK', 'Skill Gap Focus Task'),
+        ('COLLABORATION_TASK', 'Collaboration/Team Task'),
+    ]
+
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    difficulty = models.IntegerField(choices=DIFFICULTY_CHOICES, help_text="Task difficulty level (1=easiest, 5=hardest)")
+    action_type = models.CharField(max_length=25, choices=ACTION_TYPE_CHOICES, default='MODERATE_TASK')
+
+    # Skills this task develops
+    skills_required = models.JSONField(default=list, help_text="List of skill names required/developed by this task")
+
+    # Time estimate
+    estimated_hours = models.FloatField(default=4.0, help_text="Estimated hours to complete")
+
+    # RL-specific metadata
+    success_probability = models.FloatField(
+        default=0.5,
+        help_text="Baseline probability of successful completion (0.0–1.0)"
+    )
+    learning_value = models.FloatField(
+        default=0.5,
+        help_text="Expected learning value / skill growth potential (0.0–1.0)"
+    )
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['difficulty', 'title']
+        verbose_name = "Task Template"
+        verbose_name_plural = "Task Templates"
+
+    def __str__(self):
+        return f"[D{self.difficulty}] {self.title}"
+
+
+class LearningPath(models.Model):
+    """
+    Personalized learning path generated for an intern targeting a specific job role.
+    Uses A* over the skill dependency graph to order milestones optimally.
+    """
+    intern = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='learning_paths',
+        limit_choices_to={'role': 'INTERN'}
+    )
+    job_role = models.ForeignKey(
+        'JobRole',
+        on_delete=models.CASCADE,
+        related_name='learning_paths',
+        null=True,
+        blank=True
+    )
+    target_role_title = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Cached role title for display without FK join"
+    )
+
+    # Ordered milestone list: [{skill, difficulty, estimated_hours, resources, description}]
+    milestones = models.JSONField(default=list, help_text="Ordered list of skill milestones to complete")
+
+    # Pointer to the current step
+    current_position = models.IntegerField(default=0, help_text="Index into milestones list (0-based)")
+
+    # Completion tracking
+    completed_milestones = models.JSONField(default=list, help_text="List of completed milestone skill names")
+    completion_percentage = models.FloatField(default=0.0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        # One active path per intern per role
+        unique_together = ['intern', 'job_role']
+        ordering = ['-updated_at']
+        verbose_name = "Learning Path"
+        verbose_name_plural = "Learning Paths"
+
+    def __str__(self):
+        role = self.target_role_title or (self.job_role.role_title if self.job_role else 'Unknown')
+        return f"{self.intern.email} → {role} ({self.completion_percentage:.0f}%)"
+
+
+class RLExperienceBuffer(models.Model):
+    """
+    Stores (state, action, reward, next_state, done) experience tuples for RL training.
+    Supports experience replay to improve the DQN/Q-Learning policy stability.
+    """
+    intern = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='rl_experiences',
+        limit_choices_to={'role': 'INTERN'}
+    )
+
+    # RL tuple components
+    state = models.JSONField(help_text="State vector at time of action (intern feature vector)")
+    action = models.CharField(max_length=50, help_text="Action taken (task difficulty or action type)")
+    reward = models.FloatField(help_text="Reward received after action")
+    next_state = models.JSONField(help_text="State vector after action was taken")
+    done = models.BooleanField(default=False, help_text="Whether this was a terminal transition")
+
+    # Context for debugging / analysis
+    task_ref = models.ForeignKey(
+        'TaskTracking',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='rl_experiences',
+        help_text="Task this experience relates to"
+    )
+    reward_breakdown = models.JSONField(
+        default=dict,
+        help_text="Component-wise reward breakdown {completion, quality, growth, engagement, overdue}"
+    )
+
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = "RL Experience Buffer"
+        verbose_name_plural = "RL Experience Buffer"
+
+    def __str__(self):
+        return f"{self.intern.email} | {self.action} | R={self.reward:.2f} @ {self.timestamp}"

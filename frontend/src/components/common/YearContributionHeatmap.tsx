@@ -54,7 +54,8 @@ const YearContributionHeatmap: React.FC<YearHeatmapProps> = ({
     const monthPositions: { month: string; weekIndex: number }[] = [];
 
     const startDate = new Date(year, 0, 1);
-    const endDate = new Date(year, 11, 31);
+    // Get last day of December for the selected year
+    const endDate = new Date(year + 1, 0, 0);
 
     const firstSunday = new Date(startDate);
     firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
@@ -73,7 +74,7 @@ const YearContributionHeatmap: React.FC<YearHeatmapProps> = ({
         lastMonth = month;
       }
 
-      const dateStr = currentDate.toISOString().split('T')[0];
+      const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
       const value = data[dateStr] || 0;
 
       currentWeek.push({
@@ -125,7 +126,7 @@ const YearContributionHeatmap: React.FC<YearHeatmapProps> = ({
     });
   };
 
-  const handleMouseEnter = (date: Date, value: number, isCurrentYear: boolean, event: React.MouseEvent) => {
+  const handleMouseEnter = (date: Date, value: number, _isCurrentYear: boolean, event: React.MouseEvent) => {
     if (tooltipTimeout) {
       clearTimeout(tooltipTimeout);
     }
@@ -134,7 +135,6 @@ const YearContributionHeatmap: React.FC<YearHeatmapProps> = ({
       const rect = (event.target as HTMLElement).getBoundingClientRect();
       
       const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
       
       let x = rect.left + rect.width / 2;
       let y = rect.top - 10;
@@ -152,10 +152,8 @@ const YearContributionHeatmap: React.FC<YearHeatmapProps> = ({
         y = rect.bottom + 10;
       }
 
-      const displayValue = value === -1 ? 'No data' : (value === 0 ? 'No activity' : `${value} contribution${value !== 1 ? 's' : ''}`);
-
       setTooltip({
-        date: date.toISOString().split('T')[0],
+        date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
         formattedDate: formatDate(date),
         value,
         x,
@@ -178,7 +176,7 @@ const YearContributionHeatmap: React.FC<YearHeatmapProps> = ({
 
   const handleClick = (date: Date, value: number, isCurrentYear: boolean) => {
     if (onCellClick && isCurrentYear && value >= 0) {
-      onCellClick(date.toISOString().split('T')[0], value);
+      onCellClick(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`, value);
     }
   };
 
