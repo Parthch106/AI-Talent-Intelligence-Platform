@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 interface HeatmapProps {
   data: Record<string, number>;
@@ -23,7 +24,10 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
   onCellClick,
 }) => {
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
-  const [hoverTimeout, setHoverTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const gridContainerRef = useRef<HTMLDivElement>(null);
 
   // Dark theme color schemes - using the project's color palette
   const colorSchemes = {
@@ -90,6 +94,50 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
     return result;
   }, [data, year]);
 
+  // Compute the week index at which each month label should appear
+  const monthLabelPositions = useMemo(() => {
+    const positions: { month: string; weekIndex: number }[] = [];
+    const seen = new Set<number>();
+    calendarData.forEach((week, weekIdx) => {
+      // Use the first day-of-year cell in this week to determine the month
+      const firstCurrentDay = week.find(d => d.isCurrentYear);
+      if (firstCurrentDay) {
+        const month = firstCurrentDay.date.getMonth();
+        if (!seen.has(month)) {
+          seen.add(month);
+          positions.push({ month: MONTHS[month], weekIndex: weekIdx });
+        }
+      }
+    });
+    return positions;
+  }, [calendarData]);
+
+  // Measure container width with ResizeObserver
+  useEffect(() => {
+    const el = gridContainerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Compute cell size + gap so all weeks fill the container exactly
+  const { cellSize, gap } = useMemo(() => {
+    const totalWeeks = calendarData.length;
+    if (totalWeeks === 0 || containerWidth === 0) return { cellSize: 12, gap: 2 };
+    const g = 2;
+    // cellSize = (containerWidth - gap*(totalWeeks-1)) / totalWeeks
+    const cs = Math.max(4, (containerWidth - g * (totalWeeks - 1)) / totalWeeks);
+    return { cellSize: cs, gap: g };
+  }, [calendarData.length, containerWidth]);
+
+  // stride between week columns in px
+  const weekStride = cellSize + gap;
+
   const getColor = (item: { value: number; isCurrentYear: boolean }): string => {
     if (!item.isCurrentYear) return colors.outside;
     if (item.value === 0) return colors.empty;
@@ -99,57 +147,34 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
     return colors.levels[3];
   };
 
-  const handleMouseEnter = (date: Date, value: number, isCurrentYear: boolean, event: React.MouseEvent) => {
-    if (!isCurrentYear || value === 0) return;
+  const handleMouseEnter = (date: Date, count: number, isCurrentYear: boolean, event: React.MouseEvent) => {
+    if (!isCurrentYear || count === 0) return;
     
-    // Clear any existing timeout
-    if (hoverTimeout) {
-      clearTimeout(hoverTimeout);
+    const formattedDate = date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    
+    setTooltip({
+      date: formattedDate,
+      value: count,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  };
+
+  const handleMouseMove = (event: React.MouseEvent) => {
+    if (tooltip) {
+      setTooltip(prev => prev ? {
+        ...prev,
+        x: event.clientX,
+        y: event.clientY,
+      } : null);
     }
-    
-    // Set delay to prevent flickering
-    const timeout = setTimeout(() => {
-      const rect = (event.target as HTMLElement).getBoundingClientRect();
-      const tooltipWidth = 150;
-      const tooltipHeight = 50;
-      
-      // Calculate position with viewport bounds checking
-      let x = rect.left + rect.width / 2;
-      let y = rect.top;
-      
-      // Ensure tooltip stays within viewport
-      if (x - tooltipWidth / 2 < 10) {
-        x = tooltipWidth / 2 + 10;
-      } else if (x + tooltipWidth / 2 > window.innerWidth - 10) {
-        x = window.innerWidth - tooltipWidth / 2 - 10;
-      }
-      
-      if (y - tooltipHeight - 10 < 10) {
-        y = rect.bottom + 10;
-      }
-      
-      const formattedDate = date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-      
-      setTooltip({
-        date: formattedDate,
-        value,
-        x,
-        y,
-      });
-    }, 100);
-    
-    setHoverTimeout(timeout);
   };
 
   const handleMouseLeave = () => {
-    if (hoverTimeout) {
-      clearTimeout(hoverTimeout);
-      setHoverTimeout(null);
-    }
     setTooltip(null);
   };
 
@@ -163,11 +188,11 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
   // Clean up timeout on unmount
   useEffect(() => {
     return () => {
-      if (hoverTimeout) {
-        clearTimeout(hoverTimeout);
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
       }
     };
-  }, [hoverTimeout]);
+  }, []);
 
   return (
     <div className="relative p-3 bg-slate-800 rounded-lg border border-slate-700">
@@ -177,45 +202,46 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
         </h3>
       )}
       
-      {/* Month labels */}
-      <div className="flex mb-2 ml-10">
-        {MONTHS.map((month) => (
-          <div
-            key={month}
-            className="text-xs text-slate-500"
-            style={{
-              width: `${100 / 12}%`,
-              textAlign: 'center' as const,
-            }}
-          >
-            {month}
-          </div>
-        ))}
-      </div>
-      
       <div className="flex">
-        {/* Day labels */}
-        <div className="flex flex-col mr-2 w-8">
+        {/* Day labels column — fixed, does not scroll */}
+        <div className="flex flex-col mr-2 w-8 mt-5 shrink-0">
           {DAYS.map((day) => (
             <div
               key={day}
-              className="text-xs text-slate-500 h-3 leading-3 mb-0.5"
+              className="text-xs text-slate-500 leading-3 mb-0.5"
+              style={{ height: `${cellSize}px`, lineHeight: `${cellSize}px` }}
             >
               {day}
             </div>
           ))}
         </div>
         
-        {/* Heatmap grid */}
-        <div className="flex-1 overflow-x-auto">
-          <div className="flex gap-0.5">
+        {/* Grid area — fills remaining width, no scroll */}
+        <div className="flex-1 min-w-0" ref={gridContainerRef}>
+          {/* Month labels pinned to actual week columns */}
+          <div className="relative mb-1" style={{ height: '16px' }}>
+            {monthLabelPositions.map(({ month, weekIndex }) => (
+              <span
+                key={month}
+                className="absolute text-xs text-slate-500"
+                style={{ left: `${weekIndex * weekStride}px` }}
+              >
+                {month}
+              </span>
+            ))}
+          </div>
+
+          {/* Heatmap grid */}
+          <div style={{ display: 'flex', gap: `${gap}px` }}>
             {calendarData.map((week, weekIdx) => (
-              <div key={weekIdx} className="flex flex-col gap-0.5">
+              <div key={weekIdx} style={{ display: 'flex', flexDirection: 'column', gap: `${gap}px` }}>
                 {week.map((day, dayIdx) => (
                   <div
                     key={dayIdx}
-                    className="w-3 h-3 rounded-sm cursor-pointer transition-all duration-150 hover:scale-125 border border-slate-700/50"
+                    className="rounded-sm cursor-pointer transition-all duration-150 hover:scale-125"
                     style={{ 
+                      width: `${cellSize}px`,
+                      height: `${cellSize}px`,
                       backgroundColor: getColor(day),
                       opacity: day.isCurrentYear ? 1 : 0.3,
                       border: day.value > 0 && day.isCurrentYear 
@@ -228,6 +254,7 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
                         : 'none',
                     }}
                     onMouseEnter={(e) => handleMouseEnter(day.date, day.value, day.isCurrentYear, e)}
+                    onMouseMove={handleMouseMove}
                     onMouseLeave={handleMouseLeave}
                     onClick={() => handleClick(day.date, day.value, day.isCurrentYear)}
                   />
@@ -249,20 +276,21 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
         <span className="text-xs text-slate-500 ml-1">More</span>
       </div>
       
-      {/* Tooltip with animation */}
-      {tooltip && (
+      {/* Tooltip with animation - Using Portal to avoid clipping */}
+      {tooltip && createPortal(
         <div
-          className="fixed z-50 bg-slate-800 text-white text-xs px-3 py-2 rounded-lg shadow-xl border border-slate-700 pointer-events-none animate-fadeIn"
+          className="fixed z-[9999] bg-slate-800 text-white text-xs px-3 py-2 rounded-lg shadow-xl border border-slate-700 pointer-events-none animate-fadeIn"
           style={{
-            left: tooltip.x,
-            top: tooltip.y - 45,
-            transform: 'translateX(-50%)',
+            left: tooltip.x + 15,
+            top: tooltip.y - 15,
+            transform: 'translateY(-100%)',
             minWidth: '100px',
           }}
         >
           <div className="font-medium">{tooltip.value} {tooltip.value === 1 ? 'task' : 'tasks'}</div>
           <div className="text-slate-400">{tooltip.date}</div>
-        </div>
+        </div>,
+        document.body
       )}
       
       {/* Add fade-in animation */}
@@ -270,15 +298,15 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
         @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: translateX(-50%) translateY(5px);
+            transform: translateY(-95%);
           }
           to {
             opacity: 1;
-            transform: translateX(-50%) translateY(0);
+            transform: translateY(-100%);
           }
         }
         .animate-fadeIn {
-          animation: fadeIn 0.15s ease-out forwards;
+          animation: fadeIn 0.1s ease-out forwards;
         }
       `}</style>
     </div>

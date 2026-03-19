@@ -77,7 +77,7 @@ def _decay_epsilon(intern_id: int):
 
 def _state_key(state_vector: list) -> str:
     """Discretise a continuous state vector into a hashable key."""
-    # Bucket each float into deciles (0-9) for a 9-dim discrete state key
+    # Bucket each float into deciles (0-9) for a 10-dim discrete state key
     buckets = []
     for v in state_vector:
         bucket = min(9, int(v * 10))
@@ -106,7 +106,7 @@ def get_state(intern_id: int) -> list:
     from apps.accounts.models import User
     from django.db.models import Avg, Count, Q
 
-    state = [0.5] * 9  # Default mid-values if insufficient data
+    state = [0.5] * 10  # Default mid-values if insufficient data
 
     try:
         intern = User.objects.get(id=intern_id)
@@ -153,6 +153,14 @@ def get_state(intern_id: int) -> list:
         # 8 – dropout risk score (inverted: 0=risky, 1=safe)
         if latest_perf:
             state[8] = round(1.0 - min(latest_perf.dropout_risk_score / 100.0, 1.0), 3)
+
+        # 9 - Overdue task ratio (count of overdue / count of assigned/in_progress)
+        active_tasks = tasks.filter(status__in=['ASSIGNED', 'IN_PROGRESS', 'REWORK'])
+        if active_tasks.exists():
+            overdue_count = active_tasks.filter(due_date__lt=timezone.now()).count()
+            state[9] = round(min(overdue_count / active_tasks.count(), 1.0), 3)
+        else:
+            state[9] = 0.0
 
     except Exception as e:
         logger.warning(f"RLTaskAssigner.get_state: error for intern {intern_id}: {e}")
@@ -327,15 +335,23 @@ def assign_task_recommendation(intern_id: int) -> dict:
         'q_values': _Q_TABLE.get(intern_id, {}).get(_state_key(state), [0] * 5),
         'recommended_templates': recommended_templates,
         'rationale': _generate_rationale(action, state),
+        'overdue_count': tasks.filter(status__in=['ASSIGNED', 'IN_PROGRESS', 'REWORK'], due_date__lt=timezone.now()).count() if 'tasks' in locals() else 0
     }
 
 
 def _generate_rationale(action: str, state: list) -> str:
     """Generate a human-readable explanation for the recommendation."""
     quality, completion_rate, growth_velocity, difficulty_handled, days, \
-        skill_count, avg_mastery, engagement, risk_inverted = state
+        skill_count, avg_mastery, engagement, risk_inverted, overdue_ratio = state
 
     risk = 1.0 - risk_inverted
+
+    # Prioritize overdue mention if significant
+    if overdue_ratio > 0.2:
+        return (
+            f"Prioritizing backlog management. {overdue_ratio:.0%} of active tasks are overdue. "
+            f"Recommended {action.lower().replace('_', ' ')} to regain momentum."
+        )
 
     if action == 'EASY_TASK':
         return (

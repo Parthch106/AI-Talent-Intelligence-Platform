@@ -24,6 +24,7 @@ interface Task {
     quality_rating: number | null;
     code_review_score: number | null;
     project: { name: string } | null;
+    module: { name: string } | null;
 }
 
 interface Milestone {
@@ -92,11 +93,11 @@ function MasteryBar({ mastery }: { mastery: number }) {
     const color = pct >= 80 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#6366f1';
     return (
         <div className="w-full">
-            <div className="flex justify-between text-xs text-slate-400 mb-1">
+            <div className="flex justify-between text-xs text-[var(--text-dim)] mb-1">
                 <span>Mastery</span>
                 <span className="font-semibold" style={{ color }}>{pct}%</span>
             </div>
-            <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                 <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{ width: `${pct}%`, backgroundColor: color }}
@@ -124,17 +125,17 @@ function MilestoneCard({ milestone, isActive, onClick }: { milestone: Milestone;
                         ? 'bg-emerald-500/20 border-emerald-500 shadow-lg shadow-emerald-500/20 group-hover:bg-emerald-500/30'
                         : isActive
                             ? 'bg-violet-500/20 border-violet-500 shadow-lg shadow-violet-500/30 animate-pulse group-hover:bg-violet-500/30'
-                            : 'bg-slate-800/60 border-slate-600/50 group-hover:bg-slate-700/60 group-hover:border-slate-500/50'
+                            : 'dark:bg-slate-800/60 dark:border-slate-600/50 dark:group-hover:bg-slate-700/60 dark:group-hover:border-slate-500/50 bg-slate-100/80 border-slate-200/50 group-hover:bg-slate-200/80 group-hover:border-slate-300/50'
                     }`}
                 >
                     {isCompleted
                         ? <CheckCircle2 size={18} className="text-emerald-400 group-hover:scale-110 transition-transform" />
                         : isInProgress
                             ? <Play size={16} className="text-violet-400 group-hover:scale-110 transition-transform" />
-                            : <Circle size={18} className="text-slate-500 group-hover:text-slate-400 transition-colors" />
+                            : <Circle size={18} className="dark:text-slate-500 text-slate-400 group-hover:dark:text-slate-400 group-hover:text-slate-500 transition-colors" />
                     }
                 </div>
-                <div className={`w-0.5 flex-1 mt-1 rounded-full transition-colors ${isCompleted ? 'bg-emerald-500/40 group-hover:bg-emerald-500/60' : 'bg-slate-700/40 group-hover:bg-slate-600/50'}`} style={{ minHeight: 24 }} />
+                <div className={`w-0.5 flex-1 mt-1 rounded-full transition-colors ${isCompleted ? 'bg-emerald-500/40 group-hover:bg-emerald-500/60' : 'dark:bg-slate-700/40 dark:group-hover:bg-slate-600/50 bg-slate-200/40 group-hover:bg-slate-300/50'}`} style={{ minHeight: 24 }} />
             </div>
 
             {/* Card */}
@@ -143,19 +144,19 @@ function MilestoneCard({ milestone, isActive, onClick }: { milestone: Milestone;
                     ? 'bg-emerald-500/5 border-emerald-500/20 group-hover:border-emerald-500/40 group-hover:bg-emerald-500/10'
                     : isActive
                         ? 'bg-violet-500/10 border-violet-500/30 shadow-lg shadow-violet-500/10 group-hover:border-violet-500/50 group-hover:shadow-violet-500/20'
-                        : 'bg-slate-800/40 border-slate-700/40 group-hover:bg-slate-800/60 group-hover:border-slate-600/50'
+                        : 'dark:bg-slate-800/40 dark:border-slate-700/40 dark:group-hover:bg-slate-800/60 dark:group-hover:border-slate-600/50 bg-white/60 border-slate-200/40 group-hover:bg-white/80 group-hover:border-slate-300/50'
                 }
             `}>
                 <div className="flex items-start justify-between mb-2 gap-3">
                     <div>
-                        <h3 className="font-semibold text-slate-100 text-sm group-hover:text-white transition-colors">{milestone.title}</h3>
-                        <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{milestone.description}</p>
+                        <h3 className="font-semibold text-[var(--text-main)] text-sm group-hover:text-[var(--text-main)] transition-colors">{milestone.title}</h3>
+                        <p className="text-xs text-[var(--text-dim)] mt-0.5 line-clamp-1">{milestone.description}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${DIFFICULTY_BG[milestone.difficulty] || DIFFICULTY_BG[3]}`}>
                             {DIFFICULTY_LABELS[milestone.difficulty] || 'Moderate'}
                         </span>
-                        <span className="flex items-center gap-1 text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
+                        <span className="flex items-center gap-1 text-xs text-[var(--text-dim)] group-hover:text-[var(--text-dim)] transition-colors">
                             <Clock size={11} /> {milestone.estimated_hours}h
                         </span>
                     </div>
@@ -167,7 +168,7 @@ function MilestoneCard({ milestone, isActive, onClick }: { milestone: Milestone;
                 {milestone.prerequisites.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
                         {milestone.prerequisites.map(p => (
-                            <span key={p} className="text-xs px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-400 group-hover:bg-slate-700/70">
+                            <span key={p} className="text-xs px-2 py-0.5 rounded-full bg-[var(--bg-muted)] text-[var(--text-dim)] group-hover:bg-[var(--bg-muted)]">
                                 req: {p}
                             </span>
                         ))}
@@ -182,74 +183,99 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
     const isCompleted = task.status === 'COMPLETED' || task.status === 'SUBMITTED';
     const isOverdue = !isCompleted && new Date(task.due_date) < new Date();
     const isAssigned = task.status === 'ASSIGNED';
+    const isInProgress = task.status === 'IN_PROGRESS';
 
     return (
         <div 
             onClick={onClick}
-            className="relative flex gap-4 group transition-all duration-300 cursor-pointer hover:translate-x-1"
+            className="relative flex gap-6 group cursor-pointer"
         >
-            {/* Timeline line */}
+            {/* Timeline connectors */}
             <div className="flex flex-col items-center">
-                <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 flex-shrink-0
+                <div className={`relative z-10 w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-all duration-500 shadow-xl
                     ${isCompleted
-                        ? 'bg-emerald-500/20 border-emerald-500 shadow-lg shadow-emerald-500/20 group-hover:bg-emerald-500/30'
+                        ? 'bg-emerald-500/10 border-emerald-500/50 shadow-emerald-500/10 group-hover:bg-emerald-500/20'
                         : isOverdue
-                            ? 'bg-red-500/20 border-red-500 shadow-lg shadow-red-500/30 group-hover:bg-red-500/30'
-                            : isAssigned
-                                ? 'bg-indigo-500/20 border-indigo-500 shadow-lg shadow-indigo-500/30 group-hover:bg-indigo-500/30'
-                                : 'bg-slate-800/60 border-slate-600/50 group-hover:bg-slate-700/60 group-hover:border-slate-500/50'
+                            ? 'bg-red-500/10 border-red-500/50 shadow-red-500/10 group-hover:bg-red-500/20'
+                            : isInProgress
+                                ? 'bg-violet-500/10 border-violet-500/50 shadow-violet-500/10 group-hover:bg-violet-500/20 animate-pulse'
+                                : 'dark:bg-slate-800/40 dark:border-slate-700/50 dark:group-hover:bg-slate-800/60 bg-white/60 border-slate-200/50 group-hover:bg-white/80'
                     }`}
                 >
                     {isCompleted
-                        ? <CheckCircle2 size={18} className="text-emerald-400 group-hover:scale-110 transition-transform" />
+                        ? <CheckCircle2 size={22} className="text-emerald-400 group-hover:scale-110 transition-transform" />
                         : isOverdue
-                            ? <AlertCircle size={18} className="text-red-400 group-hover:scale-110 transition-transform animate-pulse" />
-                            : <Play size={16} className={`${isAssigned ? 'text-indigo-400' : 'text-slate-500'} group-hover:scale-110 transition-transform`} />
+                            ? <AlertCircle size={22} className="text-red-400 group-hover:scale-110 transition-transform" />
+                            : isInProgress
+                                ? <Play size={20} className="text-violet-400 group-hover:scale-110 transition-transform" />
+                                : <Circle size={20} className="dark:text-slate-500 text-slate-400 group-hover:dark:text-slate-400 group-hover:text-slate-500 transition-colors" />
                     }
                 </div>
-                <div className={`w-0.5 flex-1 mt-1 rounded-full transition-colors ${isCompleted ? 'bg-emerald-500/40 group-hover:bg-emerald-500/60' : 'bg-slate-700/40 group-hover:bg-slate-600/50'}`} style={{ minHeight: 24 }} />
+                <div className={`w-0.5 flex-1 rounded-full transition-all duration-500 ${isCompleted ? 'bg-emerald-500/30 group-hover:bg-emerald-500/50' : 'dark:bg-slate-700/30 dark:group-hover:bg-slate-600/50 bg-slate-200/30 group-hover:bg-slate-300/50'}`} />
             </div>
 
-            {/* Card */}
-            <div className={`flex-1 pb-5 rounded-2xl p-4 border transition-all duration-300
+            {/* Content Card */}
+            <div className={`flex-1 mb-8 rounded-3xl p-5 border backdrop-blur-sm transition-all duration-300 group-hover:translate-x-1
                 ${isCompleted
-                    ? 'bg-emerald-500/5 border-emerald-500/20 group-hover:border-emerald-500/40 group-hover:bg-emerald-500/10'
+                    ? 'bg-emerald-500/5 border-emerald-500/20 group-hover:border-emerald-500/40'
                     : isOverdue
-                        ? 'bg-red-500/5 border-red-500/30 shadow-lg shadow-red-500/10 group-hover:border-red-500/50'
-                        : 'bg-slate-800/40 border-slate-700/40 group-hover:bg-slate-800/60 group-hover:border-slate-600/50'
+                        ? 'bg-red-500/5 border-red-500/20 group-hover:border-red-500/40'
+                        : isInProgress
+                            ? 'bg-violet-500/5 border-violet-500/30 group-hover:border-violet-500/50 shadow-lg shadow-violet-500/5'
+                            : 'dark:bg-slate-800/20 dark:border-slate-700/30 dark:group-hover:bg-slate-800/40 dark:group-hover:border-slate-600/50 bg-slate-50/50 border-slate-200/30 group-hover:bg-white/60 group-hover:border-slate-300/50'
                 }
             `}>
-                <div className="flex items-start justify-between gap-3">
-                    <div>
-                        <h3 className="font-semibold text-slate-100 text-sm group-hover:text-white transition-colors">{task.title}</h3>
-                        {task.project && <p className="text-xs text-indigo-400 mt-0.5 font-medium">{task.project.name}</p>}
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
-                            ${task.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400' : 
-                              task.status === 'SUBMITTED' ? 'bg-blue-500/20 text-blue-400' : 
-                              task.status === 'IN_PROGRESS' ? 'bg-amber-500/20 text-amber-400' : 
-                              'bg-indigo-500/20 text-indigo-400'}`}>
-                            {task.status.replace('_', ' ')}
-                        </span>
-                        <span className={`flex items-center gap-1 text-xs font-medium ${isOverdue ? 'text-red-400' : 'text-slate-400'}`}>
-                            <Clock size={11} /> Due: {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </span>
-                    </div>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-xs text-slate-400">
-                        <span title="Estimated Hours" className="flex items-center gap-1"><Target size={12} /> {task.estimated_hours}h</span>
-                        {task.actual_hours && <span title="Actual Hours" className="flex items-center gap-1"><Activity size={12} /> {task.actual_hours}h logged</span>}
-                    </div>
-                    
-                    {task.quality_rating && (
-                        <div className="flex items-center gap-1">
-                            <Star size={12} className={task.quality_rating >= 4 ? 'text-yellow-400 fill-yellow-400/20' : 'text-slate-500'} />
-                            <span className="text-xs font-bold text-slate-300">{task.quality_rating}/5</span>
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-[var(--text-main)] text-base group-hover:text-[var(--text-main)] transition-colors">{task.title}</h3>
+                            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider
+                                ${task.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 
+                                  task.status === 'SUBMITTED' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 
+                                  task.status === 'IN_PROGRESS' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 text-glow-amber' : 
+                                  'dark:bg-slate-700/30 dark:text-slate-400 dark:border-slate-600/30 bg-slate-200/30 text-slate-600 border-slate-300/30 text-indigo-600'}`}>
+                                {task.status.replace('_', ' ')}
+                            </span>
                         </div>
-                    )}
+                        {task.project && (
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-[10px] font-bold text-indigo-400/80 bg-indigo-500/5 px-2 py-0.5 rounded-md border border-indigo-500/10 uppercase tracking-tight">
+                                    Project: {task.project.name}
+                                </span>
+                                {task.module && (
+                                    <span className="text-[10px] font-bold text-violet-400/80 bg-violet-500/5 px-2 py-0.5 rounded-md border border-violet-500/10 uppercase tracking-tight">
+                                        Module: {task.module.name}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                        <p className="text-xs text-[var(--text-dim)] line-clamp-2 mt-2 leading-relaxed italic">
+                            {task.description.substring(0, 120)}...
+                        </p>
+                    </div>
+
+                    <div className="flex flex-row sm:flex-col items-center sm:items-end gap-3 flex-shrink-0">
+                        <div className={`p-2 rounded-xl flex items-center gap-2 bg-[var(--bg-muted)] border border-[var(--border-color)]
+                            ${isOverdue ? 'text-red-400 ring-1 ring-red-500/20' : 'text-[var(--text-dim)]'}`}>
+                            <Clock size={14} />
+                            <span className="text-xs font-bold whitespace-nowrap">
+                                {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                            <div title="Estimated Effort" className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase">
+                                <Target size={12} className="dark:text-slate-600 text-slate-400" />
+                                {task.estimated_hours}h
+                            </div>
+                            {task.quality_rating && (
+                                <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-yellow-500/5 border border-yellow-500/10">
+                                    <Star size={12} className="text-yellow-400 fill-yellow-400/20" />
+                                    <span className="text-xs font-black text-yellow-500">{task.quality_rating}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -262,88 +288,109 @@ function RLRecommendationCard({ recommendation, loading, onRefresh }: {
     const info = recommendation ? ACTION_INFO[recommendation.action] || ACTION_INFO['MODERATE_TASK'] : null;
 
     return (
-        <div className="relative rounded-2xl bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-slate-700/40 p-5 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-purple-500/5" />
+        <div className="group relative rounded-3xl dark:bg-slate-900/40 dark:border-slate-800/60 bg-white/80 border border-slate-200/30 p-6 overflow-hidden backdrop-blur-xl transition-all duration-300 hover:border-violet-500/30 dark:hover:border-violet-500/30">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-violet-600/5 rounded-full blur-3xl group-hover:scale-110 transition-transform" />
             <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                            <Cpu size={16} className="text-white" />
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                            <Brain size={20} className="text-white" />
                         </div>
                         <div>
-                            <h3 className="font-semibold text-slate-100 text-sm">RL Task Recommendation</h3>
-                            <p className="text-xs text-slate-400">Q-Learning Agent</p>
+                            <h3 className="font-bold text-[var(--text-main)] text-sm">AI Recommendation</h3>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Q-Agent Live</p>
+                            </div>
                         </div>
                     </div>
                     <button
                         onClick={onRefresh}
                         disabled={loading}
-                        className="w-8 h-8 rounded-lg bg-slate-700/60 border border-slate-600/40 flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-600/60 transition-all"
+                        className="w-9 h-9 rounded-xl dark:bg-slate-800/80 dark:border-slate-700/50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/80 bg-slate-200/80 border border-slate-300/50 text-slate-600 hover:text-slate-800 hover:bg-slate-300/80 transition-all active:scale-90"
                     >
-                        <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>
 
                 {loading ? (
-                    <div className="space-y-3">
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className="h-3 bg-slate-700/60 rounded-full animate-pulse" style={{ width: `${60 + i * 10}%` }} />
-                        ))}
+                    <div className="space-y-4 py-2">
+                        <div className="h-10 bg-[var(--bg-muted)] rounded-xl animate-pulse w-3/4" />
+                        <div className="space-y-2">
+                            <div className="h-3 bg-[var(--bg-muted)] rounded-full animate-pulse" />
+                            <div className="h-3 bg-[var(--bg-muted)] rounded-full animate-pulse w-5/6" />
+                        </div>
                     </div>
                 ) : recommendation ? (
-                    <div>
+                    <div className="space-y-5">
                         {/* Big action badge */}
-                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r ${info?.color} text-white text-sm font-semibold mb-3 shadow-lg`}>
-                            <span className="text-lg">{info?.icon}</span>
-                            {info?.label}
+                        <div className={`flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r ${info?.color} text-white shadow-xl`}>
+                            <span className="text-2xl drop-shadow-md">{info?.icon}</span>
+                            <span className="font-black text-sm uppercase tracking-tight">{info?.label}</span>
                         </div>
 
-                        {/* Difficulty */}
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="flex gap-0.5">
-                                {[1, 2, 3, 4, 5].map(d => (
-                                    <div key={d} className={`w-3 h-3 rounded-sm transition-all ${d <= recommendation.recommended_difficulty ? 'opacity-100' : 'opacity-20'}`}
-                                        style={{ backgroundColor: DIFFICULTY_COLORS[recommendation.recommended_difficulty] }} />
-                                ))}
+                        {/* Difficulty & Stats */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="p-3 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)]">
+                                <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1">Impact Level</p>
+                                <div className="flex gap-1">
+                                    {[1, 2, 3, 4, 5].map(d => (
+                                        <div key={d} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${d <= recommendation.recommended_difficulty ? 'bg-violet-500' : 'dark:bg-slate-700 bg-slate-300'}`} />
+                                    ))}
+                                </div>
                             </div>
-                            <span className="text-xs text-slate-300">Difficulty {recommendation.recommended_difficulty}/5</span>
-                            <span className="text-xs text-slate-500">ε={recommendation.exploration_rate.toFixed(2)}</span>
+                            <div className="p-3 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)]">
+                                <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1">Exploration</p>
+                                <p className="text-sm font-black text-[var(--text-main)]">{(recommendation.exploration_rate * 100).toFixed(0)}%</p>
+                            </div>
                         </div>
 
                         {/* Rationale */}
-                        <p className="text-xs text-slate-400 leading-relaxed mb-3 p-2.5 bg-slate-700/30 rounded-xl">
-                            {recommendation.rationale}
-                        </p>
+                        <div className="relative p-4 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)]">
+                            <Star size={14} className="absolute -top-1.5 -left-1.5 text-yellow-500 fill-current" />
+                            <p className="text-xs text-[var(--text-dim)] leading-relaxed font-medium capitalize">
+                                {recommendation.rationale}
+                            </p>
+                        </div>
 
                         {/* Templates */}
                         {recommendation.recommended_templates.length > 0 && (
-                            <div className="space-y-2">
-                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Matching Templates</p>
-                                {recommendation.recommended_templates.map(t => (
-                                    <div key={t.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-700/30 border border-slate-600/30">
-                                        <div>
-                                            <p className="text-xs font-medium text-slate-200">{t.title}</p>
-                                            <p className="text-xs text-slate-500">{t.estimated_hours}h · Value: {(t.learning_value * 100).toFixed(0)}%</p>
+                            <div className="space-y-2.5">
+                                <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest ml-1">Candidate Archetypes</p>
+                                <div className="space-y-2">
+                                    {recommendation.recommended_templates.map(t => (
+                                        <div key={t.id} className="group/item flex items-center justify-between p-3 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] hover:bg-[var(--bg-muted)]/80 transition-all cursor-crosshair">
+                                            <div className="space-y-0.5">
+                                                <p className="text-xs font-bold text-[var(--text-main)] group-hover/item:text-violet-600 dark:group-hover/item:text-violet-300 transition-colors uppercase tracking-tight">{t.title}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-[var(--text-muted)]">{t.estimated_hours}h</span>
+                                                    <span className="w-1 h-1 rounded-full dark:bg-slate-700 bg-slate-300" />
+                                                    <span className="text-[10px] font-bold text-indigo-400">Val: {(t.learning_value * 100).toFixed(0)}%</span>
+                                                </div>
+                                            </div>
+                                            <div className="w-8 h-8 rounded-lg dark:bg-slate-900 dark:border-slate-700 bg-white border border-slate-200 flex items-center justify-center">
+                                                <ChevronRight size={14} className="dark:text-slate-500 text-slate-400 group-hover/item:dark:text-white group-hover/item:text-slate-700 transition-all transform group-hover/item:translate-x-0.5" />
+                                            </div>
                                         </div>
-                                        <Star size={14} className="text-amber-400" />
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         )}
 
                         {/* Q-Values visualization */}
-                        <div className="mt-3">
-                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Q-Values</p>
-                            <div className="flex items-end gap-1 h-8">
+                        <div className="pt-2">
+                            <div className="flex items-end gap-1.5 h-12 px-1">
                                 {recommendation.q_values.map((q, i) => {
                                     const maxQ = Math.max(...recommendation.q_values);
                                     const normH = maxQ > 0 ? (q / maxQ) * 100 : 20;
                                     const labels = ['E', 'M', 'H', 'G', 'C'];
+                                    const isActive = i === recommendation.q_values.indexOf(maxQ);
                                     return (
-                                        <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-                                            <div className="w-full rounded-t-sm transition-all duration-700"
-                                                style={{ height: `${normH}%`, backgroundColor: i === recommendation.q_values.indexOf(maxQ) ? '#8b5cf6' : '#374151' }} />
-                                            <span className="text-slate-600" style={{ fontSize: 9 }}>{labels[i]}</span>
+                                        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                                            <div className={`w-full rounded-t-md transition-all duration-1000 origin-bottom
+                                                ${isActive ? 'bg-gradient-to-t from-violet-600 to-indigo-400 shadow-[0_-4px_12px_rgba(139,92,246,0.3)]' : 'dark:bg-slate-800 bg-slate-200'}`}
+                                                style={{ height: `${Math.max(10, normH)}%` }} />
+                                            <span className={`text-[9px] font-black tracking-tighter ${isActive ? 'text-violet-400' : 'dark:text-slate-600 text-slate-500'}`}>{labels[i]}</span>
                                         </div>
                                     );
                                 })}
@@ -351,9 +398,12 @@ function RLRecommendationCard({ recommendation, loading, onRefresh }: {
                         </div>
                     </div>
                 ) : (
-                    <div className="text-center py-4">
-                        <Brain size={32} className="mx-auto text-slate-600 mb-2" />
-                        <p className="text-sm text-slate-400">Click refresh to get an AI recommendation</p>
+                    <div className="text-center py-10">
+                        <div className="w-16 h-16 rounded-full dark:bg-slate-800/40 dark:border-dashed dark:border-slate-700 bg-slate-100/40 border border-dashed border-slate-300 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                            <Cpu size={32} className="dark:text-slate-600 text-slate-400" />
+                        </div>
+                        <p className="text-sm font-bold text-[var(--text-dim)]">AI Engine Ready</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-1">Tap refresh to synthesize next step</p>
                     </div>
                 )}
             </div>
@@ -377,6 +427,8 @@ const LearningPath: React.FC = () => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loadingTasks, setLoadingTasks] = useState(false);
     const [activeTaskModal, setActiveTaskModal] = useState<Task | null>(null);
+    const [taskPage, setTaskPage] = useState(1);
+    const TASKS_PER_PAGE = 5;
     const [showSkillsMap, setShowSkillsMap] = useState(false);
     const [targetRole, setTargetRole] = useState('');
     const [jobRoles, setJobRoles] = useState<{id: number; role_title: string; role_description: string}[]>([]);
@@ -501,6 +553,7 @@ const LearningPath: React.FC = () => {
             setRecommendation(null);
             setOptimalDiff(null);
             setTasks([]);
+            setTaskPage(1);
         }
     };
 
@@ -509,6 +562,7 @@ const LearningPath: React.FC = () => {
             loadPath(effectiveInternId);
             loadOptimalDiff(effectiveInternId);
             loadTasks(effectiveInternId);
+            setTaskPage(1);
             if (isManagerOrAdmin) fetchRecommendation(effectiveInternId);
         }
     }, [effectiveInternId, loadPath, loadOptimalDiff, loadTasks, fetchRecommendation, isManagerOrAdmin]);
@@ -519,7 +573,7 @@ const LearningPath: React.FC = () => {
     const totalActualHours = tasks.reduce((s, t) => s + (t.actual_hours || 0), 0);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
+        <div className="min-h-screen p-6">
             {/* Background orbs */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-500/4 rounded-full blur-3xl" />
@@ -528,30 +582,36 @@ const LearningPath: React.FC = () => {
 
             <div className="relative z-10 max-w-7xl mx-auto space-y-6">
 
-                {/* Header */}
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                    <div>
-                        <div className="flex items-center gap-3 mb-1">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center shadow-lg shadow-violet-500/20">
-                                <ClipboardList size={20} className="text-white" />
+                {/* Header Section */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
+                    <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-700 flex items-center justify-center shadow-xl shadow-violet-500/20 ring-1 ring-white/20">
+                                <ClipboardList size={24} className="text-white" />
                             </div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-violet-200 to-purple-300 bg-clip-text text-transparent">
-                                AI Learning Path
-                            </h1>
-                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30 animate-pulse">
-                                RL-Powered Tasks
-                            </span>
+                            <div>
+                                <h1 className="text-3xl font-extrabold tracking-tight text-[var(--text-main)] sm:text-4xl">
+                                    AI Learning <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-400">Path</span>
+                                </h1>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-violet-500/10 text-violet-300 border border-violet-500/20 backdrop-blur-md">
+                                        <Brain size={12} className="text-violet-400" />
+                                        RL-Powered Insights
+                                    </span>
+                                    <p className="text-[var(--text-dim)] text-sm font-medium ml-1">Personalized growth trajectory</p>
+                                </div>
+                            </div>
                         </div>
-                        <p className="text-slate-400 text-sm">Task recommendation and progress tracking</p>
                     </div>
 
                     {/* Manager: intern dropdown */}
                     {isManagerOrAdmin && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3 bg-[var(--bg-muted)] p-2 rounded-2xl border border-[var(--border-color)] backdrop-blur-xl">
+                            <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest ml-2">Selected Intern</label>
                             <select
                                 value={activeInternId || ''}
                                 onChange={handleInternSelect}
-                                className="w-56 px-3 py-2 bg-slate-800/60 border border-slate-600/40 rounded-xl text-slate-200 text-sm focus:outline-none focus:border-violet-500/60"
+                                className="w-64 px-4 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/50 transition-all cursor-pointer appearance-none"
                             >
                                 <option value="">Select an Intern...</option>
                                 {interns.map(i => (
@@ -574,117 +634,164 @@ const LearningPath: React.FC = () => {
                     </div>
                 )}
 
-                {/* Optional: Skills Graph Accordion */}
-                <div className="rounded-2xl bg-slate-800/50 border border-slate-700/40 backdrop-blur-sm overflow-hidden transition-all duration-500">
+                {/* Skills Map Accordion */}
+                <div className="group relative rounded-3xl bg-[var(--bg-muted)] border border-[var(--border-color)] backdrop-blur-2xl overflow-hidden transition-all duration-500 hover:border-violet-500/30">
                     <button 
                         onClick={() => setShowSkillsMap(!showSkillsMap)}
-                        className="w-full p-4 flex items-center justify-between hover:bg-slate-800/60 transition-colors"
+                        className="w-full p-6 flex items-center justify-between hover:bg-[var(--bg-muted)]/80 transition-all duration-300"
                     >
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
-                                <Activity size={16} className="text-indigo-400" />
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 flex items-center justify-center border border-indigo-500/30 group-hover:scale-110 transition-transform shadow-lg shadow-indigo-500/5">
+                                <Activity size={20} className="text-indigo-400" />
                             </div>
                             <div className="text-left">
-                                <h2 className="font-semibold text-slate-100 text-sm">Optional: Technical Skills Path</h2>
-                                <p className="text-xs text-slate-400 hidden sm:block">Explore prerequisite knowledge graphs and learning resources</p>
+                                <h2 className="text-lg font-bold text-[var(--text-main)] leading-tight">Technical Knowledge Graph</h2>
+                                <p className="text-sm text-[var(--text-dim)] mt-0.5 font-medium">Map your skills, prerequisites, and milestones</p>
                             </div>
                         </div>
-                        {showSkillsMap ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+                        <div className={`w-10 h-10 rounded-xl bg-[var(--bg-muted)] flex items-center justify-center text-[var(--text-dim)] transition-all duration-300 ${showSkillsMap ? 'rotate-180 bg-violet-500/20 text-violet-400' : 'group-hover:bg-[var(--bg-muted)]/80'}`}>
+                            <ChevronDown size={22} />
+                        </div>
                     </button>
                     
                     {showSkillsMap && (
-                        <div className="p-5 border-t border-slate-700/40 bg-slate-900/30 space-y-6">
-                            {/* Generate Path Form */}
-                            <div className="rounded-2xl bg-slate-800/50 border border-slate-700/40 p-5 backdrop-blur-sm">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <Target size={18} className="text-violet-400" />
-                                    <h2 className="font-semibold text-slate-100">Generate Learning Path</h2>
+                        <div className="p-6 pt-0 border-t border-[var(--border-color)] animate-slideDown">
+                            <div className="space-y-8 mt-6">
+                                {/* Generate Path Form */}
+                                <div className="relative rounded-3xl bg-[var(--bg-muted)] border border-[var(--border-color)] p-6 backdrop-blur-md overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full blur-3xl" />
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-3 mb-5">
+                                            <div className="w-8 h-8 rounded-lg bg-violet-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                                                <Target size={16} className="text-white" />
+                                            </div>
+                                            <h2 className="text-base font-bold text-[var(--text-main)]">Generate Custom Growth Path</h2>
+                                        </div>
+                                        <div className="flex flex-col md:flex-row gap-4">
+                                            {jobRoles.length > 0 ? (
+                                                <select
+                                                    value={targetRole}
+                                                    onChange={e => setTargetRole(e.target.value)}
+                                                    className="flex-1 px-5 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-2xl text-[var(--text-main)] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/50 transition-all cursor-pointer appearance-none"
+                                                >
+                                                    <option value="">Select a specific job role focus...</option>
+                                                    {jobRoles.map(role => (
+                                                        <option key={role.id} value={role.role_title}>
+                                                            {role.role_title}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <input
+                                                    type="text"
+                                                    placeholder="Enter target role (e.g. Fullstack Engineer)"
+                                                    value={targetRole}
+                                                    onChange={e => setTargetRole(e.target.value)}
+                                                    className="flex-1 px-5 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-2xl text-[var(--text-main)] text-sm font-medium placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/50 transition-all"
+                                                />
+                                            )}
+                                            <button
+                                                onClick={generatePath}
+                                                disabled={loadingGenerate}
+                                                className="flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-violet-600 to-indigo-700 hover:from-violet-500 hover:to-indigo-600 text-white text-sm font-black rounded-2xl transition-all duration-300 shadow-xl shadow-violet-500/20 disabled:opacity-50 active:scale-95"
+                                            >
+                                                {loadingGenerate
+                                                    ? <RefreshCw size={18} className="animate-spin" />
+                                                    : <Zap size={18} className="fill-current" />
+                                                }
+                                                {loadingGenerate ? 'Reconfiguring...' : 'Synthesize Path'}
+                                            </button>
+                                        </div>
+                                        <div className="mt-4 flex items-center gap-2">
+                                            <div className="px-2 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-[10px] font-bold text-violet-400 uppercase tracking-widest">A* SEARCH ENABLED</div>
+                                            <p className="text-[11px] text-[var(--text-muted)] font-medium">Optimal skill sequence calculation based on global prerequisite graphs.</p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex flex-col sm:flex-row gap-3">
-                                    {jobRoles.length > 0 ? (
-                                        <select
-                                            value={targetRole}
-                                            onChange={e => setTargetRole(e.target.value)}
-                                            className="flex-1 px-4 py-2.5 bg-slate-900/60 border border-slate-600/40 rounded-xl text-slate-200 text-sm focus:outline-none focus:border-violet-500/60 transition-colors"
-                                        >
-                                            <option value="">Select a job role...</option>
-                                            {jobRoles.map(role => (
-                                                <option key={role.id} value={role.role_title}>
-                                                    {role.role_title}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    ) : (
-                                        <input
-                                            type="text"
-                                            placeholder="Target Role (e.g., BACKEND_DEVELOPER, FRONTEND_DEVELOPER)"
-                                            value={targetRole}
-                                            onChange={e => setTargetRole(e.target.value)}
-                                            className="flex-1 px-4 py-2.5 bg-slate-900/60 border border-slate-600/40 rounded-xl text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:border-violet-500/60 transition-colors"
-                                        />
-                                    )}
-                                    <button
-                                        onClick={generatePath}
-                                        disabled={loadingGenerate}
-                                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-purple-700 hover:from-violet-500 hover:to-purple-600 text-white text-sm font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-violet-500/20 disabled:opacity-60"
-                                    >
-                                        {loadingGenerate
-                                            ? <RefreshCw size={15} className="animate-spin" />
-                                            : <Brain size={15} />
-                                        }
-                                        {loadingGenerate ? 'Generating…' : 'Generate Path'}
-                                    </button>
-                                </div>
-                                <p className="mt-2 text-xs text-slate-500">
-                                    Uses A* graph search over skill prerequisites to build the optimal learning sequence.
-                                </p>
-                            </div>
 
-                            {/* Skills Stepper Inline View */}
-                            {path && path.milestones.length > 0 && (
-                                <div className="p-4 bg-slate-800/30 rounded-2xl border border-slate-700/30">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="font-semibold text-slate-200 text-sm">Path to {path.target_role}</h3>
-                                        <span className="text-xs text-slate-400">{path.completion_percentage.toFixed(0)}% Complete</span>
+                                {/* Skills Stepper Inline View */}
+                                {path && path.milestones.length > 0 && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between px-2">
+                                            <div className="flex items-center gap-3">
+                                                <h3 className="text-base font-bold text-[var(--text-main)]">Trajectory to {path.target_role}</h3>
+                                                <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold text-emerald-400">
+                                                    {path.completion_percentage.toFixed(0)}% Achieved
+                                                </span>
+                                            </div>
+                                            <button className="text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors uppercase tracking-widest">View Detailed Graph</button>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            {path.milestones.map((m, idx) => (
+                                                <div 
+                                                    key={m.position} 
+                                                    onClick={() => setActiveMilestoneModal(m)}
+                                                    className={`group/milestone relative p-5 rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden
+                                                        ${idx === path.current_position 
+                                                            ? 'bg-violet-500/10 border-violet-500/40 ring-1 ring-violet-500/20' 
+                                                            : m.status === 'COMPLETED'
+                                                                ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40'
+                                                                : 'bg-[var(--bg-muted)] border-[var(--border-color)] hover:bg-[var(--bg-muted)]/80 hover:border-violet-500/30'
+                                                        }
+                                                    `}
+                                                >
+                                                    <div className="flex items-start justify-between gap-3 mb-4">
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors
+                                                            ${m.status === 'COMPLETED' ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'dark:bg-slate-700/50 dark:border-slate-600/50 dark:text-slate-400 bg-slate-200/50 border-slate-300/50 text-slate-600'}
+                                                        `}>
+                                                            {m.status === 'COMPLETED' ? <CheckCircle2 size={16} /> : <Circle size={14} />}
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                                                            Lvl {m.difficulty}
+                                                        </span>
+                                                    </div>
+                                                    <h4 className="font-bold text-[var(--text-main)] text-sm group-hover/milestone:text-violet-600 dark:group-hover/milestone:text-violet-300 transition-colors line-clamp-1">{m.title}</h4>
+                                                    <div className="mt-3">
+                                                        <div className="flex justify-between text-[10px] font-black text-[var(--text-muted)] mb-1 uppercase tracking-tighter">
+                                                            <span>Mastery</span>
+                                                            <span className={m.current_mastery >= 0.8 ? 'text-emerald-400' : 'text-violet-400'}>{Math.round(m.current_mastery * 100)}%</span>
+                                                        </div>
+                                                        <div className="h-1 dark:bg-slate-800 bg-slate-200 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className={`h-full rounded-full transition-all duration-1000 ${m.status === 'COMPLETED' ? 'bg-emerald-500' : 'bg-violet-500'}`}
+                                                                style={{ width: `${Math.round(m.current_mastery * 100)}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <div className="space-y-1">
-                                        {path.milestones.map((m, idx) => (
-                                            <MilestoneCard
-                                                key={m.position}
-                                                milestone={m}
-                                                isActive={idx === path.current_position}
-                                                onClick={() => setActiveMilestoneModal(m)}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
 
-                {/* Stats Row */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
-                        { label: 'Total Tasks', value: tasks.length, icon: <Layers size={18} />, color: 'from-blue-500 to-indigo-600' },
-                        { label: 'Done / Submitted', value: `${tasksCompleted + tasksSubmitted}`, icon: <CheckCircle2 size={18} />, color: 'from-emerald-500 to-green-600' },
-                        { label: 'Overdue', value: tasksOverdue, icon: <AlertCircle size={18} />, color: tasksOverdue > 0 ? 'from-red-500 to-rose-600' : 'from-slate-600 to-slate-700' },
-                        { label: 'Hours Logged', value: `${totalActualHours.toFixed(1)}h`, icon: <Clock size={18} />, color: 'from-amber-500 to-orange-600' },
+                        { label: 'Total Tasks', value: tasks.length, icon: <Layers size={20} />, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/20' },
+                        { label: 'Completed', value: `${tasksCompleted + tasksSubmitted}`, icon: <CheckCircle2 size={20} />, color: 'from-emerald-500 to-green-600', shadow: 'shadow-emerald-500/20' },
+                        { label: 'Overdue', value: tasksOverdue, icon: <AlertCircle size={20} />, color: tasksOverdue > 0 ? 'from-red-500 to-rose-600' : 'from-slate-600 to-slate-700', shadow: tasksOverdue > 0 ? 'shadow-red-500/20' : '' },
+                        { label: 'Hours Logged', value: `${totalActualHours.toFixed(1)}h`, icon: <Clock size={20} />, color: 'from-amber-500 to-orange-600', shadow: 'shadow-amber-500/20' },
                     ].map(s => (
                         <div
                             key={s.label}
-                            className="rounded-2xl bg-slate-800/50 border border-slate-700/40 p-4 flex items-center gap-3"
+                            className="group relative overflow-hidden rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)] p-5 hover:bg-[var(--bg-muted)]/80 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
                         >
-                                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center text-white shadow-lg flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                            <div className="absolute top-0 right-0 -tr-1/4 w-24 h-24 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
+                            <div className="relative flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center text-white shadow-lg ${s.shadow} group-hover:rotate-6 transition-all duration-300`}>
                                     {s.icon}
                                 </div>
                                 <div>
-                                    <p className="text-lg font-bold text-slate-100 group-hover:text-violet-200 transition-colors">{s.value}</p>
-                                    <p className="text-xs text-slate-400">{s.label}</p>
+                                    <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-0.5">{s.label}</p>
+                                    <p className="text-2xl font-black text-[var(--text-main)] group-hover:text-violet-600 dark:group-hover:text-violet-200 transition-colors">{s.value}</p>
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    ))}
                 </div>
 
                 {/* Main Content Grid */}
@@ -695,46 +802,84 @@ const LearningPath: React.FC = () => {
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                                 <ClipboardList size={18} className="text-violet-400" />
-                                <h2 className="font-semibold text-slate-100">Task Flow Timeline</h2>
+                                <h2 className="font-semibold text-[var(--text-main)]">Task Flow Timeline</h2>
                             </div>
-                            <span className="text-xs text-slate-400">
+                            <span className="text-xs text-[var(--text-dim)]">
                                 Assigned Work
                             </span>
                         </div>
 
                         {loadingTasks ? (
-                            <div className="space-y-4">
-                                {[1, 2, 3, 4].map(i => (
-                                    <div key={i} className="flex gap-4 animate-pulse">
-                                        <div className="w-10 h-10 bg-slate-700/60 rounded-full flex-shrink-0" />
-                                        <div className="flex-1 h-24 bg-slate-800/60 rounded-2xl" />
+                            <div className="space-y-6">
+                                {[1, 2, 3].map(i => (
+                                    <div key={i} className="flex gap-6 animate-pulse">
+                                        <div className="w-12 h-12 bg-[var(--bg-muted)] rounded-2xl flex-shrink-0" />
+                                        <div className="flex-1 h-32 bg-[var(--bg-muted)] rounded-3xl" />
                                     </div>
                                 ))}
                             </div>
                         ) : tasks.length > 0 ? (
-                            <div className="space-y-1">
-                                {tasks.sort((a, b) => new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime()).map(task => (
-                                    <TaskCard
-                                        key={task.id}
-                                        task={task}
-                                        onClick={() => setActiveTaskModal(task)}
-                                    />
-                                ))}
-                                {/* Start node */}
-                                <div className="flex items-center gap-4 pt-2">
-                                    <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0">
-                                        <Circle size={14} className="text-slate-500" />
-                                    </div>
-                                    <p className="text-sm font-semibold text-slate-500">
-                                        Onboarding Completed
-                                    </p>
+                            <div className="relative">
+                                {/* Vertical background line */}
+                                <div className="absolute left-6 top-6 bottom-6 w-px bg-gradient-to-b from-violet-500/50 via-slate-700/30 to-transparent" />
+                                
+                                <div className="space-y-2">
+                                    {/* Start node - only on the last page */}
+                                    {taskPage === Math.ceil(tasks.length / TASKS_PER_PAGE) && (
+                                        <div className="flex items-start gap-6 pb-4">
+                                            <div className="w-12 h-12 rounded-2xl dark:bg-slate-900 dark:border-slate-800 bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 shadow-lg relative z-10">
+                                                <div className="w-2 h-2 rounded-full dark:bg-slate-600 bg-slate-400" />
+                                            </div>
+                                            <div className="py-3">
+                                                <p className="text-sm font-bold text-[var(--text-muted)] tracking-tight uppercase">
+                                                    Onboarding Reached
+                                                </p>
+                                                <p className="text-xs text-[var(--text-muted)] mt-1">Foundation established</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {tasks
+                                        .sort((a, b) => new Date(a.assigned_at).getTime() - new Date(b.assigned_at).getTime())
+                                        .slice((taskPage - 1) * TASKS_PER_PAGE, taskPage * TASKS_PER_PAGE)
+                                        .map(task => (
+                                            <TaskCard
+                                                key={task.id}
+                                                task={task}
+                                                onClick={() => setActiveTaskModal(task)}
+                                            />
+                                        ))
+                                    }
                                 </div>
+
+                                {/* Pagination Controls */}
+                                {tasks.length > TASKS_PER_PAGE && (
+                                    <div className="flex items-center justify-center gap-4 mt-8 pt-4 border-t border-[var(--border-color)]">
+                                        <button
+                                            onClick={() => setTaskPage(p => Math.max(1, p - 1))}
+                                            disabled={taskPage === 1}
+                                            className="px-4 py-2 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] text-[var(--text-dim)] text-xs font-bold uppercase tracking-widest hover:bg-[var(--bg-muted)]/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                        >
+                                            Previous
+                                        </button>
+                                        <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                                            Page {taskPage} of {Math.ceil(tasks.length / TASKS_PER_PAGE)}
+                                        </span>
+                                        <button
+                                            onClick={() => setTaskPage(p => Math.min(Math.ceil(tasks.length / TASKS_PER_PAGE), p + 1))}
+                                            disabled={taskPage === Math.ceil(tasks.length / TASKS_PER_PAGE)}
+                                            className="px-4 py-2 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] text-[var(--text-dim)] text-xs font-bold uppercase tracking-widest hover:bg-[var(--bg-muted)]/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center py-16 rounded-2xl bg-slate-800/30 border border-slate-700/30 border-dashed">
-                                <Activity size={40} className="text-slate-600 mb-3" />
-                                <p className="text-slate-400 font-medium text-sm mb-1">No tasks assigned yet</p>
-                                <p className="text-slate-500 text-xs text-center max-w-xs">
+                            <div className="flex flex-col items-center justify-center py-16 rounded-2xl dark:bg-slate-800/30 dark:border-slate-700/30 border-dashed bg-white/50 border border-slate-200/30 border-dashed">
+                                <Activity size={40} className="dark:text-slate-600 text-slate-400 mb-3" />
+                                <p className="text-[var(--text-dim)] font-medium text-sm mb-1">No tasks assigned yet</p>
+                                <p className="text-[var(--text-muted)] text-xs text-center max-w-xs">
                                     Interns will see their active project tasks flow here once assigned by a manager.
                                 </p>
                             </div>
@@ -746,31 +891,60 @@ const LearningPath: React.FC = () => {
 
                         {/* Optimal Difficulty Card */}
                         {optimalDiff && (
-                            <div className="rounded-2xl bg-slate-800/50 border border-slate-700/40 p-4">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <TrendingUp size={16} className="text-indigo-400" />
-                                    <h3 className="font-semibold text-slate-100 text-sm">Optimal Task Difficulty</h3>
-                                </div>
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="text-4xl font-black" style={{ color: DIFFICULTY_COLORS[optimalDiff.optimal_difficulty] }}>
-                                        {optimalDiff.optimal_difficulty}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-semibold text-slate-100">{optimalDiff.difficulty_label}</p>
-                                        <p className="text-xs text-slate-400">Greedy Policy (no exploration)</p>
-                                    </div>
-                                </div>
-                                {/* State radar simple */}
-                                <div className="space-y-1.5 mt-3">
-                                    {optimalDiff.state_keys.map((key, i) => (
-                                        <div key={key} className="flex items-center gap-2">
-                                            <span className="text-xs text-slate-500 w-32 truncate">{key.replace(/_/g, ' ')}</span>
-                                            <div className="flex-1 h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
-                                                <div className="h-full rounded-full bg-violet-500/60" style={{ width: `${Math.round(optimalDiff.state_vector[i] * 100)}%` }} />
-                                            </div>
-                                            <span className="text-xs text-slate-500 w-6 text-right">{Math.round(optimalDiff.state_vector[i] * 100)}</span>
+                            <div className="group relative rounded-3xl dark:bg-slate-900/40 dark:border-slate-800/60 bg-white/60 border border-slate-200/30 p-6 overflow-hidden backdrop-blur-xl transition-all duration-300 hover:border-indigo-500/30">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl transition-transform group-hover:scale-125" />
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                                            <TrendingUp size={20} className="text-white" />
                                         </div>
-                                    ))}
+                                        <div>
+                                            <h3 className="font-bold text-[var(--text-main)] text-sm tracking-tight uppercase">Optimal Difficulty</h3>
+                                            <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Greedy Policy</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <div className="relative">
+                                            <svg className="w-16 h-16 transform -rotate-90">
+                                                <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" className="dark:text-slate-800 text-slate-300" />
+                                                <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" 
+                                                    strokeDasharray={176} strokeDashoffset={176 - (optimalDiff.optimal_difficulty / 5) * 176}
+                                                    strokeLinecap="round" className="text-indigo-400 transition-all duration-1000" />
+                                            </svg>
+                                            <div className="absolute inset-0 flex items-center justify-center text-2xl font-black text-[var(--text-main)]">
+                                                {optimalDiff.optimal_difficulty}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p className="text-lg font-black text-[var(--text-main)] leading-tight">{optimalDiff.difficulty_label}</p>
+                                            <p className="text-xs font-medium text-[var(--text-dim)]">Baseline Target</p>
+                                        </div>
+                                    </div>
+
+                                    {/* State radar simple */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between px-1">
+                                            <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Growth Vector</span>
+                                            <span className="text-[10px] font-black text-indigo-400">STATE DEPTH</span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {optimalDiff.state_keys.map((key, i) => (
+                                                <div key={key} className="space-y-1">
+                                                    <div className="flex justify-between text-[10px] font-bold text-[var(--text-dim)] px-1">
+                                                        <span className="capitalize">{key.replace(/_/g, ' ')}</span>
+                                                        <span>{Math.round(optimalDiff.state_vector[i] * 100)}%</span>
+                                                    </div>
+                                                    <div className="h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                                                        <div 
+                                                            className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-blue-400 transition-all duration-1000" 
+                                                            style={{ width: `${Math.round(optimalDiff.state_vector[i] * 100)}%` }} 
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -784,16 +958,50 @@ const LearningPath: React.FC = () => {
                             />
                         )}
 
+                        {/* Action Needed Card */}
+                        {(tasks.filter(t => t.status !== 'COMPLETED' && t.status !== 'SUBMITTED').length > 0) && (
+                            <div className="rounded-3xl dark:bg-slate-900/40 dark:border-slate-800/60 bg-white/60 border border-slate-200/30 p-5 overflow-hidden backdrop-blur-xl transition-all duration-300 hover:border-violet-500/30">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${tasksOverdue > 0 ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                                        <AlertCircle size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-[var(--text-main)] text-sm tracking-tight">{tasksOverdue > 0 ? 'Action Needed' : 'Pending Tasks'}</h3>
+                                        <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">{tasks.filter(t => t.status !== 'COMPLETED' && t.status !== 'SUBMITTED').length} tasks remaining</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {tasks.filter(t => t.status !== 'COMPLETED' && t.status !== 'SUBMITTED').sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).map(task => {
+                                        const isOverdue = new Date(task.due_date) < new Date();
+                                        return (
+                                            <div key={task.id} onClick={() => setActiveTaskModal(task)} className={`group cursor-pointer flex flex-col p-3 rounded-xl border transition-all hover:scale-[1.02] ${isOverdue ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/40' : 'dark:bg-slate-800/30 dark:border-slate-700/50 dark:hover:border-slate-600 bg-white/60 border-slate-200/50 hover:border-slate-300'}`}>
+                                                <div className="flex justify-between items-start mb-2 gap-2">
+                                                    <span className="text-xs font-bold text-[var(--text-main)] group-hover:text-[var(--text-main)] line-clamp-1 flex-1">{task.title}</span>
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0 ${isOverdue ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                                                        {task.status.replace('_', ' ')}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[10px] font-semibold">
+                                                    <Clock size={12} className={isOverdue ? "text-red-400" : "dark:text-slate-500 text-slate-400"} />
+                                                    <span className={isOverdue ? "text-red-400" : "dark:text-slate-400 text-slate-500"}>Due: {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Interns-only: next milestone quick view */}
                         {!isManagerOrAdmin && path?.next_milestone && (
                             <div className="rounded-2xl bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/30 p-4">
                                 <div className="flex items-center gap-2 mb-3">
                                     <Zap size={16} className="text-yellow-400" />
-                                    <h3 className="font-semibold text-slate-100 text-sm">Next Step</h3>
+                                    <h3 className="font-semibold text-[var(--text-main)] text-sm">Next Step</h3>
                                 </div>
                                 <p className="text-sm font-medium text-violet-200 mb-1">{path.next_milestone.title}</p>
-                                <p className="text-xs text-slate-400 mb-2">{path.next_milestone.description}</p>
-                                <div className="flex items-center gap-2 text-xs text-slate-400">
+                                <p className="text-xs dark:text-slate-400 text-slate-500 mb-2">{path.next_milestone.description}</p>
+                                <div className="flex items-center gap-2 text-xs dark:text-slate-400 text-slate-500">
                                     <Clock size={11} /> ~{path.next_milestone.estimated_hours}h
                                     <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${DIFFICULTY_BG[path.next_milestone.difficulty] || DIFFICULTY_BG[3]}`}>
                                         {DIFFICULTY_LABELS[path.next_milestone.difficulty]}
@@ -804,10 +1012,10 @@ const LearningPath: React.FC = () => {
 
                         {/* Progress Ring */}
                         {path && (
-                            <div className="rounded-2xl bg-slate-800/50 border border-slate-700/40 p-4">
+                            <div className="rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)] p-4">
                                 <div className="flex items-center gap-2 mb-4">
                                     <BarChart3 size={16} className="text-emerald-400" />
-                                    <h3 className="font-semibold text-slate-100 text-sm">Overall Progress</h3>
+                                    <h3 className="font-semibold text-[var(--text-main)] text-sm">Overall Progress</h3>
                                 </div>
                                 <div className="flex items-center gap-4">
                                     {/* SVG ring */}
@@ -825,15 +1033,15 @@ const LearningPath: React.FC = () => {
                                     <div className="space-y-1.5">
                                         <div className="flex items-center gap-2">
                                             <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                            <span className="text-xs text-slate-300">{tasksCompleted} completed</span>
+                                            <span className="text-xs text-[var(--text-dim)]">{tasksCompleted} completed</span>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
-                                            <span className="text-xs text-slate-300">1 in progress</span>
+                                            <span className="text-xs text-[var(--text-dim)]">1 in progress</span>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-slate-600" />
-                                            <span className="text-xs text-slate-300">{Math.max(0, tasks.length - tasksCompleted - 1)} remaining</span>
+                                            <div className="w-2 h-2 rounded-full dark:bg-slate-600 bg-slate-400" />
+                                            <span className="text-xs text-[var(--text-dim)]">{Math.max(0, tasks.length - tasksCompleted - 1)} remaining</span>
                                         </div>
                                     </div>
                                 </div>
@@ -841,18 +1049,19 @@ const LearningPath: React.FC = () => {
                         )}
                     </div>
                 </div>
+                </div>
 
             {/* Analysis Modal */}
             {activeStatModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setActiveStatModal(null)} />
-                    <div className="relative z-10 w-full max-w-lg bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
+                    <div className="absolute inset-0 dark:bg-slate-950/80 bg-slate-900/60 backdrop-blur-sm" onClick={() => setActiveStatModal(null)} />
+                    <div className="relative z-10 w-full max-w-lg dark:bg-[var(--bg-color)] bg-white border dark:border-[var(--border-color)] border-slate-200 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
                         {/* Header */}
-                        <div className="flex items-center justify-between p-5 border-b border-slate-800">
-                            <h2 className="text-lg font-bold text-slate-100">
+                        <div className="flex items-center justify-between p-5 border-b border-[var(--border-color)]">
+                            <h2 className="text-lg font-bold text-[var(--text-main)]">
                                 {activeStatModal} Analysis
                             </h2>
-                            <button onClick={() => setActiveStatModal(null)} className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors">
+                            <button onClick={() => setActiveStatModal(null)} className="p-1 hover:bg-[var(--bg-muted)] rounded-lg text-[var(--text-dim)] hover:text-[var(--text-main)] transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
@@ -862,29 +1071,29 @@ const LearningPath: React.FC = () => {
                             {/* We keep the old Path breakdown for these modals if path exists, otherwise hide or show task stats */}
                             {activeStatModal === 'Completion' && path && (
                                 <div className="space-y-4">
-                                    <p className="text-sm text-slate-300 leading-relaxed">
+                                    <p className="text-sm text-[var(--text-dim)] leading-relaxed">
                                         The completion metric measures the aggregated average mastery across all {path.total_milestones} milestones in the `{path.target_role}` path.
                                     </p>
-                                    <div className="bg-slate-800/50 rounded-xl p-4 border border-emerald-500/20">
+                                    <div className="bg-[var(--bg-muted)] rounded-xl p-4 border border-emerald-500/20">
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="text-xs font-semibold text-emerald-400 uppercase">Overall Progress</span>
-                                            <span className="text-sm font-bold text-slate-100">{path.completion_percentage?.toFixed(1) || 0}%</span>
+                                            <span className="text-sm font-bold text-[var(--text-main)]">{path.completion_percentage?.toFixed(1) || 0}%</span>
                                         </div>
-                                        <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
+                                        <div className="h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                                             <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${path.completion_percentage || 0}%` }} />
                                         </div>
                                     </div>
-                                    <h3 className="text-sm font-semibold text-slate-400 mt-6 mb-3">Mastery Breakdown</h3>
+                                    <h3 className="text-sm font-semibold text-[var(--text-dim)] mt-6 mb-3">Mastery Breakdown</h3>
                                     <div className="space-y-3">
                                         {path.milestones?.map(m => (
                                             <div key={m.skill}>
                                                 <div className="flex justify-between text-xs mb-1">
-                                                    <span className="text-slate-300">{m.title}</span>
+                                                    <span className="text-[var(--text-dim)]">{m.title}</span>
                                                     <span className={m.current_mastery >= m.mastery_target ? 'text-emerald-400' : 'text-slate-500'}>
                                                         {Math.round(m.current_mastery * 100)}% / {Math.round(m.mastery_target * 100)}%
                                                     </span>
                                                 </div>
-                                                <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                                                <div className="h-1 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                                                     <div 
                                                         className={`h-full rounded-full ${m.current_mastery >= m.mastery_target ? 'bg-emerald-500' : 'bg-slate-600'}`} 
                                                         style={{ width: `${Math.min(100, Math.round((m.current_mastery/m.mastery_target)*100))}%` }} 
@@ -898,17 +1107,17 @@ const LearningPath: React.FC = () => {
 
                             {activeStatModal === 'Milestones Done' && path && (
                                 <div className="space-y-4">
-                                    <p className="text-sm text-slate-300 leading-relaxed">
+                                    <p className="text-sm text-[var(--text-dim)] leading-relaxed">
                                         You have fully mastered {path.milestones?.filter(m => m.status === 'COMPLETED').length || 0} out of {path.total_milestones} required skills for the {path.target_role} role. A milestone is considered "done" when its current mastery meets or exceeds the target mastery.
                                     </p>
                                     <div className="grid grid-cols-2 gap-3 mt-4">
-                                        <div className="bg-slate-800/50 border border-emerald-500/20 rounded-xl p-4 text-center">
+                                        <div className="bg-[var(--bg-muted)] border border-emerald-500/20 rounded-xl p-4 text-center">
                                             <p className="text-3xl font-black text-emerald-400">{path.milestones?.filter(m => m.status === 'COMPLETED').length || 0}</p>
-                                            <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">Done</p>
+                                            <p className="text-xs text-[var(--text-dim)] mt-1 uppercase tracking-wider font-semibold">Done</p>
                                         </div>
-                                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 text-center">
-                                            <p className="text-3xl font-black text-slate-300">{path.total_milestones - (path.milestones?.filter(m => m.status === 'COMPLETED').length || 0)}</p>
-                                            <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">Remaining</p>
+                                        <div className="bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl p-4 text-center">
+                                            <p className="text-3xl font-black text-[var(--text-main)]">{path.total_milestones - (path.milestones?.filter(m => m.status === 'COMPLETED').length || 0)}</p>
+                                            <p className="text-xs text-[var(--text-dim)] mt-1 uppercase tracking-wider font-semibold">Remaining</p>
                                         </div>
                                     </div>
                                 </div>
@@ -916,26 +1125,26 @@ const LearningPath: React.FC = () => {
 
                             {activeStatModal === 'Total Hours' && path && (
                                 <div className="space-y-4">
-                                    <p className="text-sm text-slate-300 leading-relaxed">
+                                    <p className="text-sm text-[var(--text-dim)] leading-relaxed">
                                         This path requires approximately {path.milestones?.reduce((s, m) => s + m.estimated_hours, 0) || 0} estimated hours of deliberate practice and project work to complete all {path.total_milestones} milestones.
                                     </p>
-                                    <h3 className="text-sm font-semibold text-slate-400 mt-6 mb-3">Time Distribution</h3>
+                                    <h3 className="text-sm font-semibold text-[var(--text-dim)] mt-6 mb-3">Time Distribution</h3>
                                     <div className="space-y-2">
                                         {path.milestones?.map(m => {
                                             const tH = path.milestones?.reduce((s, x) => s + x.estimated_hours, 0) || 1;
                                             const pct = (m.estimated_hours / tH) * 100;
                                             return (
-                                                <div key={m.skill} className="bg-slate-800/30 p-3 rounded-lg flex items-center gap-3">
+                                                <div key={m.skill} className="bg-[var(--bg-muted)] p-3 rounded-lg flex items-center gap-3">
                                                     <div className="w-12 text-right flex-shrink-0">
                                                         <span className="text-sm font-bold text-indigo-400">{m.estimated_hours}h</span>
                                                     </div>
                                                     <div className="flex-1">
-                                                        <p className="text-sm text-slate-200">{m.title}</p>
-                                                        <div className="w-full h-1 bg-slate-800 mt-2 rounded-full overflow-hidden">
+                                                        <p className="text-sm text-[var(--text-dim)]">{m.title}</p>
+                                                        <div className="w-full h-1 bg-[var(--bg-muted)] mt-2 rounded-full overflow-hidden">
                                                             <div className="h-full bg-indigo-500" style={{ width: `${pct}%` }}/>
                                                         </div>
                                                     </div>
-                                                    <span className="text-xs text-slate-500 w-8">{pct.toFixed(0)}%</span>
+                                                    <span className="text-xs text-[var(--text-muted)] w-8">{pct.toFixed(0)}%</span>
                                                 </div>
                                             );
                                         })}
@@ -945,7 +1154,7 @@ const LearningPath: React.FC = () => {
 
                             {activeStatModal === 'Hours Left' && path && (
                                 <div className="space-y-4">
-                                    <p className="text-sm text-slate-300 leading-relaxed">
+                                    <p className="text-sm text-[var(--text-dim)] leading-relaxed">
                                         Based on your current progress, there are approximately {path.milestones?.filter(m => m.status !== 'COMPLETED').reduce((s, m) => s + m.estimated_hours, 0) || 0} hours of learning left to hit your target role.
                                     </p>
                                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center justify-between">
@@ -954,8 +1163,8 @@ const LearningPath: React.FC = () => {
                                             <p className="text-xs font-semibold text-amber-500/70 uppercase tracking-wider mt-1">Remaining Time</p>
                                         </div>
                                     </div>
-                                    <div className="mt-4 pt-4 border-t border-slate-800">
-                                        <p className="text-xs text-slate-400 italic">
+                                    <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
+                                        <p className="text-xs text-[var(--text-dim)] italic">
                                             * Note: The AI agent recalculates these hours dynamically. If you demonstrate fast mastery or high quality scores in task completions, the remaining hours will compress.
                                         </p>
                                     </div>
@@ -964,10 +1173,10 @@ const LearningPath: React.FC = () => {
                         </div>
                         
                         {/* Footer */}
-                        <div className="p-4 border-t border-slate-800 bg-slate-900/50 rounded-b-2xl">
+                        <div className="p-4 border-t border-[var(--border-color)] bg-[var(--bg-muted)] rounded-b-2xl">
                             <button
                                 onClick={() => setActiveStatModal(null)}
-                                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold rounded-xl transition-colors"
+                                className="w-full py-2.5 bg-[var(--bg-muted)] hover:bg-[var(--bg-color)] text-[var(--text-dim)] text-sm font-semibold rounded-xl transition-colors border border-[var(--border-color)]"
                             >
                                 Close Analysis
                             </button>
@@ -979,10 +1188,10 @@ const LearningPath: React.FC = () => {
             {/* Task Detailed Modal */}
             {activeTaskModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setActiveTaskModal(null)} />
-                    <div className="relative z-10 w-full max-w-2xl bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
+                    <div className="absolute inset-0 dark:bg-slate-950/80 bg-white/70 backdrop-blur-sm" onClick={() => setActiveTaskModal(null)} />
+                    <div className="relative z-10 w-full max-w-2xl dark:bg-[var(--bg-color)] bg-white border dark:border-[var(--border-color)] border-slate-200 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
                         {/* Header */}
-                        <div className="flex items-start justify-between p-6 border-b border-slate-800">
+                        <div className="flex items-start justify-between p-6 dark:border-b dark:border-slate-800 border-b border-slate-200">
                             <div className="flex gap-4 items-center">
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0
                                     ${activeTaskModal.status === 'COMPLETED' ? 'bg-gradient-to-br from-emerald-500 to-green-600' : 
@@ -1012,7 +1221,7 @@ const LearningPath: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                            <button onClick={() => setActiveTaskModal(null)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors">
+                            <button onClick={() => setActiveTaskModal(null)} className="p-2 dark:hover:bg-slate-800 rounded-lg dark:text-slate-400 dark:hover:text-white hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
@@ -1022,49 +1231,49 @@ const LearningPath: React.FC = () => {
                             
                             {/* Description */}
                             <div>
-                                <h3 className="text-sm font-semibold text-slate-400 mb-2">Description</h3>
-                                <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                                    <p className="text-slate-300 text-sm whitespace-pre-wrap">{activeTaskModal.description}</p>
+                                <h3 className="text-sm font-semibold dark:text-slate-400 text-slate-600 mb-2">Description</h3>
+                                <div className="dark:bg-slate-800/30 p-4 rounded-xl dark:border border-slate-700/50 bg-slate-100/50 border border-slate-200/50">
+                                    <p className="dark:text-slate-300 text-slate-700 text-sm whitespace-pre-wrap">{activeTaskModal.description}</p>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <h3 className="text-sm font-semibold text-slate-400 mb-2">Time Tracking</h3>
-                                    <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
+                                    <h3 className="text-sm font-semibold dark:text-slate-400 text-slate-600 mb-2">Time Tracking</h3>
+                                    <div className="dark:bg-slate-800/30 p-4 rounded-xl dark:border border-slate-700/50 bg-slate-100/50 border border-slate-200/50 space-y-3">
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-400">Estimated</span>
-                                            <span className="font-semibold text-slate-200">{activeTaskModal.estimated_hours} hrs</span>
+                                            <span className="dark:text-slate-400 text-slate-600">Estimated</span>
+                                            <span className="font-semibold dark:text-slate-200 text-slate-800">{activeTaskModal.estimated_hours} hrs</span>
                                         </div>
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-400">Logged</span>
+                                            <span className="dark:text-slate-400 text-slate-600">Logged</span>
                                             <span className="font-semibold text-indigo-400">{activeTaskModal.actual_hours || 0} hrs</span>
                                         </div>
                                     </div>
                                 </div>
                                 <div>
-                                    <h3 className="text-sm font-semibold text-slate-400 mb-2">Evaluation</h3>
-                                    <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
+                                    <h3 className="text-sm font-semibold dark:text-slate-400 text-slate-600 mb-2">Evaluation</h3>
+                                    <div className="dark:bg-slate-800/30 p-4 rounded-xl dark:border border-slate-700/50 bg-slate-100/50 border border-slate-200/50 space-y-3">
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-400">Quality</span>
+                                            <span className="dark:text-slate-400 text-slate-600">Quality</span>
                                             <div className="flex items-center gap-1">
                                                 {activeTaskModal.quality_rating ? (
                                                     <>
                                                         <span className="font-bold text-yellow-400">{activeTaskModal.quality_rating}/5</span>
                                                         <Star size={14} className="text-yellow-400 fill-yellow-400/20" />
                                                     </>
-                                                ) : <span className="text-slate-500 italic">Not rated</span>}
+                                                ) : <span className="dark:text-slate-500 text-slate-400 italic">Not rated</span>}
                                             </div>
                                         </div>
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-400">Code Score</span>
+                                            <span className="dark:text-slate-400 text-slate-600">Code Score</span>
                                             <div className="flex items-center gap-1">
                                                 {activeTaskModal.code_review_score ? (
                                                     <>
                                                         <span className="font-bold text-emerald-400">{activeTaskModal.code_review_score}%</span>
                                                         <Cpu size={14} className="text-emerald-400" />
                                                     </>
-                                                ) : <span className="text-slate-500 italic">No score</span>}
+                                                ) : <span className="dark:text-slate-500 text-slate-400 italic">No score</span>}
                                             </div>
                                         </div>
                                     </div>
@@ -1078,10 +1287,10 @@ const LearningPath: React.FC = () => {
             {/* Milestone Detailed Modal */}
             {activeMilestoneModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setActiveMilestoneModal(null)} />
-                    <div className="relative z-10 w-full max-w-2xl bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
+                    <div className="absolute inset-0 dark:bg-slate-950/80 bg-slate-900/60 backdrop-blur-sm" onClick={() => setActiveMilestoneModal(null)} />
+                    <div className="relative z-10 w-full max-w-2xl dark:bg-slate-900 dark:border border-slate-700/60 bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
                         {/* Header */}
-                        <div className="flex items-start justify-between p-6 border-b border-slate-800">
+                        <div className="flex items-start justify-between p-6 dark:border-b dark:border-slate-800 border-b border-slate-200">
                             <div className="flex gap-4 items-center">
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg
                                     ${activeMilestoneModal.status === 'COMPLETED' ? 'bg-gradient-to-br from-emerald-500 to-green-600' : 
@@ -1093,12 +1302,12 @@ const LearningPath: React.FC = () => {
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2 mb-1">
-                                        <h2 className="text-xl font-bold text-slate-100">{activeMilestoneModal.title}</h2>
+                                        <h2 className="text-xl font-bold dark:text-slate-100 text-slate-800">{activeMilestoneModal.title}</h2>
                                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${DIFFICULTY_BG[activeMilestoneModal.difficulty] || DIFFICULTY_BG[3]}`}>
                                             {DIFFICULTY_LABELS[activeMilestoneModal.difficulty]}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-3 text-sm text-slate-400">
+                                    <div className="flex items-center gap-3 text-sm dark:text-slate-400 text-slate-600">
                                         <span className="flex items-center gap-1"><Clock size={14} /> {activeMilestoneModal.estimated_hours} hours required</span>
                                         <span>•</span>
                                         <span className={`${activeMilestoneModal.status === 'COMPLETED' ? 'text-emerald-400' : activeMilestoneModal.status === 'IN_PROGRESS' ? 'text-violet-400 animate-pulse' : 'text-slate-500'}`}>
@@ -1107,7 +1316,7 @@ const LearningPath: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                            <button onClick={() => setActiveMilestoneModal(null)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors">
+                            <button onClick={() => setActiveMilestoneModal(null)} className="p-2 dark:hover:bg-slate-800 rounded-lg dark:text-slate-400 dark:hover:text-white hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
@@ -1117,23 +1326,23 @@ const LearningPath: React.FC = () => {
                             
                             {/* Description */}
                             <div>
-                                <h3 className="text-sm font-semibold text-slate-100 mb-2">Milestone Description</h3>
-                                <p className="text-sm text-slate-300 leading-relaxed p-4 bg-slate-800/30 rounded-xl border border-slate-700/30">
+                                <h3 className="text-sm font-semibold dark:text-slate-100 text-slate-800 mb-2">Milestone Description</h3>
+                                <p className="text-sm dark:text-slate-300 text-slate-700 leading-relaxed p-4 dark:bg-slate-800/30 rounded-xl dark:border border-slate-700/30 bg-white/50 border border-slate-200/30">
                                     {activeMilestoneModal.description}
                                 </p>
                             </div>
 
                             {/* Mastery Target vs Current */}
                             <div>
-                                <h3 className="text-sm font-semibold text-slate-100 mb-2">Mastery Objective</h3>
-                                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+                                <h3 className="text-sm font-semibold dark:text-slate-100 text-slate-800 mb-2">Mastery Objective</h3>
+                                <div className="dark:bg-slate-800/50 dark:border border-slate-700/50 rounded-xl p-4 bg-white/50 border border-slate-200/50">
                                     <div className="flex items-center justify-between text-sm mb-2">
-                                        <span className="text-slate-300">Skill Target: <span className="font-bold text-slate-100">{activeMilestoneModal.skill}</span></span>
+                                        <span className="dark:text-slate-300 text-slate-700">Skill Target: <span className="font-bold dark:text-slate-100 text-slate-800">{activeMilestoneModal.skill}</span></span>
                                         <span className={activeMilestoneModal.current_mastery >= activeMilestoneModal.mastery_target ? 'text-emerald-400 font-bold' : 'text-slate-400 font-bold'}>
                                             {Math.round(activeMilestoneModal.current_mastery * 100)}% / {Math.round(activeMilestoneModal.mastery_target * 100)}%
                                         </span>
                                     </div>
-                                    <div className="h-2 bg-slate-900 rounded-full overflow-hidden relative">
+                                    <div className="h-2 dark:bg-slate-900 bg-slate-200 rounded-full overflow-hidden relative">
                                         <div 
                                             className="absolute top-0 bottom-0 left-0 bg-slate-700" 
                                             style={{ width: `${Math.round(activeMilestoneModal.mastery_target * 100)}%` }}
@@ -1151,14 +1360,14 @@ const LearningPath: React.FC = () => {
 
                             {/* Dependencies Graph / Prereqs */}
                             <div>
-                                <h3 className="text-sm font-semibold text-slate-100 mb-2">Required Dependencies</h3>
+                                <h3 className="text-sm font-semibold dark:text-slate-100 text-slate-800 mb-2">Required Dependencies</h3>
                                 {activeMilestoneModal.prerequisites.length > 0 ? (
-                                    <div className="flex flex-wrap gap-2 p-4 bg-slate-800/30 rounded-xl border border-slate-700/30">
+                                    <div className="flex flex-wrap gap-2 p-4 dark:bg-slate-800/30 rounded-xl dark:border border-slate-700/30 bg-white/50 border border-slate-200/30">
                                         {activeMilestoneModal.prerequisites.map(p => {
                                             const prereqNode = path?.milestones.find(m => m.skill === p);
                                             const isDone = prereqNode?.status === 'COMPLETED';
                                             return (
-                                                <div key={p} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${isDone ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                                                <div key={p} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${isDone ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 bg-white border border-slate-200 text-slate-600'}`}>
                                                     {isDone ? <CheckCircle2 size={14} /> : <Clock size={14} />}
                                                     <span className="text-sm font-medium">{p}</span>
                                                 </div>
@@ -1166,7 +1375,7 @@ const LearningPath: React.FC = () => {
                                         })}
                                     </div>
                                 ) : (
-                                    <div className="flex items-center gap-2 text-sm text-slate-400 italic bg-slate-800/20 rounded-xl p-4 border border-slate-800">
+                                    <div className="flex items-center gap-2 text-sm dark:text-slate-400 text-slate-500 italic dark:bg-slate-800/20 rounded-xl p-4 dark:border border-slate-800 bg-white/50 border border-slate-200">
                                         <Target size={14} /> No prerequisites mapped for this skill.
                                     </div>
                                 )}
@@ -1175,11 +1384,11 @@ const LearningPath: React.FC = () => {
                             {/* Learning Resources */}
                             {activeMilestoneModal.resources.length > 0 && (
                                 <div>
-                                    <h3 className="text-sm font-semibold text-slate-100 mb-2">Recommended Learning Resources</h3>
+                                    <h3 className="text-sm font-semibold dark:text-slate-100 text-slate-800 mb-2">Recommended Learning Resources</h3>
                                     <div className="space-y-2">
                                         {activeMilestoneModal.resources.map((r, i) => (
                                             <a key={i} href={r.url} target="_blank" rel="noopener noreferrer"
-                                                className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-slate-800/40 hover:bg-slate-700/60 border border-slate-700/50 hover:border-violet-500/40 transition-all text-left">
+                                                className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl dark:bg-slate-800/40 dark:hover:bg-slate-700/60 dark:border border-slate-700/50 dark:hover:border-violet-500/40 bg-white/50 hover:bg-slate-100 border border-slate-200 hover:border-violet-400/40 transition-all text-left">
                                                 <div>
                                                     <p className="text-sm font-medium text-violet-300 group-hover:text-violet-200 transition-colors flex items-center gap-2">
                                                         {r.type.toLowerCase() === 'video' ? <Play size={14} /> : <BookOpen size={14} />}
@@ -1188,7 +1397,7 @@ const LearningPath: React.FC = () => {
                                                     <p className="text-xs text-slate-500 mt-1 sm:mt-0 font-mono hidden sm:block truncate max-w-sm">{r.url}</p>
                                                 </div>
                                                 <div className="mt-2 sm:mt-0 self-start sm:self-auto">
-                                                    <span className="px-2 py-1 rounded bg-slate-900 border border-slate-700 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                    <span className="px-2 py-1 rounded dark:bg-slate-900 dark:border border-slate-700 dark:text-slate-400 bg-slate-200 border border-slate-300 text-slate-600 text-[10px] font-bold uppercase tracking-wider">
                                                         {r.type}
                                                     </span>
                                                 </div>

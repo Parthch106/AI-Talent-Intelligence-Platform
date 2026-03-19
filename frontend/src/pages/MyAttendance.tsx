@@ -3,6 +3,7 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { AttendanceHeatmap, Card } from '../components/common';
 import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, TrendingUp, ChevronLeft, ChevronRight, Filter, Home } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface AttendanceRecord {
     id: number;
@@ -134,7 +135,7 @@ const MyAttendance: React.FC = () => {
         } catch (err: any) {
             console.error('Error fetching attendance:', err);
             if (err.response?.data?.error) {
-                alert('Error: ' + err.response.data.error);
+                toast.error('Error: ' + err.response.data.error);
             }
             setAllAttendance([]);
         } finally {

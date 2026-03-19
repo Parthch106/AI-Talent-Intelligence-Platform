@@ -13,8 +13,9 @@ from django.db.models import Q, Avg, Count
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
 from apps.interns.models import InternProfile
-from apps.projects.models import Project
+from apps.projects.models import Project, ProjectAssignment
 from apps.accounts.models import User
+from apps.feedback.models import Feedback
 from apps.analytics.services import AnalyticsDashboardService
 from apps.analytics.services.internship_monitoring_service import InternshipMonitoringService
 from apps.analytics.models import (
@@ -23,6 +24,8 @@ from apps.analytics.models import (
     WeeklyReport,
     PerformanceMetrics,
     MonthlyEvaluationReport,
+    Application,
+    ModelPrediction,
 )
 from apps.analytics.services.weekly_report_parser import parse_weekly_report
 
@@ -111,7 +114,6 @@ class DashboardStatsView(APIView):
         elif str(user.role) == str(User.Role.INTERN):
             # My Project Assignments
             try:
-                from apps.projects.models import ProjectAssignment
                 my_assignments = ProjectAssignment.objects.filter(intern=user)
                 data['assigned_projects'] = my_assignments.count()
                 data['completed_projects'] = my_assignments.filter(status='COMPLETED').count()
@@ -123,7 +125,6 @@ class DashboardStatsView(APIView):
             
             # My Tasks - get from TaskTracking
             try:
-                from apps.analytics.models import TaskTracking
                 my_tasks = TaskTracking.objects.filter(intern=user)
                 data['total_tasks'] = my_tasks.count()
                 data['completed_tasks'] = my_tasks.filter(status='COMPLETED').count()
@@ -135,7 +136,6 @@ class DashboardStatsView(APIView):
             
             # My Feedback score - get from Feedback model (use recipient, rating)
             try:
-                from apps.feedback.models import Feedback
                 feedbacks = Feedback.objects.filter(recipient=user)
                 if feedbacks.exists():
                     avg_score = feedbacks.aggregate(Avg('rating'))['rating__avg']
@@ -145,11 +145,17 @@ class DashboardStatsView(APIView):
             except Exception as e:
                 data['average_score'] = "N/A"
             
-            # Also get from analytics if available
+            # My AI Readiness score - from ModelPrediction (V2)
             try:
-                from apps.analytics.models import InternIntelligence
-                intelligence = InternIntelligence.objects.get(intern=user)
-                data['ai_readiness_score'] = round(intelligence.overall_score * 100, 1) if intelligence.overall_score else 0
+                application = Application.objects.filter(intern=user).first()
+                if application:
+                    prediction = ModelPrediction.objects.filter(application=application).first()
+                    if prediction:
+                        data['ai_readiness_score'] = round(prediction.suitability_score * 100, 1) if prediction.suitability_score else 0
+                    else:
+                        data['ai_readiness_score'] = 0
+                else:
+                    data['ai_readiness_score'] = 0
             except Exception:
                 data['ai_readiness_score'] = 0
             
@@ -394,6 +400,10 @@ class TaskTrackingView(APIView):
                 'name': task.project_assignment.project.name,
                 'status': task.project_assignment.status,
             } if task.project_assignment else None,
+            'module': {
+                'id': task.project_module.id,
+                'name': task.project_module.name,
+            } if task.project_module else None,
         } for task in tasks]
 
         return Response({'tasks': data})
@@ -440,6 +450,7 @@ class TaskTrackingView(APIView):
             due_date=task_data.get('due_date'),
             estimated_hours=task_data.get('estimated_hours', 0.0),
             project_assignment_id=task_data.get('project_assignment_id'),
+            project_module_id=task_data.get('project_module_id'),
         )
 
         return Response({
@@ -1379,8 +1390,21 @@ class TaskHeatmapView(APIView):
             target_id = user.id
 
         # Calculate date range
-        end_date = timezone.now().date()
-        start_date = end_date - relativedelta(months=months)
+        start_date_param = request.query_params.get('start_date')
+        end_date_param = request.query_params.get('end_date')
+
+        if start_date_param and end_date_param:
+            try:
+                start_date = datetime.strptime(start_date_param, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_date_param, '%Y-%m-%d').date()
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid date format. Use YYYY-MM-DD'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            end_date = timezone.now().date()
+            start_date = end_date - relativedelta(months=months)
 
         # Get completed tasks in date range
         tasks = TaskTracking.objects.filter(
@@ -1971,8 +1995,8 @@ class LLMTaskSuggestionView(APIView):
             )
         
         intern_id = request.data.get('intern_id')
-        project_requirements = request.data.get('project_requirements')
-        target_role = request.data.get('target_role')
+        module_id = request.data.get('module_id')
+        task_context = request.data.get('task_context')
         num_suggestions = request.data.get('num_suggestions', 3)
         
         if not intern_id:
@@ -2015,15 +2039,17 @@ class LLMTaskSuggestionView(APIView):
                 'title', 'description', 'status', 'due_date'
             ))
             
-            # Get the target role from applications if not provided
-            if not target_role:
-                from apps.analytics.models import Application
-                app = Application.objects.filter(
-                    intern_id=intern_id, 
-                    application_status='OFFERED'
-                ).first()
-                if app and app.job_role:
-                    target_role = app.job_role.role_title
+            # Get module info if provided
+            module_name = None
+            module_description = None
+            if module_id:
+                from apps.projects.models import ProjectModule
+                try:
+                    module = ProjectModule.objects.get(id=module_id)
+                    module_name = module.name
+                    module_description = module.description
+                except ProjectModule.DoesNotExist:
+                    pass
             
             # Generate task suggestions using LLM
             from apps.analytics.services.llm_task_generator import get_task_generator
@@ -2034,8 +2060,9 @@ class LLMTaskSuggestionView(APIView):
                 intern_skills=skills,
                 completed_tasks=completed_tasks,
                 ongoing_tasks=ongoing_tasks,
-                project_requirements=project_requirements,
-                target_role=target_role,
+                module_name=module_name,
+                module_description=module_description,
+                task_context=task_context,
                 num_suggestions=num_suggestions
             )
             
@@ -2050,6 +2077,8 @@ class LLMTaskSuggestionView(APIView):
                 'intern_name': intern.full_name or intern.email,
                 'tasks': result.get('tasks', []),
                 'summary': result.get('summary', ''),
+                'completed_tasks': completed_tasks,
+                'ongoing_tasks': ongoing_tasks,
                 'message': f'Generated {len(result.get("tasks", []))} task suggestions'
             }, status=status.HTTP_200_OK)
             

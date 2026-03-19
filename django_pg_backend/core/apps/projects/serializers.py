@@ -1,10 +1,16 @@
 from rest_framework import serializers
-from .models import Project, ProjectAssignment
+from .models import Project, ProjectAssignment, ProjectModule
 from apps.accounts.models import User
 from apps.accounts.serializers import UserSerializer
 
+class ProjectModuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectModule
+        fields = '__all__'
+
 class ProjectSerializer(serializers.ModelSerializer):
     mentor = UserSerializer(read_only=True)
+    modules = ProjectModuleSerializer(many=True, read_only=True)
 
     class Meta:
         model = Project

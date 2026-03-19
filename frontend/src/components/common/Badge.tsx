@@ -11,31 +11,31 @@ interface BadgeProps {
 }
 
 const variantClasses = {
-    default: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
-    success: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-    warning: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-    danger: 'bg-red-500/20 text-red-400 border-red-500/30',
-    info: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    purple: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    pink: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
-    indigo: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
+    default: 'bg-[var(--bg-muted)] text-[var(--text-dim)] border-[var(--border-color)]',
+    success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 shadow-sm shadow-emerald-500/5',
+    warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 shadow-sm shadow-amber-500/5',
+    danger: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20 shadow-sm shadow-red-500/5',
+    info: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 shadow-sm shadow-blue-500/5',
+    purple: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 shadow-sm shadow-purple-500/5',
+    pink: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20 shadow-sm shadow-pink-500/5',
+    indigo: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 shadow-sm shadow-indigo-500/5',
 };
 
 const sizeClasses = {
-    sm: 'px-2 py-0.5 text-xs',
-    md: 'px-3 py-1 text-xs',
-    lg: 'px-4 py-1.5 text-sm',
+    sm: 'px-2 py-0.5 text-[8px] tracking-widest',
+    md: 'px-3 py-1 text-[9px] tracking-[0.15em]',
+    lg: 'px-4 py-1.5 text-[10px] tracking-[0.2em]',
 };
 
 const dotColors = {
-    default: 'bg-slate-400',
-    success: 'bg-emerald-400',
-    warning: 'bg-amber-400',
-    danger: 'bg-red-400',
-    info: 'bg-blue-400',
-    purple: 'bg-purple-400',
-    pink: 'bg-pink-400',
-    indigo: 'bg-indigo-400',
+    default: 'bg-slate-500',
+    success: 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
+    warning: 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]',
+    danger: 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]',
+    info: 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]',
+    purple: 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]',
+    pink: 'bg-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.5)]',
+    indigo: 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]',
 };
 
 const Badge: React.FC<BadgeProps> = ({

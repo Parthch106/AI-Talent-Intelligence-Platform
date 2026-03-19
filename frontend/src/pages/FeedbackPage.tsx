@@ -315,8 +315,8 @@ const FeedbackPage: React.FC = () => {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                    <p className="text-slate-400 animate-pulse">Loading feedback...</p>
+                    <div className="w-16 h-16 border-4 border-purple-500/10 border-t-purple-500 rounded-full animate-spin"></div>
+                    <p className="text-[var(--text-dim)] animate-pulse">Loading feedback...</p>
                 </div>
             </div>
         );
@@ -339,10 +339,10 @@ const FeedbackPage: React.FC = () => {
             {/* Page Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">
+                    <h1 className="text-3xl font-bold text-[var(--text-main)] mb-2">
                         Feedback <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Center</span>
                     </h1>
-                    <p className="text-slate-400">View and manage performance feedback</p>
+                    <p className="text-[var(--text-dim)]">View and manage performance feedback</p>
                 </div>
                 {canGiveFeedback && (
                     <Button
@@ -356,13 +356,13 @@ const FeedbackPage: React.FC = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex items-center gap-2 p-1 bg-slate-800/50 rounded-xl border border-slate-700 w-fit">
+            <div className="flex items-center gap-2 p-1 bg-[var(--bg-muted)] rounded-xl border border-[var(--border-color)] w-fit">
                 {canGiveFeedback && (
                     <button
                         onClick={() => setActiveTab('given')}
                         className={`px-6 py-2.5 rounded-lg font-medium transition-all duration-300 ${activeTab === 'given'
                             ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25'
-                            : 'text-slate-400 hover:text-white'
+                            : 'text-[var(--text-dim)] hover:text-[var(--text-main)]'
                             }`}
                     >
                         Given ({displayedFeedback.length})
@@ -372,7 +372,7 @@ const FeedbackPage: React.FC = () => {
                     onClick={() => setActiveTab('received')}
                     className={`px-6 py-2.5 rounded-lg font-medium transition-all duration-300 ${activeTab === 'received'
                         ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25'
-                        : 'text-slate-400 hover:text-white'
+                        : 'text-[var(--text-dim)] hover:text-[var(--text-main)]'
                         }`}
                 >
                     Received ({displayedFeedback.length})
@@ -380,7 +380,7 @@ const FeedbackPage: React.FC = () => {
             </div>
 
             {/* Filters and Search */}
-            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+            <div className="bg-[var(--bg-muted)] rounded-xl p-4 border border-[var(--border-color)]">
                 <div className="flex flex-wrap gap-4 items-center">
                     {/* Search */}
                     <div className="flex-1 min-w-[200px]">
@@ -389,7 +389,7 @@ const FeedbackPage: React.FC = () => {
                             placeholder="Search feedback, names, tasks..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                            className="w-full px-4 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                         />
                     </div>
 
@@ -397,7 +397,7 @@ const FeedbackPage: React.FC = () => {
                     <select
                         value={feedbackTypeFilter}
                         onChange={(e) => setFeedbackTypeFilter(e.target.value)}
-                        className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                        className="px-4 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                     >
                         <option value="all">All Types</option>
                         <option value="WEEKLY">Weekly</option>
@@ -412,7 +412,7 @@ const FeedbackPage: React.FC = () => {
                     <select
                         value={taskStatusFilter}
                         onChange={(e) => setTaskStatusFilter(e.target.value)}
-                        className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                        className="px-4 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                     >
                         <option value="all">All Task Status</option>
                         <option value="IN_PROGRESS">In Progress</option>
@@ -424,7 +424,7 @@ const FeedbackPage: React.FC = () => {
                     <select
                         value={ratingFilter}
                         onChange={(e) => setRatingFilter(e.target.value)}
-                        className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                        className="px-4 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                     >
                         <option value="all">All Ratings</option>
                         <option value="5">5 Stars</option>
@@ -438,7 +438,7 @@ const FeedbackPage: React.FC = () => {
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as any)}
-                        className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                        className="px-4 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                     >
                         <option value="newest">Newest First</option>
                         <option value="oldest">Oldest First</option>
@@ -452,11 +452,11 @@ const FeedbackPage: React.FC = () => {
             <div className="space-y-4">
                 {displayedFeedback.length === 0 ? (
                     <Card className="text-center py-12">
-                        <div className="w-20 h-20 mx-auto mb-4 bg-slate-800/50 rounded-2xl flex items-center justify-center">
-                            <MessageSquare size={32} className="text-slate-500" />
+                        <div className="w-20 h-20 mx-auto mb-4 bg-[var(--bg-muted)] rounded-2xl flex items-center justify-center">
+                            <MessageSquare size={32} className="text-[var(--text-muted)]" />
                         </div>
-                        <h3 className="text-lg font-medium text-white mb-2">No feedback {activeTab === 'given' ? 'given' : 'received'} yet</h3>
-                        <p className="text-slate-400 mb-6">
+                        <h3 className="text-lg font-medium text-[var(--text-main)] mb-2">No feedback {activeTab === 'given' ? 'given' : 'received'} yet</h3>
+                        <p className="text-[var(--text-dim)] mb-6">
                             {activeTab === 'given'
                                 ? 'Start giving feedback to your team members'
                                 : 'Feedback you receive will appear here'}
@@ -484,13 +484,13 @@ const FeedbackPage: React.FC = () => {
                                         </div>
                                     </div>
                                     <div>
-                                        <h3 className="font-semibold text-white group-hover:text-purple-200 transition-colors">
+                                        <h3 className="font-semibold text-[var(--text-main)] group-hover:text-purple-600 dark:group-hover:text-purple-300 transition-colors">
                                             {activeTab === 'given'
                                                 ? `To: ${item.recipient.full_name}`
                                                 : `From: ${item.reviewer.full_name}`
                                             }
                                         </h3>
-                                        <p className="text-sm text-slate-400">
+                                        <p className="text-sm text-[var(--text-dim)]">
                                             {item.reviewer.role === 'MANAGER' ? 'Manager' :
                                                 item.reviewer.role === 'ADMIN' ? 'Admin' : 'Intern'}
                                         </p>
@@ -501,8 +501,8 @@ const FeedbackPage: React.FC = () => {
                                 <div className="flex items-center gap-4">
                                     {getFeedbackBadge(item.feedback_type)}
                                     <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                                        <Star size={16} className="text-amber-400 fill-amber-400" />
-                                        <span className="font-bold text-amber-400">{item.rating}/5</span>
+                                        <Star size={16} className="text-amber-600 dark:text-amber-400 fill-amber-500/30" />
+                                        <span className="font-bold text-amber-600 dark:text-amber-400">{item.rating}/5</span>
                                     </div>
                                 </div>
                             </div>
@@ -511,11 +511,11 @@ const FeedbackPage: React.FC = () => {
                             {item.task && (
                                 <div className="mt-3 space-y-3">
                                     {/* Task Header */}
-                                    <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                                    <div className="p-3 bg-purple-500/5 rounded-xl border border-purple-500/10">
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
-                                                <Target size={14} className="text-purple-400" />
-                                                <span className="text-sm font-medium text-purple-300">
+                                                <Target size={14} className="text-purple-600 dark:text-purple-400" />
+                                                <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
                                                     {item.task.title}
                                                 </span>
                                             </div>
@@ -526,7 +526,7 @@ const FeedbackPage: React.FC = () => {
                                         </div>
                                         
                                         {/* Task ID and Priority */}
-                                        <div className="flex items-center gap-4 text-xs text-slate-400">
+                                        <div className="flex items-center gap-4 text-xs text-[var(--text-dim)]">
                                             <span>ID: {item.task.task_id}</span>
                                             {getPriorityBadge(item.task.priority)}
                                         </div>
@@ -534,13 +534,13 @@ const FeedbackPage: React.FC = () => {
                                     
                                     {/* Project Information */}
                                     {item.task.project_name && (
-                                        <div className="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                                        <div className="p-3 bg-[var(--bg-muted)] rounded-xl border border-[var(--border-color)]">
                                             <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Project</span>
+                                                <span className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">Project</span>
                                             </div>
-                                            <p className="text-sm text-white font-medium">{item.task.project_name}</p>
+                                            <p className="text-sm text-[var(--text-main)] font-medium">{item.task.project_name}</p>
                                             {item.task.project_description && (
-                                                <p className="text-xs text-slate-400 mt-1 line-clamp-2">{item.task.project_description}</p>
+                                                <p className="text-xs text-[var(--text-muted)] mt-1 line-clamp-2">{item.task.project_description}</p>
                                             )}
                                         </div>
                                     )}
@@ -548,78 +548,78 @@ const FeedbackPage: React.FC = () => {
                                     {/* Task Details Grid */}
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                                         {/* Deadline */}
-                                        <div className="p-2 bg-slate-800/50 rounded-lg">
-                                            <div className="flex items-center gap-1 text-slate-400 mb-1">
+                                        <div className="p-2 bg-[var(--bg-muted)] rounded-lg">
+                                            <div className="flex items-center gap-1 text-[var(--text-dim)] mb-1">
                                                 <Clock size={12} />
                                                 <span>Due Date</span>
                                             </div>
-                                            <p className="text-white">
+                                            <p className="text-[var(--text-main)]">
                                                 {item.task.due_date ? new Date(item.task.due_date).toLocaleDateString() : 'N/A'}
                                             </p>
                                         </div>
                                         
                                         {/* Hours */}
-                                        <div className="p-2 bg-slate-800/50 rounded-lg">
-                                            <div className="flex items-center gap-1 text-slate-400 mb-1">
+                                        <div className="p-2 bg-[var(--bg-muted)] rounded-lg">
+                                            <div className="flex items-center gap-1 text-[var(--text-dim)] mb-1">
                                                 <Clock size={12} />
                                                 <span>Est. Hours</span>
                                             </div>
-                                            <p className="text-white">
+                                            <p className="text-[var(--text-main)]">
                                                 {item.task.estimated_hours}h
                                             </p>
                                         </div>
                                         
                                         {/* Quality Rating */}
                                         {item.task.quality_rating !== null && (
-                                            <div className="p-2 bg-slate-800/50 rounded-lg">
-                                                <div className="flex items-center gap-1 text-slate-400 mb-1">
-                                                    <Star size={12} className="text-amber-400" />
+                                            <div className="p-2 bg-[var(--bg-muted)] rounded-lg">
+                                                <div className="flex items-center gap-1 text-[var(--text-dim)] mb-1">
+                                                    <Star size={12} className="text-amber-500" />
                                                     <span>Quality</span>
                                                 </div>
-                                                <p className="text-white">{item.task.quality_rating}/5</p>
+                                                <p className="text-[var(--text-main)]">{item.task.quality_rating}/5</p>
                                             </div>
                                         )}
                                         
                                         {/* Code Review */}
                                         {item.task.code_review_score !== null && (
-                                            <div className="p-2 bg-slate-800/50 rounded-lg">
-                                                <div className="flex items-center gap-1 text-slate-400 mb-1">
-                                                    <CheckCircle size={12} className="text-emerald-400" />
+                                            <div className="p-2 bg-[var(--bg-muted)] rounded-lg">
+                                                <div className="flex items-center gap-1 text-[var(--text-dim)] mb-1">
+                                                    <CheckCircle size={12} className="text-emerald-500" />
                                                     <span>Code Review</span>
                                                 </div>
-                                                <p className="text-white">{item.task.code_review_score}%</p>
+                                                <p className="text-[var(--text-main)]">{item.task.code_review_score}%</p>
                                             </div>
                                         )}
                                     </div>
                                     
                                     {/* Mentor */}
                                     {item.task.mentor_name && (
-                                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                                        <div className="flex items-center gap-2 text-xs text-[var(--text-dim)]">
                                             <User size={12} />
-                                            <span>Mentor: <span className="text-slate-300">{item.task.mentor_name}</span></span>
+                                            <span>Mentor: <span className="text-[var(--text-main)]">{item.task.mentor_name}</span></span>
                                         </div>
                                     )}
                                     
                                     {/* Intern */}
                                     {item.task.intern && (
-                                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                                        <div className="flex items-center gap-2 text-xs text-[var(--text-dim)]">
                                             <User size={12} />
-                                            <span>Intern: <span className="text-slate-300">{item.task.intern.full_name}</span></span>
+                                            <span>Intern: <span className="text-[var(--text-main)]">{item.task.intern.full_name}</span></span>
                                         </div>
                                     )}
                                     
                                     {/* Task Description */}
                                     {item.task.description && (
-                                        <div className="p-2 bg-slate-800/30 rounded-lg">
-                                            <p className="text-xs text-slate-400 line-clamp-2">{item.task.description}</p>
+                                        <div className="p-2 bg-[var(--bg-muted)]/50 rounded-lg">
+                                            <p className="text-xs text-[var(--text-muted)] line-clamp-2">{item.task.description}</p>
                                         </div>
                                     )}
                                 </div>
                             )}
 
                             {/* Comments */}
-                            <div className="mt-4 p-4 bg-slate-800/30 rounded-xl border border-white/5">
-                                <p className="text-slate-300">{item.comments}</p>
+                            <div className="mt-4 p-4 bg-[var(--bg-muted)] rounded-xl border border-[var(--border-color)]">
+                                <p className="text-[var(--text-main)]">{item.comments}</p>
                             </div>
 
                             {/* Strengths & Improvements */}
@@ -627,25 +627,25 @@ const FeedbackPage: React.FC = () => {
                                 {item.strengths && (
                                     <div className="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <ThumbsUp size={14} className="text-emerald-400" />
-                                            <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Strengths</span>
+                                            <ThumbsUp size={14} className="text-emerald-600 dark:text-emerald-400" />
+                                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Strengths</span>
                                         </div>
-                                        <p className="text-sm text-slate-300">{item.strengths}</p>
+                                        <p className="text-sm text-[var(--text-dim)]">{item.strengths}</p>
                                     </div>
                                 )}
                                 {item.areas_for_improvement && (
                                     <div className="p-4 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <TrendingUp size={14} className="text-indigo-400" />
-                                            <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Areas to Improve</span>
+                                            <TrendingUp size={14} className="text-indigo-600 dark:text-indigo-400" />
+                                            <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Areas to Improve</span>
                                         </div>
-                                        <p className="text-sm text-slate-300">{item.areas_for_improvement}</p>
+                                        <p className="text-sm text-[var(--text-dim)]">{item.areas_for_improvement}</p>
                                     </div>
                                 )}
                             </div>
 
                             {/* Date */}
-                            <div className="flex items-center justify-end gap-2 mt-4 text-sm text-slate-500">
+                            <div className="flex items-center justify-end gap-2 mt-4 text-sm text-[var(--text-muted)]">
                                 <Calendar size={14} />
                                 {new Date(item.created_at).toLocaleDateString('en-US', {
                                     year: 'numeric',
@@ -661,24 +661,24 @@ const FeedbackPage: React.FC = () => {
             {/* Give Feedback Modal */}
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowModal(false)}></div>
-                    <div className="relative bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-purple-500/20 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)}></div>
+                    <div className="relative bg-[var(--bg-color)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl shadow-purple-500/10 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
                         {/* Modal Header */}
-                        <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-white/10 z-10">
+                        <div className="sticky top-0 bg-[var(--bg-color)] backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] z-10">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl flex items-center justify-center">
+                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl flex items-center justify-center">
                                     <MessageSquare size={18} className="text-purple-400" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-bold text-white">Give Feedback</h2>
-                                    <p className="text-xs text-slate-400">Share your thoughts and help others grow</p>
+                                    <h2 className="text-lg font-bold text-[var(--text-main)]">Give Feedback</h2>
+                                    <p className="text-xs text-[var(--text-dim)]">Share your thoughts and help others grow</p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setShowModal(false)}
-                                className="p-2 hover:bg-white/5 rounded-xl transition-colors group"
+                                className="p-2 hover:bg-[var(--bg-muted)] rounded-xl transition-colors group"
                             >
-                                <X size={20} className="text-slate-400 group-hover:text-white transition-colors" />
+                                <X size={20} className="text-[var(--text-dim)] group-hover:text-[var(--text-main)] transition-colors" />
                             </button>
                         </div>
 
@@ -690,19 +690,19 @@ const FeedbackPage: React.FC = () => {
                                 </div>
                             )}
 
-                            <div className="group">
-                                <label className="block text-sm font-medium text-slate-300 mb-2">
+                             <div className="group">
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">
                                     {user?.role === 'ADMIN' ? 'Recipient (Manager or Intern)' : 'Recipient (Intern)'} *
                                 </label>
                                 <select
                                     required
                                     value={newFeedback.recipient_id || ''}
                                     onChange={e => setNewFeedback(prev => ({ ...prev, recipient_id: parseInt(e.target.value) }))}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
+                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
                                 >
                                     <option value="">Select recipient...</option>
                                     {getRecipients().map(u => (
-                                        <option key={u.id} value={u.id}>
+                                        <option key={u.id} value={u.id} className="bg-[var(--bg-color)]">
                                             {u.full_name} ({u.role})
                                         </option>
                                     ))}
@@ -710,11 +710,11 @@ const FeedbackPage: React.FC = () => {
                             </div>
 
                             <div className="group">
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Feedback Type *</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Feedback Type *</label>
                                 <select
                                     value={newFeedback.feedback_type}
                                     onChange={e => setNewFeedback(prev => ({ ...prev, feedback_type: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
+                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
                                 >
                                     {user?.role === 'ADMIN' ? (
                                         <>
@@ -741,21 +741,21 @@ const FeedbackPage: React.FC = () => {
                             {/* Task Status - Show when TASK feedback type is selected */}
                             {newFeedback.feedback_type === 'TASK' && (
                                 <div className="group">
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Task Status *</label>
+                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Task Status *</label>
                                     <select
                                         value={newFeedback.task_status || ''}
                                         onChange={e => setNewFeedback(prev => ({ ...prev, task_status: e.target.value }))}
-                                        className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
+                                        className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
                                     >
-                                        <option value="IN_PROGRESS">In Progress</option>
-                                        <option value="COMPLETED_APPROVED">Complete - Approved</option>
-                                        <option value="COMPLETED_REWORK">Complete - Needs Rework</option>
+                                        <option value="IN_PROGRESS" className="bg-[var(--bg-color)]">In Progress</option>
+                                        <option value="COMPLETED_APPROVED" className="bg-[var(--bg-color)]">Complete - Approved</option>
+                                        <option value="COMPLETED_REWORK" className="bg-[var(--bg-color)]">Complete - Needs Rework</option>
                                     </select>
                                 </div>
                             )}
 
                             <div className="group">
-                                <label className="block text-sm font-medium text-slate-300 mb-3">Rating *</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-3">Rating *</label>
                                 <div className="flex items-center gap-2">
                                     {[1, 2, 3, 4, 5].map(star => (
                                         <button
@@ -777,36 +777,36 @@ const FeedbackPage: React.FC = () => {
                             </div>
 
                             <div className="group">
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Comments *</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Comments *</label>
                                 <textarea
                                     required
                                     value={newFeedback.comments}
                                     onChange={e => setNewFeedback(prev => ({ ...prev, comments: e.target.value }))}
                                     rows={4}
                                     placeholder="Provide detailed feedback..."
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
+                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
                                 />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="group">
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Strengths</label>
+                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Strengths</label>
                                     <textarea
                                         value={newFeedback.strengths}
                                         onChange={e => setNewFeedback(prev => ({ ...prev, strengths: e.target.value }))}
                                         rows={3}
                                         placeholder="What they do well..."
-                                        className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
+                                        className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
                                     />
                                 </div>
                                 <div className="group">
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Areas for Improvement</label>
+                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Areas for Improvement</label>
                                     <textarea
                                         value={newFeedback.areas_for_improvement}
                                         onChange={e => setNewFeedback(prev => ({ ...prev, areas_for_improvement: e.target.value }))}
                                         rows={3}
                                         placeholder="What they can improve..."
-                                        className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
+                                        className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
                                     />
                                 </div>
                             </div>

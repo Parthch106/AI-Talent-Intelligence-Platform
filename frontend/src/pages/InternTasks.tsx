@@ -51,8 +51,8 @@ const TaskCard: React.FC<{
             ref={dropdownRef}
             className={`relative rounded-2xl border backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 ${
                 showDropdown
-                    ? 'z-50 bg-slate-800/50 border-purple-500/50 shadow-xl shadow-purple-500/20'
-                    : 'bg-slate-800/30 border-white/5 hover:border-purple-500/30 hover:bg-slate-800/50 hover:shadow-lg hover:shadow-purple-500/10'
+                    ? 'z-50 bg-[var(--bg-muted)] border-purple-500/50 shadow-xl shadow-purple-500/20'
+                    : 'bg-[var(--card-bg)] border-[var(--border-color)] hover:border-purple-500/30 hover:bg-[var(--bg-muted)] hover:shadow-lg hover:shadow-purple-500/10'
             } p-6`}
         >
             {/* Decorative gradient */}
@@ -61,7 +61,7 @@ const TaskCard: React.FC<{
             <div className="relative flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div className="flex-1">
                     <div className="flex flex-wrap items-center gap-3 mb-3">
-                        <span className="text-xs text-slate-500 font-mono">{task.task_id}</span>
+                        <span className="text-xs text-[var(--text-muted)] font-mono">{task.task_id}</span>
                         <Badge variant={statusBadge.variant} withDot>
                             {statusBadge.label}
                         </Badge>
@@ -75,20 +75,20 @@ const TaskCard: React.FC<{
                         )}
                     </div>
 
-                    <h3 className="font-semibold text-white text-lg mb-2">{task.title}</h3>
+                    <h3 className="font-semibold text-[var(--text-main)] text-lg mb-2">{task.title}</h3>
 
                     {task.description && (
-                        <p className="text-sm text-slate-400 mb-3 line-clamp-2">{task.description}</p>
+                        <p className="text-sm text-[var(--text-dim)] mb-3 line-clamp-2">{task.description}</p>
                     )}
 
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--text-dim)]">
                         <div className="flex items-center gap-1.5">
                             <Calendar size={14} />
                             <span>Due: {formatDate(task.due_date)}</span>
                         </div>
                         {task.created_by?.full_name && (
                             <div className="flex items-center gap-1.5">
-                                <span className="text-slate-500">by</span>
+                                <span className="text-[var(--text-muted)]">by</span>
                                 <span className="text-blue-400">{task.created_by.full_name}</span>
                             </div>
                         )}
@@ -108,7 +108,7 @@ const TaskCard: React.FC<{
                         </Button>
 
                         {showDropdown && (
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl animate-scale-in overflow-hidden z-50">
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl shadow-2xl animate-scale-in overflow-hidden z-50">
                                 <div className="py-2">
                                     {availableStatuses.map((option) => (
                                         <button
@@ -117,14 +117,14 @@ const TaskCard: React.FC<{
                                             disabled={option.disabled}
                                             className={`w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors ${
                                                 option.disabled
-                                                    ? 'text-slate-500 cursor-not-allowed'
-                                                    : 'text-white hover:bg-slate-700'
+                                                    ? 'text-[var(--text-muted)] cursor-not-allowed'
+                                                    : 'text-[var(--text-main)] hover:bg-[var(--bg-muted)]'
                                             }`}
                                         >
                                             {option.icon}
                                             <span>{option.label}</span>
                                             {option.disabled && (
-                                                <span className="ml-auto text-xs text-slate-500">Current</span>
+                                                <span className="ml-auto text-xs text-[var(--text-muted)]">Current</span>
                                             )}
                                         </button>
                                     ))}
@@ -141,17 +141,17 @@ const TaskCard: React.FC<{
                             </span>
                         </div>
                     )}
-                    <ChevronRight size={20} className="text-slate-400" />
+                    <ChevronRight size={20} className="text-[var(--text-muted)]" />
                 </div>
             </div>
 
             {task.status === 'IN_PROGRESS' && (
-                <div className="mt-4 pt-4 border-t border-white/10">
+                <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
                     <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="text-slate-400">Progress</span>
+                        <span className="text-[var(--text-dim)]">Progress</span>
                         <span className="text-blue-400">In Progress</span>
                     </div>
-                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                         <div
                             className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-500"
                             style={{ width: '50%' }} // ← ideally come from backend
@@ -166,7 +166,7 @@ const TaskCard: React.FC<{
 };
 
 // ──────────────────────────────────────────────
-// Helper functions (unchanged)
+// Helper functions
 // ──────────────────────────────────────────────
 
 const getStatusBadge = (status: string) => {
@@ -222,14 +222,11 @@ const InternTasks: React.FC = () => {
 
         setLoading(true);
         try {
-            // Most common pattern:
-            //   • Intern → sees only own tasks (backend uses request.user)
-            //   • Manager/Admin → can see specific intern by passing intern_id
             const params =
-                user.role === 'INTERN' || user.role === 'INTERN'
+                user.role === 'INTERN'
                     ? {}
                     : user.role === 'MANAGER' || user.role === 'ADMIN'
-                    ? { intern_id: user.id } // ← review this logic
+                    ? { intern_id: user.id }
                     : {};
 
             const res = await axios.get('/analytics/tasks/', { params });
@@ -264,7 +261,6 @@ const InternTasks: React.FC = () => {
         }
     }, [user?.id, user?.role]);
 
-    // Improved click-outside handling
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (activeDropdown === null) return;
@@ -339,10 +335,8 @@ const InternTasks: React.FC = () => {
         return matchesFilter && matchesSearch;
     });
     
-    // Group tasks by project
     const groupedTasks = filteredTasks.reduce((groups: ProjectGroup[], task) => {
         if (!task.project) {
-            // Tasks without project go to "Unassigned" group
             const unassignedGroup = groups.find(g => g.id === 0);
             if (unassignedGroup) {
                 unassignedGroup.tasks.push(task);
@@ -365,14 +359,12 @@ const InternTasks: React.FC = () => {
         return groups;
     }, []);
     
-    // Calculate progress for each project group
     const getProjectProgress = (group: ProjectGroup) => {
         const total = group.tasks.length;
         const completed = group.tasks.filter(t => t.status === 'COMPLETED').length;
         return total > 0 ? Math.round((completed / total) * 100) : 0;
     };
     
-    // Get project status badge variant
     const getProjectStatusBadge = (status: string) => {
         switch (status) {
             case 'PENDING_APPROVAL':
@@ -388,7 +380,7 @@ const InternTasks: React.FC = () => {
         }
     };
 
-    const stats = {
+    const statsValues = {
         total: tasks.length,
         completed: tasks.filter((t) => t.status === 'COMPLETED').length,
         inProgress: tasks.filter((t) => t.status === 'IN_PROGRESS').length,
@@ -409,8 +401,8 @@ const InternTasks: React.FC = () => {
     }) => (
         <button
             onClick={onClick}
-            className={`relative rounded-2xl border backdrop-blur-xl bg-slate-800/30 p-5 text-left w-full transition-all hover:-translate-y-1 hover:shadow-lg ${
-                isActive ? 'border-purple-500/50 shadow-lg shadow-purple-500/20' : 'border-white/5 hover:border-purple-500/30'
+            className={`relative rounded-2xl border backdrop-blur-xl bg-[var(--card-bg)] p-5 text-left w-full transition-all hover:-translate-y-1 hover:shadow-lg ${
+                isActive ? 'border-purple-500/50 shadow-lg shadow-purple-500/20' : 'border-[var(--border-color)] hover:border-purple-500/30'
             } ${className}`}
         >
             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-500/5 pointer-events-none rounded-2xl" />
@@ -419,13 +411,13 @@ const InternTasks: React.FC = () => {
     );
 
     return (
-        <div className="min-h-screen bg-slate-950 p-6 md:p-8">
+        <div className="min-h-screen bg-[var(--bg-color)] p-6 md:p-8">
             <div className="max-w-7xl mx-auto">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-white">
+                    <h1 className="text-3xl font-bold text-[var(--text-main)]">
                         My <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Tasks</span>
                     </h1>
-                    <p className="text-slate-400 mt-1">View and manage your assigned tasks</p>
+                    <p className="text-[var(--text-dim)] mt-1">View and manage your assigned tasks</p>
                 </div>
 
                 {success && (
@@ -453,8 +445,8 @@ const InternTasks: React.FC = () => {
                                 <Target size={20} className="text-blue-400" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold text-white">{stats.total}</p>
-                                <p className="text-sm text-slate-400">Total Tasks</p>
+                                <p className="text-2xl font-bold text-[var(--text-main)]">{statsValues.total}</p>
+                                <p className="text-sm text-[var(--text-dim)]">Total Tasks</p>
                             </div>
                         </div>
                     </StatsCard>
@@ -469,8 +461,8 @@ const InternTasks: React.FC = () => {
                                 <CheckCircle size={20} className="text-emerald-400" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold text-white">{stats.completed}</p>
-                                <p className="text-sm text-slate-400">Completed</p>
+                                <p className="text-2xl font-bold text-[var(--text-main)]">{statsValues.completed}</p>
+                                <p className="text-sm text-[var(--text-dim)]">Completed</p>
                             </div>
                         </div>
                     </StatsCard>
@@ -485,8 +477,8 @@ const InternTasks: React.FC = () => {
                                 <PlayCircle size={20} className="text-blue-400" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold text-white">{stats.inProgress}</p>
-                                <p className="text-sm text-slate-400">In Progress</p>
+                                <p className="text-2xl font-bold text-[var(--text-main)]">{statsValues.inProgress}</p>
+                                <p className="text-sm text-[var(--text-dim)]">In Progress</p>
                             </div>
                         </div>
                     </StatsCard>
@@ -501,8 +493,8 @@ const InternTasks: React.FC = () => {
                                 <AlertTriangle size={20} className="text-red-400" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold text-white">{stats.blocked}</p>
-                                <p className="text-sm text-slate-400">Blocked</p>
+                                <p className="text-2xl font-bold text-[var(--text-main)]">{statsValues.blocked}</p>
+                                <p className="text-sm text-[var(--text-dim)]">Blocked</p>
                             </div>
                         </div>
                     </StatsCard>
@@ -517,8 +509,8 @@ const InternTasks: React.FC = () => {
                                 <Clock size={20} className="text-amber-400" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold text-white">{stats.overdue}</p>
-                                <p className="text-sm text-slate-400">Overdue</p>
+                                <p className="text-2xl font-bold text-[var(--text-main)]">{statsValues.overdue}</p>
+                                <p className="text-sm text-[var(--text-dim)]">Overdue</p>
                             </div>
                         </div>
                     </StatsCard>
@@ -541,21 +533,21 @@ const InternTasks: React.FC = () => {
 
                 <div className="flex flex-col sm:flex-row gap-4 mb-6">
                     <div className="relative flex-1">
-                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
                         <input
                             type="text"
                             placeholder="Search tasks..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                            className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                         />
                     </div>
                     <div className="flex items-center gap-2">
-                        <Filter size={18} className="text-slate-400" />
+                        <Filter size={18} className="text-[var(--text-muted)]" />
                         <select
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
-                            className="px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                            className="px-4 py-2.5 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                         >
                             <option value="all">All Status</option>
                             <option value="ASSIGNED">Assigned</option>
@@ -572,15 +564,15 @@ const InternTasks: React.FC = () => {
                         <div className="flex justify-center items-center min-h-[50vh]">
                             <div className="flex flex-col items-center gap-4">
                                 <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                                <p className="text-slate-400 animate-pulse">Loading tasks...</p>
+                                <p className="text-[var(--text-muted)] animate-pulse">Loading tasks...</p>
                             </div>
                         </div>
                     ) : filteredTasks.length === 0 ? (
-                        <div className="relative rounded-2xl border backdrop-blur-xl bg-slate-800/30 border-white/5 p-12 text-center">
+                        <div className="relative rounded-2xl border backdrop-blur-xl bg-[var(--bg-muted)] border-[var(--border-color)] p-12 text-center">
                             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-500/5 pointer-events-none rounded-2xl" />
-                            <Target size={48} className="mx-auto mb-4 text-slate-600" />
-                            <p className="text-lg font-medium text-white">No tasks found</p>
-                            <p className="text-sm text-slate-400 mt-1">
+                            <Target size={48} className="mx-auto mb-4 text-[var(--text-muted)]" />
+                            <p className="text-lg font-medium text-[var(--text-main)]">No tasks found</p>
+                            <p className="text-sm text-[var(--text-dim)] mt-1">
                                 {searchTerm || filter !== 'all'
                                     ? 'Try adjusting your filters or search term'
                                     : 'You will see tasks here once your manager assigns them'}
@@ -591,7 +583,7 @@ const InternTasks: React.FC = () => {
                             {groupedTasks.map((group) => (
                                 <div key={group.id} className="space-y-4">
                                     {/* Project Header */}
-                                    <div className="relative rounded-xl border backdrop-blur-xl bg-slate-800/50 border-white/10 p-4">
+                                    <div className="relative rounded-xl border backdrop-blur-xl bg-[var(--bg-muted)] border-[var(--border-color)] p-4">
                                         <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-cyan-500/10 pointer-events-none rounded-xl" />
                                         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                             <div className="flex items-center gap-3">
@@ -599,8 +591,8 @@ const InternTasks: React.FC = () => {
                                                     <Target size={20} className="text-purple-400" />
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-semibold text-white text-lg">{group.name}</h3>
-                                                    <p className="text-sm text-slate-400">
+                                                    <h3 className="font-semibold text-[var(--text-main)] text-lg">{group.name}</h3>
+                                                    <p className="text-sm text-[var(--text-dim)]">
                                                         {group.tasks.length} {group.tasks.length === 1 ? 'task' : 'tasks'}
                                                     </p>
                                                 </div>
@@ -608,13 +600,13 @@ const InternTasks: React.FC = () => {
                                             <div className="flex items-center gap-4">
                                                 {/* Progress bar */}
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                                    <div className="w-24 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                                                         <div
                                                             className="h-full bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full transition-all duration-500"
                                                             style={{ width: `${getProjectProgress(group)}%` }}
                                                         />
                                                     </div>
-                                                    <span className="text-sm text-slate-400">{getProjectProgress(group)}%</span>
+                                                    <span className="text-sm text-[var(--text-dim)]">{getProjectProgress(group)}%</span>
                                                 </div>
                                                 {/* Project status badge */}
                                                 <Badge variant={getProjectStatusBadge(group.status).variant}>
@@ -649,13 +641,13 @@ const InternTasks: React.FC = () => {
                 </div>
 
                 {tasks.length > 0 && !loading && (
-                    <div className="mt-8 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-                        <p className="text-sm text-slate-400 text-center">
+                    <div className="mt-8 p-4 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl">
+                        <p className="text-sm text-[var(--text-dim)] text-center">
                             Completion Rate:{' '}
-                            <span className="text-white font-semibold">
-                                {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%
+                            <span className="text-[var(--text-main)] font-semibold">
+                                {statsValues.total > 0 ? Math.round((statsValues.completed / statsValues.total) * 100) : 0}%
                             </span>{' '}
-                            ({stats.completed} of {stats.total} tasks)
+                            ({statsValues.completed} of {statsValues.total} tasks)
                         </p>
                     </div>
                 )}

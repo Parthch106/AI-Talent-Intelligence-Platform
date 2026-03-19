@@ -237,9 +237,9 @@ const PerformanceAnalytics: React.FC = () => {
     };
 
     const getReadinessColor = (score: number) => {
-        if (score >= 75) return 'text-emerald-400';
-        if (score >= 50) return 'text-yellow-400';
-        return 'text-red-400';
+        if (score >= 75) return 'text-emerald-600 dark:text-emerald-400';
+        if (score >= 50) return 'text-yellow-600 dark:text-yellow-400';
+        return 'text-red-600 dark:text-red-400';
     };
 
     const getStatusBadge = (status: string) => {
@@ -288,9 +288,9 @@ const PerformanceAnalytics: React.FC = () => {
                         </div>
                     </div>
                     <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-8 text-center">
-                        <Users className="mx-auto h-16 w-16 text-slate-400 mb-4" />
-                        <h3 className="text-xl font-semibold text-white mb-2">No Interns Found</h3>
-                        <p className="text-slate-400">There are no interns in your department yet. Add interns to view their performance analytics.</p>
+                        <Users className="mx-auto h-16 w-16 text-[var(--text-muted)] mb-4" />
+                        <h3 className="text-xl font-semibold text-[var(--text-main)] mb-2">No Interns Found</h3>
+                        <p className="text-[var(--text-dim)]">There are no interns in your department yet. Add interns to view their performance analytics.</p>
                     </div>
                 </div>
             );
@@ -298,8 +298,8 @@ const PerformanceAnalytics: React.FC = () => {
         return (
             <div className="flex items-center justify-center h-96">
                 <div className="text-center">
-                    <Activity className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-                    <p className="text-slate-400">Select an intern to view performance data</p>
+                    <Activity className="mx-auto h-12 w-12 text-[var(--text-muted)] mb-4" />
+                    <p className="text-[var(--text-dim)]">Select an intern to view performance data</p>
                 </div>
             </div>
         );
@@ -311,11 +311,11 @@ const PerformanceAnalytics: React.FC = () => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                        <Activity className="text-purple-400" />
+                    <h1 className="text-2xl font-bold text-[var(--text-main)] flex items-center gap-2">
+                        <Activity className="text-purple-500" />
                         Performance Analytics
                     </h1>
-                    <p className="text-slate-400 mt-1">Comprehensive intern performance insights and recommendations</p>
+                    <p className="text-[var(--text-dim)] mt-1">Comprehensive intern performance insights and recommendations</p>
                 </div>
                 
                 {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
@@ -323,7 +323,7 @@ const PerformanceAnalytics: React.FC = () => {
                         <select
                             value={selectedInternId || ''}
                             onChange={(e) => setSelectedInternId(Number(e.target.value))}
-                            className="bg-slate-800 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500"
+                            className="bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-lg px-4 py-2 text-[var(--text-main)] focus:outline-none focus:border-purple-500"
                         >
                             <option value="">Select Intern</option>
                             {interns.map(intern => (
@@ -351,7 +351,7 @@ const PerformanceAnalytics: React.FC = () => {
                         </div>
                     </div>
                     <div className="text-right">
-                        <p className="text-sm text-slate-400">Overall Readiness Score</p>
+                        <p className="text-sm text-[var(--text-dim)]">Overall Readiness Score</p>
                         <p className={`text-4xl font-bold ${getReadinessColor(readinessScore)}`}>
                             {readinessScore}%
                         </p>
@@ -363,14 +363,14 @@ const PerformanceAnalytics: React.FC = () => {
                 <Card className="p-5">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-slate-400">Quality Score</p>
-                            <p className="text-2xl font-bold text-white">
+                            <p className="text-sm text-[var(--text-dim)]">Quality Score</p>
+                            <p className="text-2xl font-bold text-[var(--text-main)]">
                                 {Math.round((performanceData?.metrics?.quality_score ?? performanceData?.metrics?.quality ?? 0) * 100)}%
                             </p>
                         </div>
                         <Award className="text-amber-400" size={24} />
                     </div>
-                    <div className="mt-2 h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="mt-2 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                         <div 
                             className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
                             style={{ width: `${(performanceData?.metrics?.quality_score ?? performanceData?.metrics?.quality ?? 0) * 100}%` }}
@@ -381,14 +381,14 @@ const PerformanceAnalytics: React.FC = () => {
                 <Card className="p-5">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-slate-400">Completion Rate</p>
-                            <p className="text-2xl font-bold text-white">
+                            <p className="text-sm text-[var(--text-dim)]">Completion Rate</p>
+                            <p className="text-2xl font-bold text-[var(--text-main)]">
                                 {Math.round((performanceData?.metrics?.completion_rate ?? performanceData?.metrics?.completion ?? 0) * 100)}%
                             </p>
                         </div>
                         <CheckCircle className="text-emerald-400" size={24} />
                     </div>
-                    <div className="mt-2 h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="mt-2 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                         <div 
                             className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"
                             style={{ width: `${(performanceData?.metrics?.completion_rate ?? performanceData?.metrics?.completion ?? 0) * 100}%` }}
@@ -399,14 +399,14 @@ const PerformanceAnalytics: React.FC = () => {
                 <Card className="p-5">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-slate-400">Growth Velocity</p>
-                            <p className="text-2xl font-bold text-white">
+                            <p className="text-sm text-[var(--text-dim)]">Growth Velocity</p>
+                            <p className="text-2xl font-bold text-[var(--text-main)]">
                                 {Math.round((performanceData?.metrics?.growth_velocity ?? performanceData?.metrics?.growth ?? 0) * 100)}%
                             </p>
                         </div>
                         <TrendingUp className="text-blue-400" size={24} />
                     </div>
-                    <div className="mt-2 h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="mt-2 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                         <div 
                             className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"
                             style={{ width: `${(performanceData?.metrics?.growth_velocity ?? performanceData?.metrics?.growth ?? 0) * 100}%` }}
@@ -417,14 +417,14 @@ const PerformanceAnalytics: React.FC = () => {
                 <Card className="p-5">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-slate-400">Engagement</p>
-                            <p className="text-2xl font-bold text-white">
+                            <p className="text-sm text-[var(--text-dim)]">Engagement</p>
+                            <p className="text-2xl font-bold text-[var(--text-main)]">
                                 {Math.round((performanceData?.metrics?.engagement ?? performanceData?.metrics?.attendance_rate ?? 0) * 100)}%
                             </p>
                         </div>
                         <Activity className="text-purple-400" size={24} />
                     </div>
-                    <div className="mt-2 h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="mt-2 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                         <div 
                             className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
                             style={{ width: `${(performanceData?.metrics?.engagement ?? performanceData?.metrics?.attendance_rate ?? 0) * 100}%` }}
@@ -436,15 +436,15 @@ const PerformanceAnalytics: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
                     <Card className="p-5">
-                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                            <Brain className="text-purple-400" />
+                        <h3 className="text-lg font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
+                            <Brain className="text-purple-500" />
                             Skill Proficiency
                         </h3>
                         <div className="space-y-3">
                             {skillProfiles.length > 0 ? skillProfiles.slice(0, 8).map((skill, idx) => (
                                 <div key={idx} className="flex items-center gap-3">
-                                    <div className="w-32 text-sm text-slate-300 truncate">{skill.skill_name}</div>
-                                    <div className="flex-1 h-3 bg-slate-700 rounded-full overflow-hidden">
+                                    <div className="w-32 text-sm text-[var(--text-dim)] truncate">{skill.skill_name}</div>
+                                    <div className="flex-1 h-3 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                                         <div 
                                             className={`h-full rounded-full ${
                                                 skill.mastery_level >= 0.8 ? 'bg-emerald-500' :
@@ -454,21 +454,21 @@ const PerformanceAnalytics: React.FC = () => {
                                             style={{ width: `${Math.min((skill.mastery_level || 0) * 100, 100)}%` }}
                                         />
                                     </div>
-                                    <div className="w-12 text-right text-sm text-slate-400">
+                                    <div className="w-12 text-right text-sm text-[var(--text-dim)]">
                                         {Math.round((skill.mastery_level || 0) * 100)}%
                                     </div>
                                 </div>
                             )) : (learningPath as any)?.milestones && (learningPath as any).milestones.length > 0 ? (
                                 (learningPath as any).milestones.slice(0, 8).map((milestone: any, idx: number) => (
                                     <div key={idx} className="flex items-center gap-3">
-                                        <div className="w-32 text-sm text-slate-300 truncate">{milestone.skill || 'Skill'}</div>
-                                        <div className="flex-1 h-3 bg-slate-700 rounded-full overflow-hidden">
+                                        <div className="w-32 text-sm text-[var(--text-dim)] truncate">{milestone.skill || 'Skill'}</div>
+                                        <div className="flex-1 h-3 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                                             <div 
                                                 className="h-full rounded-full bg-blue-500"
                                                 style={{ width: '50%' }}
                                             />
                                         </div>
-                                        <div className="w-12 text-right text-sm text-slate-400">
+                                        <div className="w-12 text-right text-sm text-[var(--text-dim)]">
                                             {milestone.difficulty || 1}/5
                                         </div>
                                     </div>
@@ -476,16 +476,16 @@ const PerformanceAnalytics: React.FC = () => {
                             ) : (
                                 <div className="text-center py-4">
                                     <Award className="mx-auto h-8 w-8 text-slate-600 mb-2" />
-                                    <p className="text-slate-400 text-sm">No skill data available</p>
-                                    <p className="text-slate-500 text-xs mt-1">Assign a learning path to track skills</p>
+                                    <p className="text-[var(--text-dim)] text-sm">No skill data available</p>
+                                    <p className="text-[var(--text-muted)] text-xs mt-1">Assign a learning path to track skills</p>
                                 </div>
                             )}
                         </div>
                     </Card>
 
                     <Card className="p-5">
-                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                            <BookOpen className="text-green-400" />
+                        <h3 className="text-lg font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
+                            <BookOpen className="text-green-500" />
                             Learning Path Progress
                         </h3>
                         {learningPath ? (
@@ -494,24 +494,24 @@ const PerformanceAnalytics: React.FC = () => {
                                     <span className="text-white font-medium">{learningPath.target_role_title || 'Target Role'}</span>
                                     <span className="text-purple-400 font-bold">{Math.round(learningPath.completion_percentage)}% Complete</span>
                                 </div>
-                                <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-3 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                                     <div 
                                         className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"
                                         style={{ width: `${learningPath.completion_percentage}%` }}
                                     />
                                 </div>
                                 <div className="grid grid-cols-3 gap-3 text-center">
-                                    <div className="bg-slate-800/50 rounded-lg p-3">
-                                        <p className="text-2xl font-bold text-white">{learningPath.milestones?.length || 0}</p>
-                                        <p className="text-xs text-slate-400">Total</p>
+                                    <div className="bg-[var(--bg-muted)] rounded-lg p-3">
+                                        <p className="text-2xl font-bold text-[var(--text-main)]">{learningPath.milestones?.length || 0}</p>
+                                        <p className="text-xs text-[var(--text-dim)]">Total</p>
                                     </div>
-                                    <div className="bg-slate-800/50 rounded-lg p-3">
-                                        <p className="text-2xl font-bold text-emerald-400">{learningPath.completed_milestones?.length || 0}</p>
-                                        <p className="text-xs text-slate-400">Done</p>
+                                    <div className="bg-[var(--bg-muted)] rounded-lg p-3">
+                                        <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{learningPath.completed_milestones?.length || 0}</p>
+                                        <p className="text-xs text-[var(--text-dim)]">Done</p>
                                     </div>
-                                    <div className="bg-slate-800/50 rounded-lg p-3">
-                                        <p className="text-2xl font-bold text-blue-400">{learningPath.current_position || 0}</p>
-                                        <p className="text-xs text-slate-400">Current</p>
+                                    <div className="bg-[var(--bg-muted)] rounded-lg p-3">
+                                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{learningPath.current_position || 0}</p>
+                                        <p className="text-xs text-[var(--text-dim)]">Current</p>
                                     </div>
                                 </div>
                             </div>
@@ -521,16 +521,16 @@ const PerformanceAnalytics: React.FC = () => {
                     </Card>
 
                     <Card className="p-5">
-                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
                             <ListChecks className="text-orange-400" />
                             Recent Task History
                         </h3>
                         <div className="space-y-2 max-h-64 overflow-y-auto">
                             {taskHistory.length > 0 ? taskHistory.map((t) => (
-                                <div key={t.id} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                                <div key={t.id} className="flex items-center justify-between p-3 bg-[var(--bg-muted)] rounded-lg">
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-white text-sm font-medium truncate">{t.title}</p>
-                                        <p className="text-xs text-slate-500">
+                                        <p className="text-[var(--text-main)] text-sm font-medium truncate">{t.title}</p>
+                                        <p className="text-xs text-[var(--text-muted)]">
                                             {t.assigned_at ? new Date(t.assigned_at).toLocaleDateString() : ''}
                                         </p>
                                     </div>
@@ -547,41 +547,41 @@ const PerformanceAnalytics: React.FC = () => {
                                     </div>
                                 </div>
                             )) : (
-                                <p className="text-slate-400 text-sm">No task history available</p>
+                                <p className="text-[var(--text-dim)] text-sm">No task history available</p>
                             )}
                         </div>
                     </Card>
 
                     <Card className="p-5">
-                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
                             <BarChart3 className="text-cyan-400" />
                             Performance Trends
                         </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="bg-slate-800/50 rounded-lg p-4 text-center">
-                                <p className="text-3xl font-bold text-white">{taskHistory.filter(t => isTaskCompleted(t.status)).length}</p>
-                                <p className="text-xs text-slate-400 mt-1">Tasks Completed</p>
+                            <div className="bg-[var(--bg-muted)] rounded-lg p-4 text-center">
+                                <p className="text-3xl font-bold text-[var(--text-main)]">{taskHistory.filter(t => isTaskCompleted(t.status)).length}</p>
+                                <p className="text-xs text-[var(--text-dim)] mt-1">Tasks Completed</p>
                             </div>
-                            <div className="bg-slate-800/50 rounded-lg p-4 text-center">
-                                <p className="text-3xl font-bold text-blue-400">{taskHistory.filter(t => t.status === 'IN_PROGRESS').length}</p>
-                                <p className="text-xs text-slate-400 mt-1">In Progress</p>
+                            <div className="bg-[var(--bg-muted)] rounded-lg p-4 text-center">
+                                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{taskHistory.filter(t => t.status === 'IN_PROGRESS').length}</p>
+                                <p className="text-xs text-[var(--text-dim)] mt-1">In Progress</p>
                             </div>
-                            <div className="bg-slate-800/50 rounded-lg p-4 text-center">
-                                <p className="text-3xl font-bold text-yellow-400">
+                            <div className="bg-[var(--bg-muted)] rounded-lg p-4 text-center">
+                                <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
                                     {taskHistory.length > 0 
                                         ? (taskHistory.reduce((sum, t) => sum + (t.quality_rating || 0), 0) / taskHistory.filter(t => t.quality_rating).length || 0).toFixed(1)
                                         : 'N/A'}
                                 </p>
-                                <p className="text-xs text-slate-400 mt-1">Avg Quality</p>
+                                <p className="text-xs text-[var(--text-dim)] mt-1">Avg Quality</p>
                             </div>
-                            <div className="bg-slate-800/50 rounded-lg p-4 text-center">
+                            <div className="bg-[var(--bg-muted)] rounded-lg p-4 text-center">
                                 <p className={`text-3xl font-bold ${
                                     (performanceData?.metrics?.dropout_risk ?? performanceData?.metrics?.risk ?? 0) < 30 ? 'text-emerald-400' :
                                     (performanceData?.metrics?.dropout_risk ?? performanceData?.metrics?.risk ?? 0) < 60 ? 'text-yellow-400' : 'text-red-400'
                                 }`}>
                                     {Math.round(100 - (performanceData?.metrics?.dropout_risk ?? performanceData?.metrics?.risk ?? 0))}%
                                 </p>
-                                <p className="text-xs text-slate-400 mt-1">Retention</p>
+                                <p className="text-xs text-[var(--text-dim)] mt-1">Retention</p>
                             </div>
                         </div>
                     </Card>
@@ -589,7 +589,7 @@ const PerformanceAnalytics: React.FC = () => {
 
                 <div className="space-y-6">
                     <Card className="p-5 bg-gradient-to-br from-purple-900/30 to-pink-900/30 border-purple-500/30">
-                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
                             <Sparkles className="text-purple-400" />
                             AI Insights
                         </h3>
@@ -599,46 +599,46 @@ const PerformanceAnalytics: React.FC = () => {
                                 performanceData.reasoning.split('. ').filter(Boolean).slice(0, 4).map((insight: string, idx: number) => (
                                     <div key={idx} className="flex items-start gap-2 text-sm">
                                         <ChevronRight className="text-purple-400 flex-shrink-0 mt-0.5" size={16} />
-                                        <p className="text-slate-300">{insight.trim()}</p>
+                                        <p className="text-[var(--text-dim)]">{insight.trim()}</p>
                                     </div>
                                 )) : (
                                     <div className="flex items-start gap-2 text-sm">
                                         <ChevronRight className="text-purple-400 flex-shrink-0 mt-0.5" size={16} />
-                                        <p className="text-slate-300">{String(performanceData.reasoning)}</p>
+                                        <p className="text-[var(--text-dim)]">{String(performanceData.reasoning)}</p>
                                     </div>
                                 )
                             ) : performanceData?.diagnosis ? (
                                 <div className="flex items-start gap-2 text-sm">
                                     <ChevronRight className="text-purple-400 flex-shrink-0 mt-0.5" size={16} />
-                                    <p className="text-slate-300">{performanceData.diagnosis.summary || JSON.stringify(performanceData.diagnosis)}</p>
+                                    <p className="text-[var(--text-dim)]">{performanceData.diagnosis.summary || JSON.stringify(performanceData.diagnosis)}</p>
                                 </div>
                             ) : (
-                                <p className="text-slate-400 text-sm">No insights available</p>
+                                <p className="text-[var(--text-dim)] text-sm">No insights available</p>
                             )}
                         </div>
                     </Card>
 
                     <Card className="p-5">
-                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
                             <Zap className="text-yellow-400" />
                             Recommendations
                         </h3>
                         <div className="space-y-2">
                             {performanceData?.recommendations?.length > 0 ? (
                                 performanceData.recommendations.slice(0, 5).map((suggestion: string, idx: number) => (
-                                    <div key={idx} className="flex items-start gap-2 p-2 bg-slate-800/30 rounded-lg">
+                                    <div key={idx} className="flex items-start gap-2 p-2 bg-[var(--bg-muted)] rounded-lg">
                                         <Target className="text-yellow-400 flex-shrink-0 mt-0.5" size={14} />
-                                        <p className="text-sm text-slate-300">{suggestion}</p>
+                                        <p className="text-sm text-[var(--text-dim)]">{suggestion}</p>
                                     </div>
                                 ))
                             ) : (
-                                <p className="text-slate-400 text-sm">No recommendations</p>
+                                <p className="text-[var(--text-dim)] text-sm">No recommendations</p>
                             )}
                         </div>
                     </Card>
 
                     <Card className="p-5">
-                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
                             <Brain className="text-green-400" />
                             RL Recommended Task
                         </h3>
@@ -646,16 +646,16 @@ const PerformanceAnalytics: React.FC = () => {
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                     <Badge variant="info">{rlRecommendation.action}</Badge>
-                                    <span className="text-xs text-slate-400">Difficulty: {rlRecommendation.difficulty}/5</span>
+                                    <span className="text-xs text-[var(--text-dim)]">Difficulty: {rlRecommendation.difficulty}/5</span>
                                 </div>
-                                <p className="text-sm text-slate-300">{rlRecommendation.reasoning}</p>
+                                <p className="text-sm text-[var(--text-dim)]">{rlRecommendation.reasoning}</p>
                                 {rlRecommendation.q_values && rlRecommendation.q_values.length > 0 && (
-                                    <div className="mt-2 pt-2 border-t border-slate-700">
-                                        <p className="text-xs text-slate-400 mb-1">Q-Values (action probabilities)</p>
+                                    <div className="mt-2 pt-2 border-t border-[var(--border-color)]">
+                                        <p className="text-xs text-[var(--text-dim)] mb-1">Q-Values (action probabilities)</p>
                                         <div className="flex gap-1">
                                             {rlRecommendation.q_values.slice(0, 5).map((q, idx) => (
-                                                <div key={idx} className="flex-1 bg-slate-700 rounded px-2 py-1 text-center">
-                                                    <p className="text-xs text-slate-300">{q.toFixed(2)}</p>
+                                                <div key={idx} className="flex-1 bg-[var(--bg-muted)] rounded px-2 py-1 text-center">
+                                                    <p className="text-xs text-[var(--text-dim)]">{q.toFixed(2)}</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -665,26 +665,26 @@ const PerformanceAnalytics: React.FC = () => {
                         ) : (
                             <div className="text-center py-4">
                                 <Brain className="mx-auto h-8 w-8 text-slate-600 mb-2" />
-                                <p className="text-slate-400 text-sm">No RL recommendation available</p>
-                                <p className="text-slate-500 text-xs mt-1">Complete more tasks to get personalized recommendations</p>
+                                <p className="text-[var(--text-dim)] text-sm">No RL recommendation available</p>
+                                <p className="text-[var(--text-muted)] text-xs mt-1">Complete more tasks to get personalized recommendations</p>
                             </div>
                         )}
                     </Card>
 
                     <Card className="p-5">
-                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
                             <AlertTriangle className="text-orange-400" />
                             Status
                         </h3>
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-slate-400">Performance</span>
+                                <span className="text-[var(--text-dim)]">Performance</span>
                                 <Badge variant={getStatusBadge(performanceData?.performance_status || 'UNKNOWN')}>
                                     {performanceData?.performance_status || 'Not Evaluated'}
                                 </Badge>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-slate-400">Dropout Risk</span>
+                                <span className="text-[var(--text-dim)]">Dropout Risk</span>
                                 <span className={`font-medium ${
                                     (performanceData?.metrics?.dropout_risk ?? performanceData?.metrics?.risk ?? 0) < 30 ? 'text-emerald-400' :
                                     (performanceData?.metrics?.dropout_risk ?? performanceData?.metrics?.risk ?? 0) < 60 ? 'text-yellow-400' : 'text-red-400'
@@ -693,12 +693,6 @@ const PerformanceAnalytics: React.FC = () => {
                                      (performanceData?.metrics?.dropout_risk ?? performanceData?.metrics?.risk ?? 0) < 60 ? 'Medium' : 'High'}
                                 </span>
                             </div>
-                            {performanceData?.next_task_type && (
-                                <div className="flex items-center justify-between pt-2 border-t border-slate-700">
-                                    <span className="text-slate-400">Recommended Task</span>
-                                    <span className="text-white text-sm">{performanceData.next_task_type}</span>
-                                </div>
-                            )}
                         </div>
                     </Card>
                 </div>

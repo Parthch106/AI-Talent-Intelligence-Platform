@@ -67,8 +67,9 @@ class LLMTaskGenerator:
         intern_skills: List[str],
         completed_tasks: List[Dict[str, Any]],
         ongoing_tasks: List[Dict[str, Any]],
-        project_requirements: Optional[str] = None,
-        target_role: Optional[str] = None,
+        module_name: Optional[str] = None,
+        module_description: Optional[str] = None,
+        task_context: Optional[str] = None,
         num_suggestions: int = 3
     ) -> Dict[str, Any]:
         """
@@ -81,8 +82,9 @@ class LLMTaskGenerator:
             intern_skills=intern_skills,
             completed_tasks=completed_tasks,
             ongoing_tasks=ongoing_tasks,
-            project_requirements=project_requirements,
-            target_role=target_role,
+            module_name=module_name,
+            module_description=module_description,
+            task_context=task_context,
             num_suggestions=num_suggestions
         )
         
@@ -102,8 +104,9 @@ class LLMTaskGenerator:
         intern_skills: List[str],
         completed_tasks: List[Dict[str, Any]],
         ongoing_tasks: List[Dict[str, Any]],
-        project_requirements: Optional[str],
-        target_role: Optional[str],
+        module_name: Optional[str],
+        module_description: Optional[str],
+        task_context: Optional[str],
         num_suggestions: int
     ) -> str:
         """Build a detailed prompt with intern context."""
@@ -135,12 +138,16 @@ class LLMTaskGenerator:
         skills_text = ", ".join(intern_skills) if intern_skills else "No skills on record"
         
         prompt = f"""You are an AI assistant helping a manager assign tasks to interns.
-Generate {num_suggestions} task suggestions for the following intern based on their profile and progress.
+Generate {num_suggestions} task suggestions for the following intern based on their profile, progress, and the specific module they are working on.
 
 ## Intern Profile
 - Name: {intern_name}
 - Current Skills: {skills_text}
-- Target Role: {target_role or 'Not specified'}
+
+## Project/Module Context
+- Module Name: {module_name or 'N/A'}
+- Module Description: {module_description or 'N/A'}
+- Additional Task Context: {task_context or 'No specific task requirements provided.'}
 
 ## Completed Tasks
 {completed_text}
@@ -148,15 +155,12 @@ Generate {num_suggestions} task suggestions for the following intern based on th
 ## Ongoing Tasks
 {ongoing_text}
 
-## Project Requirements
-{project_requirements or 'No specific project requirements provided.'}
-
 ## Task Requirements
 Generate tasks that:
-1. Build upon completed tasks to deepen skills
-2. Are appropriate for the intern's current skill level
-3. Help progress towards the target role (if specified)
-4. Are realistic for a {target_role or 'software development'} intern to complete
+1. Align with the Module context provided
+2. Build upon completed tasks to deepen skills
+3. Are appropriate for the intern's current skill level
+4. Provide clear, actionable output
 
 For each task, provide:
 - title: A clear, concise task title
@@ -164,7 +168,7 @@ For each task, provide:
 - difficulty: difficulty level (1-5, where 1=beginner, 5=expert)
 - estimated_hours: Estimated hours to complete
 - skills_required: List of skills this task will help develop
-- rationale: Brief explanation of why this task is appropriate
+- rationale: Brief explanation of why this task is appropriate for this module
 
 Return your response as a JSON object in this format:
 {{

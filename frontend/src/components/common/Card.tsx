@@ -22,9 +22,9 @@ const paddingClasses = {
 };
 
 const variantStyles = {
-    default: 'bg-slate-800/30 border-white/5',
-    gradient: 'bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-indigo-500/10 border-purple-500/20',
-    outlined: 'bg-transparent border-slate-700',
+    default: 'glass-card border-[var(--border-color)]',
+    gradient: 'bg-gradient-to-br from-purple-500/10 via-indigo-500/5 to-blue-500/10 border-purple-500/20',
+    outlined: 'bg-transparent border-[var(--border-color)] hover:border-purple-500/20',
 };
 
 const Card: React.FC<CardProps> = ({
@@ -43,9 +43,9 @@ const Card: React.FC<CardProps> = ({
     return (
         <div
             className={`
-                relative overflow-hidden rounded-2xl border backdrop-blur-xl
+                relative overflow-hidden rounded-3xl border transition-all duration-500
                 ${variantStyles[variant]}
-                ${hover ? 'cursor-pointer transition-all duration-300 hover:border-purple-500/30 hover:bg-slate-800/50 hover:shadow-lg hover:shadow-purple-500/10 hover:-translate-y-1' : ''}
+                ${hover ? 'cursor-pointer hover:border-purple-500/30 hover:bg-[var(--card-bg)] hover:shadow-[0_0_30px_rgba(168,85,247,0.1)] hover:-translate-y-1' : ''}
                 ${paddingClasses[padding]}
                 ${gradient ? `bg-gradient-to-br ${gradient}` : ''}
                 ${glow ? 'shadow-lg shadow-purple-500/20' : ''}
@@ -53,34 +53,36 @@ const Card: React.FC<CardProps> = ({
                 animate-fade-in
             `}
         >
-            {/* Decorative gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-500/5 pointer-events-none"></div>
+            {/* Decorative background glow */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/[0.03] blur-[100px] rounded-full pointer-events-none"></div>
 
             {/* Content */}
             <div className="relative z-10">
                 {(title || icon || action) && (
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-4">
                             {icon && (
-                                <div className="p-3 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-500/20 shadow-lg shadow-purple-500/10">
-                                    <div className="text-purple-400">
+                                <div className="p-3 bg-[var(--card-bg)] rounded-2xl border border-[var(--border-color)] shadow-xl group/card-icon transition-all duration-500 hover:border-purple-500/30">
+                                    <div className="text-purple-400 group-hover/card-icon:scale-110 transition-transform">
                                         {icon}
                                     </div>
                                 </div>
                             )}
                             <div>
-                                {title && <h3 className="font-semibold text-white text-lg">{title}</h3>}
-                                {subtitle && <p className="text-sm text-slate-400">{subtitle}</p>}
+                                {title && <h3 className="font-heading font-black tracking-tighter text-[var(--text-main)] text-xl uppercase italic leading-none">{title}</h3>}
+                                {subtitle && <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-dim)] mt-1.5">{subtitle}</p>}
                             </div>
                         </div>
-                        {action}
+                        {action && <div className="relative z-20">{action}</div>}
                     </div>
                 )}
-                {children}
+                <div className="text-[var(--text-dim)] leading-relaxed">
+                    {children}
+                </div>
             </div>
 
-            {/* Bottom decorative line */}
-            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"></div>
+            {/* Subtle accent border at bottom */}
+            <div className="absolute bottom-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-purple-500/20 to-transparent"></div>
         </div>
     );
 };

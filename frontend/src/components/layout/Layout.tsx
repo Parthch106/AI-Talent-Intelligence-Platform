@@ -5,19 +5,16 @@ import Header from './Header';
 
 const Layout: React.FC = () => {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 relative overflow-hidden">
+        <div className="min-h-screen bg-[var(--bg-color)] relative overflow-hidden font-sans selection:bg-purple-500/30 transition-colors duration-500">
             {/* Animated Background Elements */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                {/* Floating Orbs */}
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-float"></div>
-                <div className="absolute bottom-1/4 right-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl animate-float delay-1000"></div>
-                <div className="absolute top-1/2 left-0 w-64 h-64 bg-pink-500/10 rounded-full blur-3xl animate-float delay-500"></div>
+                {/* Modern Ambient Glows - Subtle in light theme */}
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/[0.05] dark:bg-purple-600/10 blur-[120px] rounded-full animate-pulse transition-all"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/[0.05] dark:bg-blue-600/10 blur-[120px] rounded-full animate-pulse delay-700 transition-all"></div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[60%] bg-indigo-500/[0.01] dark:bg-indigo-500/[0.02] blur-[150px] rounded-full transition-all"></div>
 
-                {/* Grid Pattern */}
-                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
-
-                {/* Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-900/50 to-slate-900/80"></div>
+                {/* Refined Grid Pattern - Responsive to theme */}
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(128,128,128,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(128,128,128,0.03)_1px,transparent_1px)] dark:bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
             </div>
 
             {/* Sidebar */}
@@ -26,8 +23,8 @@ const Layout: React.FC = () => {
             {/* Header - now handles its own fixed positioning */}
             <Header />
 
-            {/* Main Content - with top padding to account for fixed header */}
-            <div className="ml-64 pt-16 relative z-10">
+            {/* Main Content - with top padding and transition */}
+            <div className="ml-64 pt-16 relative z-10 transition-all duration-500">
                 <main className="p-6 md:p-8 lg:p-10">
                     <Outlet />
                 </main>

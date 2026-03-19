@@ -17,16 +17,26 @@ class NotificationListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get notifications for the current user."""
+        """Get notifications for the current user with pagination and filtering."""
         user = request.user
-        logger.info(f"Fetching notifications for user: {user.email}, id: {user.id}")
+        unread_only = request.query_params.get('unread_only') == 'true'
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
         
-        notifications = Notification.objects.filter(user=user).order_by('-created_at')[:20]
+        logger.info(f"Fetching notifications for user: {user.email}, unread_only: {unread_only}, page: {page}")
         
+        query = Notification.objects.filter(user=user)
+        if unread_only:
+            query = query.filter(is_read=False)
+            
+        total_count = query.count()
         unread_count = Notification.objects.filter(user=user, is_read=False).count()
         
-        logger.info(f"Found {notifications.count()} notifications for user {user.email}")
-
+        start = (page - 1) * page_size
+        end = start + page_size
+        
+        notifications = query.order_by('-created_at')[start:end]
+        
         data = [{
             'id': n.id,
             'type': n.notification_type,
@@ -39,6 +49,10 @@ class NotificationListView(APIView):
         return Response({
             'notifications': data,
             'unread_count': unread_count,
+            'total_count': total_count,
+            'page': page,
+            'page_size': page_size,
+            'has_more': end < total_count
         })
 
 
@@ -46,25 +60,54 @@ class NotificationMarkReadView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        """Mark a notification as read."""
+        """Mark notification(s) as read or unread."""
         user = request.user
+        notification_ids = request.data.get('notification_ids', [])
         notification_id = request.data.get('notification_id')
+        action = request.data.get('action', 'read') # 'read' or 'unread'
+        
+        is_read = (action == 'read')
 
         if notification_id:
+            notification_ids = [notification_id]
+
+        if notification_ids:
             try:
-                notification = Notification.objects.get(id=notification_id, user=user)
-                notification.is_read = True
-                notification.save()
-                return Response({'message': 'Notification marked as read'})
-            except Notification.DoesNotExist:
-                return Response(
-                    {'error': 'Notification not found'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+                Notification.objects.filter(id__in=notification_ids, user=user).update(is_read=is_read)
+                return Response({'message': f'Notification(s) marked as {action}'})
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            # Mark all as read
-            Notification.objects.filter(user=user, is_read=False).update(is_read=True)
-            return Response({'message': 'All notifications marked as read'})
+            # Mark all as read/unread
+            Notification.objects.filter(user=user).update(is_read=is_read)
+            return Response({'message': f'All notifications marked as {action}'})
+
+
+class NotificationDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """Delete notification(s)."""
+        user = request.user
+        notification_ids = request.data.get('notification_ids', [])
+        notification_id = request.data.get('notification_id')
+        clear_all = request.data.get('clear_all', False)
+
+        if clear_all:
+            Notification.objects.filter(user=user).delete()
+            return Response({'message': 'All notifications deleted'})
+        
+        if notification_id:
+            notification_ids = [notification_id]
+
+        if notification_ids:
+            try:
+                deleted_count, _ = Notification.objects.filter(id__in=notification_ids, user=user).delete()
+                return Response({'message': f'{deleted_count} notification(s) deleted'})
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response({'error': 'No notification specified'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ActivityLogView(APIView):

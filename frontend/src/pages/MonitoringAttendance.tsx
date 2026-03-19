@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { AttendanceTab } from '../components/monitoring';
+import { Card, AttendanceHeatmap } from '../components/common';
 import { ChevronDown } from 'lucide-react';
 
 // Types (matching MonitoringDashboard)
@@ -29,6 +30,10 @@ const MonitoringAttendancePage: React.FC = () => {
     const [interns, setInterns] = useState<Intern[]>([]);
     const [attendance, setAttendance] = useState<Attendance[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
+    const [monthFilter, setMonthFilter] = useState<number | 'all'>('all');
+    const [yearFilter, setYearFilter] = useState<number | 'all'>(new Date().getFullYear());
+    const [heatmapData, setHeatmapData] = useState<Record<string, { status: string; value: number; hours: number }>>({});
+    const [heatmapLoading, setHeatmapLoading] = useState<boolean>(false);
     const [showInternDropdown, setShowInternDropdown] = useState(false);
 
     // Fetch interns when page loads (for managers/admins)
@@ -64,13 +69,46 @@ const MonitoringAttendancePage: React.FC = () => {
         }
     };
 
+    const fetchHeatmapData = async (targetId: number): Promise<void> => {
+        setHeatmapLoading(true);
+        try {
+            const params: any = { intern_id: targetId };
+            
+            if (yearFilter !== 'all') {
+                params.start_date = `${yearFilter}-01-01`;
+                params.end_date = `${yearFilter}-12-31`;
+            } else {
+                params.months = 12;
+            }
+
+            const response = await axios.get('/analytics/heatmap/attendance/', { params });
+            setHeatmapData(response.data.heatmap || {});
+        } catch (error) {
+            console.error('Error fetching heatmap data:', error);
+            setHeatmapData({});
+        } finally {
+            setHeatmapLoading(false);
+        }
+    };
+
     const fetchData = async (): Promise<void> => {
         setLoading(true);
         try {
             const targetId = user?.role === 'INTERN' ? user.id : selectedIntern;
             if (!targetId) return;
 
-            const attendanceRes = await axios.get('/analytics/attendance/', { params: { intern_id: targetId } });
+            fetchHeatmapData(targetId);
+
+            const params: any = { 
+                intern_id: targetId,
+                limit: 1000,
+                page: 1
+            };
+
+            if (monthFilter !== 'all') params.month = monthFilter;
+            if (yearFilter !== 'all') params.year = yearFilter;
+
+            const attendanceRes = await axios.get('/analytics/attendance/', { params });
             const attendance = Array.isArray(attendanceRes.data.attendance) ? attendanceRes.data.attendance : [];
             setAttendance(attendance);
         } catch (err: any) {
@@ -78,6 +116,14 @@ const MonitoringAttendancePage: React.FC = () => {
         }
         setLoading(false);
     };
+
+    // Re-fetch when filters change
+    useEffect(() => {
+        const targetId = user?.role === 'INTERN' ? user.id : selectedIntern;
+        if (targetId) {
+            fetchData();
+        }
+    }, [monthFilter, yearFilter]);
 
     const getSelectedInternName = (): string => {
         if (user?.role === 'INTERN') return user.full_name || user.email;
@@ -159,7 +205,29 @@ const MonitoringAttendancePage: React.FC = () => {
                         </div>
                     </div>
                 ) : (
-                    <AttendanceTab attendance={attendance} onMarkAttendance={() => {}} />
+                    <>
+                        <Card className="mb-6 p-4">
+                            {heatmapLoading ? (
+                                <div className="flex items-center justify-center h-32">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500" />
+                                </div>
+                            ) : (
+                                <AttendanceHeatmap
+                                    data={heatmapData}
+                                    year={yearFilter === 'all' ? new Date().getFullYear() : yearFilter}
+                                    title={`Attendance Overview ${yearFilter !== 'all' ? `(${yearFilter})` : '(Last 12 Months)'}`}
+                                />
+                            )}
+                        </Card>
+                        <AttendanceTab 
+                            attendance={attendance} 
+                            onMarkAttendance={() => {}} 
+                            monthFilter={monthFilter}
+                            setMonthFilter={setMonthFilter}
+                            yearFilter={yearFilter}
+                            setYearFilter={setYearFilter}
+                        />
+                    </>
                 )}
             </div>
         </div>

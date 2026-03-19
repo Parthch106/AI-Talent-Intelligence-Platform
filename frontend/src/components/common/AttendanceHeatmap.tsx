@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 interface AttendanceData {
   status: string;
@@ -48,7 +49,7 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
   onCellClick,
 }) => {
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
-  const [hoverTimeout, setHoverTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
@@ -144,57 +145,37 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
   };
 
   const handleMouseEnter = (date: Date, attendanceData: AttendanceData | null, isCurrentYear: boolean, event: React.MouseEvent) => {
-    if (!attendanceData || !isCurrentYear) return;
-    
-    // Clear any existing timeout
-    if (hoverTimeout) {
-      clearTimeout(hoverTimeout);
+    if (!attendanceData || !isCurrentYear) {
+      setTooltip(null);
+      return;
     }
     
-    // Set delay to prevent flickering
-    const timeout = setTimeout(() => {
-      const rect = (event.target as HTMLElement).getBoundingClientRect();
-      const tooltipWidth = 160;
-      const tooltipHeight = 60;
-      
-      // Calculate position with viewport bounds checking
-      let x = rect.left + rect.width / 2;
-      let y = rect.top;
-      
-      // Ensure tooltip stays within viewport
-      if (x - tooltipWidth / 2 < 10) {
-        x = tooltipWidth / 2 + 10;
-      } else if (x + tooltipWidth / 2 > window.innerWidth - 10) {
-        x = window.innerWidth - tooltipWidth / 2 - 10;
-      }
-      
-      if (y - tooltipHeight - 10 < 10) {
-        y = rect.bottom + 10;
-      }
-      
-      const formattedDate = date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-      
-      setTooltip({
-        date: formattedDate,
-        status: STATUS_LABELS[attendanceData.status] || attendanceData.status,
-        hours: attendanceData.hours,
-        x,
-        y,
-      });
-    }, 100);
+    const formattedDate = date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
     
-    setHoverTimeout(timeout);
+    setTooltip({
+      date: formattedDate,
+      status: STATUS_LABELS[attendanceData.status] || attendanceData.status,
+      hours: attendanceData.hours,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  };
+
+  const handleMouseMove = (event: React.MouseEvent) => {
+    if (tooltip) {
+      setTooltip(prev => prev ? {
+        ...prev,
+        x: event.clientX,
+        y: event.clientY,
+      } : null);
+    }
   };
 
   const handleMouseLeave = () => {
-    if (hoverTimeout) {
-      clearTimeout(hoverTimeout);
-      setHoverTimeout(null);
-    }
     setTooltip(null);
   };
 
@@ -205,17 +186,8 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
     }
   };
 
-  // Clean up timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (hoverTimeout) {
-        clearTimeout(hoverTimeout);
-      }
-    };
-  }, [hoverTimeout]);
-
   return (
-    <div className="relative p-3 bg-slate-800 rounded-lg border border-slate-700">
+    <div className="relative p-3 bg-slate-800 rounded-lg border border-slate-700" ref={containerRef}>
       {title && (
         <h3 className="text-sm font-medium text-slate-300 mb-3">
           {title}
@@ -274,6 +246,7 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
                       opacity: day.isCurrentYear ? 1 : 0.3,
                     }}
                     onMouseEnter={(e) => handleMouseEnter(day.date, day.data, day.isCurrentYear, e)}
+                    onMouseMove={handleMouseMove}
                     onMouseLeave={handleMouseLeave}
                     onClick={() => handleClick(day.date, day.data, day.isCurrentYear)}
                   />
@@ -312,20 +285,21 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
         </div>
       </div>
       
-      {/* Tooltip with animation */}
-      {tooltip && (
+      {/* Tooltip with animation - Using Portal to avoid clipping */}
+      {tooltip && createPortal(
         <div
-          className="fixed z-50 bg-slate-800 text-white text-xs px-3 py-2 rounded-lg shadow-xl border border-slate-700 pointer-events-none animate-fadeIn"
+          className="fixed z-[9999] bg-slate-800 text-white text-xs px-3 py-2 rounded-lg shadow-xl border border-slate-700 pointer-events-none animate-fadeIn"
           style={{
-            left: tooltip.x,
-            top: tooltip.y - 45,
-            transform: 'translateX(-50%)',
+            left: tooltip.x + 15,
+            top: tooltip.y - 15,
+            transform: 'translateY(-100%)',
             minWidth: '120px',
           }}
         >
           <div className="font-medium">{tooltip.status}</div>
           <div className="text-slate-400">{tooltip.date} • {tooltip.hours}h</div>
-        </div>
+        </div>,
+        document.body
       )}
       
       {/* Add fade-in animation */}
@@ -333,15 +307,15 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
         @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: translateX(-50%) translateY(5px);
+            transform: translateY(-95%);
           }
           to {
             opacity: 1;
-            transform: translateX(-50%) translateY(0);
+            transform: translateY(-100%);
           }
         }
         .animate-fadeIn {
-          animation: fadeIn 0.15s ease-out forwards;
+          animation: fadeIn 0.1s ease-out forwards;
         }
       `}</style>
     </div>

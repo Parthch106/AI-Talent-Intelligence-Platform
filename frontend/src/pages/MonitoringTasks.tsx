@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { TasksTab } from '../components/monitoring';
+import { Card, ContributionHeatmap } from '../components/common';
 import { ChevronDown } from 'lucide-react';
 
 // Types (matching MonitoringDashboard)
@@ -36,7 +37,11 @@ const MonitoringTasksPage: React.FC = () => {
     const [selectedIntern, setSelectedIntern] = useState<number | null>(null);
     const [interns, setInterns] = useState<Intern[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [monthFilter, setMonthFilter] = useState<number | 'all'>('all');
+    const [yearFilter, setYearFilter] = useState<number | 'all'>(new Date().getFullYear());
+    const [heatmapData, setHeatmapData] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState<boolean>(false);
+    const [heatmapLoading, setHeatmapLoading] = useState<boolean>(false);
     const [showInternDropdown, setShowInternDropdown] = useState(false);
 
     // Fetch interns when page loads (for managers/admins)
@@ -72,13 +77,45 @@ const MonitoringTasksPage: React.FC = () => {
         }
     };
 
+    const fetchHeatmapData = async (targetId: number): Promise<void> => {
+        setHeatmapLoading(true);
+        try {
+            const params: any = { intern_id: targetId };
+            
+            if (yearFilter !== 'all') {
+                params.start_date = `${yearFilter}-01-01`;
+                params.end_date = `${yearFilter}-12-31`;
+            } else {
+                params.months = 12;
+            }
+
+            const response = await axios.get('/analytics/heatmap/tasks/', { params });
+            setHeatmapData(response.data.heatmap || {});
+        } catch (error) {
+            console.error('Error fetching heatmap data:', error);
+            setHeatmapData({});
+        } finally {
+            setHeatmapLoading(false);
+        }
+    };
+
     const fetchData = async (): Promise<void> => {
         setLoading(true);
         try {
             const targetId = user?.role === 'INTERN' ? user.id : selectedIntern;
             if (!targetId) return;
 
-            const tasksRes = await axios.get('/analytics/tasks/', { params: { intern_id: targetId } });
+            fetchHeatmapData(targetId);
+
+            const params: any = { 
+                intern_id: targetId,
+                limit: 1000
+            };
+
+            if (monthFilter !== 'all') params.month = monthFilter;
+            if (yearFilter !== 'all') params.year = yearFilter;
+
+            const tasksRes = await axios.get('/analytics/tasks/', { params });
             const tasks = Array.isArray(tasksRes.data.tasks) ? tasksRes.data.tasks : [];
             setTasks(tasks);
         } catch (err: any) {
@@ -86,6 +123,14 @@ const MonitoringTasksPage: React.FC = () => {
         }
         setLoading(false);
     };
+
+    // Re-fetch when filters change
+    useEffect(() => {
+        const targetId = user?.role === 'INTERN' ? user.id : selectedIntern;
+        if (targetId) {
+            fetchData();
+        }
+    }, [monthFilter, yearFilter]);
 
     const handleTaskStatusChange = async (taskId: number, newStatus: string): Promise<void> => {
         try {
@@ -176,14 +221,34 @@ const MonitoringTasksPage: React.FC = () => {
                         </div>
                     </div>
                 ) : (
-                    <TasksTab
-                        tasks={tasks}
-                        onAddTask={() => {}}
-                        canCreate={user?.role === 'ADMIN' || user?.role === 'MANAGER'}
-                        onStatusChange={handleTaskStatusChange}
-                        onRefresh={fetchData}
-                        internId={selectedIntern || undefined}
-                    />
+                    <>
+                        <Card className="mb-6 p-4">
+                            {heatmapLoading ? (
+                                <div className="flex items-center justify-center h-32">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500" />
+                                </div>
+                            ) : (
+                                <ContributionHeatmap
+                                    data={heatmapData}
+                                    year={yearFilter === 'all' ? new Date().getFullYear() : yearFilter}
+                                    title={`Task Contribution ${yearFilter !== 'all' ? `(${yearFilter})` : '(Last 12 Months)'}`}
+                                    colorScheme="green"
+                                />
+                            )}
+                        </Card>
+                        <TasksTab
+                            tasks={tasks}
+                            onAddTask={() => {}}
+                            canCreate={user?.role === 'ADMIN' || user?.role === 'MANAGER'}
+                            onStatusChange={handleTaskStatusChange}
+                            onRefresh={fetchData}
+                            internId={selectedIntern || undefined}
+                            monthFilter={monthFilter}
+                            setMonthFilter={setMonthFilter}
+                            yearFilter={yearFilter}
+                            setYearFilter={setYearFilter}
+                        />
+                    </>
                 )}
             </div>
         </div>

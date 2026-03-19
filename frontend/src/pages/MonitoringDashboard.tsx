@@ -94,11 +94,16 @@ const MonitoringDashboard: React.FC = () => {
     const [activeModal, setActiveModal] = useState<ModalType>(null);
     const [success, setSuccess] = useState<string>('');
     const [showInternDropdown, setShowInternDropdown] = useState(false);
-    const [projects, setProjects] = useState<{id: number; project: {name: string}; intern: {full_name: string}}[]>([]);
+    const [projects, setProjects] = useState<{id: number; project: {id: number, name: string}; intern: {full_name: string}}[]>([]);
+    const [modules, setModules] = useState<{id: number; name: string}[]>([]);
+    
+    // Filtering states shared between tabs
+    const [monthFilter, setMonthFilter] = useState<number | 'all'>(new Date().getMonth() + 1);
+    const [yearFilter, setYearFilter] = useState<number | 'all'>(new Date().getFullYear());
 
     // Form states
     const [taskForm, setTaskForm] = useState({
-        title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '',
+        title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '',
     });
     const [attendanceForm, setAttendanceForm] = useState({
         date: new Date().toISOString().split('T')[0], status: 'PRESENT', check_in_time: '', check_out_time: '', notes: '',
@@ -178,6 +183,27 @@ const MonitoringDashboard: React.FC = () => {
             setProjects(activeProjects);
         } catch (err) {
             console.error('Error fetching projects:', err);
+        }
+    };
+
+    const fetchModules = async (projectAssignmentId: string): Promise<void> => {
+        if (!projectAssignmentId) {
+            setModules([]);
+            return;
+        }
+        try {
+            // Find the project ID from the assignment
+            const assignment = projects.find(p => p.id === parseInt(projectAssignmentId));
+            if (assignment && assignment.project) {
+                const response = await axios.get('/projects/modules/', {
+                    params: { project_id: assignment.project.id }
+                });
+                const data = response.data.results || response.data;
+                setModules(data);
+            }
+        } catch (err) {
+            console.error('Error fetching modules:', err);
+            setModules([]);
         }
     };
 
@@ -261,10 +287,13 @@ const MonitoringDashboard: React.FC = () => {
             if (taskForm.project_assignment_id) {
                 taskPayload.project_assignment_id = parseInt(taskForm.project_assignment_id);
             }
+            if (taskForm.project_module_id) {
+                taskPayload.project_module_id = parseInt(taskForm.project_module_id);
+            }
             await axios.post('/analytics/tasks/create/', taskPayload);
             setSuccess('Task created successfully!');
             closeModal();
-            setTaskForm({ title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '' });
+            setTaskForm({ title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '' });
             fetchData();
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
@@ -353,28 +382,28 @@ const MonitoringDashboard: React.FC = () => {
     return (
         <div className="min-h-screen animate-fade-in overflow-visible">
             {/* Header */}
-            <div className="bg-slate-800/30 border-b-0 px-6 py-4 backdrop-blur-xl overflow-visible z-30 relative">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 overflow-visible">
+            <div className="bg-[var(--card-bg)] px-8 py-8 backdrop-blur-3xl border-b border-[var(--border-color)] overflow-visible z-30 relative mb-8 rounded-[2rem] mx-6 mt-6 glass-card">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 overflow-visible">
                     <div>
-                        <h1 className="text-2xl font-bold text-white">
-                            Internship <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Monitoring</span>
+                        <h1 className="text-4xl font-heading font-black tracking-tighter text-[var(--text-main)] uppercase italic leading-none mb-3">
+                            Internship <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monitoring</span>
                         </h1>
-                        <p className="text-slate-400 mt-1">Track progress, attendance, and performance</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--text-dim)]">Operation: Talent Intelligence • Status: Active</p>
                     </div>
                     {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
                         <div className="relative z-30">
                             <button
                                 onClick={() => setShowInternDropdown(!showInternDropdown)}
-                                className="flex items-center gap-3 px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-purple-500/50 transition-all"
+                                className="flex items-center gap-3 px-4 py-2.5 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl hover:border-purple-500/50 transition-all"
                             >
                                 <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(getSelectedInternName())} flex items-center justify-center text-white font-bold text-xs`}>
                                     {getInitials(interns.find(i => i.id === selectedIntern)?.full_name || null)}
                                 </div>
-                                <span className="text-white">{getSelectedInternName()}</span>
-                                <ChevronDown size={16} className={`text-slate-400 transition-transform ${showInternDropdown ? 'rotate-180' : ''}`} />
+                                <span className="text-[var(--text-main)]">{getSelectedInternName()}</span>
+                                <ChevronDown size={16} className={`text-[var(--text-dim)] transition-transform ${showInternDropdown ? 'rotate-180' : ''}`} />
                             </button>
                             {showInternDropdown && (
-                                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-xl z-[9999] isolate animate-scale-in">
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--bg-muted)] backdrop-blur-xl border border-[var(--border-color)] rounded-xl shadow-xl z-[9999] isolate animate-scale-in">
                                     <div className="p-2">
                                         {interns.map((intern) => (
                                             <button
@@ -383,12 +412,12 @@ const MonitoringDashboard: React.FC = () => {
                                                     setSelectedIntern(intern.id);
                                                     setShowInternDropdown(false);
                                                 }}
-                                                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${selectedIntern === intern.id ? 'bg-purple-500/20' : 'hover:bg-slate-700'}`}
+                                                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${selectedIntern === intern.id ? 'bg-purple-500/20' : 'hover:bg-[var(--bg-color)]'}`}
                                             >
                                                 <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(intern.full_name || intern.email)} flex items-center justify-center text-white font-bold text-xs`}>
                                                     {getInitials(intern.full_name)}
                                                 </div>
-                                                <span className="text-white text-sm">{intern.full_name || intern.email}</span>
+                                                <span className="text-[var(--text-main)] text-sm">{intern.full_name || intern.email}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -408,18 +437,18 @@ const MonitoringDashboard: React.FC = () => {
             )}
 
             {/* Tabs */}
-            <div className="bg-slate-800/20 border-b border-slate-700/50 px-6 py-3 sticky top-0 z-20 backdrop-blur-xl">
-                <div className="flex gap-2 overflow-x-auto">
+            <div className="px-8 py-2 sticky top-[80px] z-20 overflow-visible mb-6">
+                <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => handleTabChange(tab.id)}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium whitespace-nowrap transition-all duration-200 ${activeTab === tab.id
-                                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25'
-                                : 'bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700'
+                            className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all duration-500 whitespace-nowrap ${activeTab === tab.id
+                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)] border border-purple-500/30'
+                                : 'bg-[var(--card-bg)] text-[var(--text-dim)] hover:text-[var(--text-main)] hover:bg-purple-500/[0.05] border border-[var(--border-color)]'
                                 }`}
                         >
-                            <tab.icon size={18} />
+                            <tab.icon size={16} className={activeTab === tab.id ? 'animate-pulse' : ''} />
                             {tab.label}
                         </button>
                     ))}
@@ -432,7 +461,7 @@ const MonitoringDashboard: React.FC = () => {
                     <div className="flex justify-center items-center h-64">
                         <div className="flex flex-col items-center gap-4">
                             <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                            <p className="text-slate-400">Loading data...</p>
+                            <p className="text-[var(--text-dim)]">Loading data...</p>
                         </div>
                     </div>
                 ) : (
@@ -449,12 +478,20 @@ const MonitoringDashboard: React.FC = () => {
                                 onRefresh={fetchData}
                                 internId={selectedIntern || undefined}
                                 internName={interns.find(i => i.id === selectedIntern)?.full_name || interns.find(i => i.id === selectedIntern)?.email || undefined}
+                                monthFilter={monthFilter}
+                                setMonthFilter={setMonthFilter}
+                                yearFilter={yearFilter}
+                                setYearFilter={setYearFilter}
                             />
                         )}
                         {activeTab === 'attendance' && (
                             <AttendanceTab
                                 attendance={attendance}
                                 onMarkAttendance={() => openModal('attendance')}
+                                monthFilter={monthFilter}
+                                setMonthFilter={setMonthFilter}
+                                yearFilter={yearFilter}
+                                setYearFilter={setYearFilter}
                             />
                         )}
                         {activeTab === 'performance' && (
@@ -483,33 +520,33 @@ const MonitoringDashboard: React.FC = () => {
             >
                 <form onSubmit={handleCreateTask} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Title</label>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Title</label>
                         <input
                             type="text"
                             required
                             placeholder="Enter task title"
                             value={taskForm.title}
                             onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description</label>
                         <textarea
                             placeholder="Enter task description"
                             value={taskForm.description}
                             onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
+                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
                             rows={3}
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">Priority</label>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Priority</label>
                             <select
                                 value={taskForm.priority}
                                 onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}
-                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                             >
                                 <option value="LOW">Low</option>
                                 <option value="MEDIUM">Medium</option>
@@ -519,11 +556,15 @@ const MonitoringDashboard: React.FC = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Project (Optional)</label>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Project (Optional)</label>
                         <select
                             value={taskForm.project_assignment_id}
-                            onChange={(e) => setTaskForm({ ...taskForm, project_assignment_id: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setTaskForm({ ...taskForm, project_assignment_id: val, project_module_id: '' });
+                                fetchModules(val);
+                            }}
+                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                         >
                             <option value="">No Project</option>
                             {projects
@@ -535,14 +576,31 @@ const MonitoringDashboard: React.FC = () => {
                             ))}
                         </select>
                     </div>
+                    {modules.length > 0 && (
+                        <div>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Module</label>
+                            <select
+                                value={taskForm.project_module_id}
+                                onChange={(e) => setTaskForm({ ...taskForm, project_module_id: e.target.value })}
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                            >
+                                <option value="">Select Module</option>
+                                {modules.map((m) => (
+                                    <option key={m.id} value={m.id}>
+                                        {m.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Due Date</label>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Due Date</label>
                         <input
                             type="date"
                             required
                             value={taskForm.due_date}
                             onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                         />
                     </div>
                     <div className="flex gap-3 pt-4">
@@ -565,21 +623,21 @@ const MonitoringDashboard: React.FC = () => {
             >
                 <form onSubmit={handleMarkAttendance} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Date</label>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Date</label>
                         <input
                             type="date"
                             required
                             value={attendanceForm.date}
                             onChange={(e) => setAttendanceForm({ ...attendanceForm, date: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Status</label>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Status</label>
                         <select
                             value={attendanceForm.status}
                             onChange={(e) => setAttendanceForm({ ...attendanceForm, status: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                         >
                             <option value="PRESENT">Present</option>
                             <option value="ABSENT">Absent</option>
@@ -589,21 +647,21 @@ const MonitoringDashboard: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">Check In</label>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Check In</label>
                             <input
                                 type="time"
                                 value={attendanceForm.check_in_time}
                                 onChange={(e) => setAttendanceForm({ ...attendanceForm, check_in_time: e.target.value })}
-                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">Check Out</label>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Check Out</label>
                             <input
                                 type="time"
                                 value={attendanceForm.check_out_time}
                                 onChange={(e) => setAttendanceForm({ ...attendanceForm, check_out_time: e.target.value })}
-                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                             />
                         </div>
                     </div>
@@ -628,15 +686,15 @@ const MonitoringDashboard: React.FC = () => {
             >
                 <form onSubmit={handleSubmitReport} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Upload Weekly Report (PDF) *</label>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Upload Weekly Report (PDF) *</label>
                         <input
                             type="file"
                             accept=".pdf"
                             required
                             onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
-                            className="block w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-500/20 file:text-violet-400 hover:file:bg-violet-500/30"
+                            className="block w-full text-sm text-[var(--text-dim)] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-500/20 file:text-violet-400 hover:file:bg-violet-500/30"
                         />
-                        <p className="text-xs text-slate-500 mt-2">Upload your weekly report as a PDF file</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-2">Upload your weekly report as a PDF file</p>
                     </div>
                     <div className="flex gap-3 pt-4">
                         <Button type="button" onClick={closeModal} variant="outline" fullWidth>

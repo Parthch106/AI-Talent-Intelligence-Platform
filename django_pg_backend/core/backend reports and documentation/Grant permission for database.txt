@@ -1,0 +1,42 @@
+🔹 Step 2: Grant Schema Permissions (IMPORTANT)
+
+Run exactly this:
+
+GRANT ALL ON SCHEMA public TO django_user;
+ALTER SCHEMA public OWNER TO django_user;
+
+
+💥 This is the missing piece.
+
+🔹 Step 3: Grant DB Permissions (Safe to run again)
+GRANT ALL PRIVILEGES ON DATABASE django_db TO django_user;
+
+Step 3: Grant schema permissions (THIS IS THE KEY STEP)
+GRANT ALL ON SCHEMA public TO ai_talent_user;
+
+
+Also make sure ownership is clean:
+
+ALTER SCHEMA public OWNER TO ai_talent_user;
+
+
+Optional but industry-safe:
+
+ALTER DATABASE ai_talent_dev OWNER TO ai_talent_user;
+
+
+
+(Optional but recommended)
+
+ALTER DATABASE django_db OWNER TO django_user;
+
+
+Pro tip (future-proof)
+
+If you ever create a DB like this again, do it in this order:
+
+CREATE USER ai_talent_user WITH PASSWORD 'dev_only_password';
+CREATE DATABASE ai_talent_dev OWNER ai_talent_user;
+
+
+Then schema issues never happen.

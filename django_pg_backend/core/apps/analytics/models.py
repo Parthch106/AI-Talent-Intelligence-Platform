@@ -99,6 +99,14 @@ class TaskTracking(models.Model):
         related_name='tasks'
     )
     
+    project_module = models.ForeignKey(
+        'projects.ProjectModule',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tasks'
+    )
+    
     class Meta:
         ordering = ['-assigned_at']
     

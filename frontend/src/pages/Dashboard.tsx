@@ -5,6 +5,7 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
+import StatsCard from '../components/common/StatsCard';
 
 interface Project {
     id: number;
@@ -102,7 +103,7 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                    <p className="text-slate-400 animate-pulse">Loading dashboard...</p>
+                    <p className="text-[var(--text-dim)] animate-pulse">Loading dashboard...</p>
                 </div>
             </div>
         );
@@ -133,39 +134,35 @@ const Dashboard: React.FC = () => {
     }
 
     return (
-        <div className="space-y-8 animate-fade-in">
+        <div className="space-y-10 animate-fade-in pb-12">
             {/* Page Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">
-                        Dashboard <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Overview</span>
+                    <h1 className="text-4xl font-heading font-black tracking-tighter text-[var(--text-main)] mb-2 uppercase italic">
+                        Dashboard <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Overview</span>
                     </h1>
-                    <p className="text-slate-400">Welcome back! Here's what's happening with your projects.</p>
+                    <p className="text-[var(--text-dim)] font-bold uppercase text-[10px] tracking-[0.2em]">Welcome back, Commander</p>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-slate-400">
-                    <Clock size={16} className="text-purple-400" />
-                    Last updated: Just now
+                <div className="flex items-center gap-3 px-4 py-2 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl text-xs font-black uppercase tracking-widest text-[var(--text-dim)]">
+                    <Clock size={14} className="text-purple-500" />
+                    Last Sync: Just now
                 </div>
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 {statItems.map((stat, i) => (
-                    <div key={i} className="group relative">
-                        <div className={`absolute -inset-0.5 bg-gradient-to-r ${stat.color} rounded-2xl blur opacity-20 group-hover:opacity-40 transition-opacity`}></div>
-                        <div className="relative bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-white/5 hover:border-white/10 transition-all duration-300 hover:-translate-y-1">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color} shadow-lg`}>
-                                    <div className="text-white">{stat.icon}</div>
-                                </div>
-                                <span className={`text-xs font-medium px-2 py-1 rounded-full ${stat.trendUp ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
-                                    {stat.trend}
-                                </span>
-                            </div>
-                            <div className="text-3xl font-bold text-white mb-1">{stat.value}</div>
-                            <div className="text-sm text-slate-400">{stat.label}</div>
-                        </div>
-                    </div>
+                    <StatsCard
+                        key={i}
+                        title={stat.label}
+                        value={stat.value}
+                        icon={stat.icon}
+                        gradient={stat.color}
+                        trend={{
+                            value: parseInt(stat.trend) || 0,
+                            isPositive: stat.trendUp
+                        }}
+                    />
                 ))}
             </div>
 
@@ -178,8 +175,8 @@ const Dashboard: React.FC = () => {
                                 <FolderKanban size={20} className="text-purple-400" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-white">My Assigned Projects</h2>
-                                <p className="text-sm text-slate-400">Your current project assignments</p>
+                                <h2 className="text-xl font-bold text-[var(--text-main)]">My Assigned Projects</h2>
+                                <p className="text-sm text-[var(--text-dim)]">Your current project assignments</p>
                             </div>
                         </div>
                     </div>
@@ -187,27 +184,27 @@ const Dashboard: React.FC = () => {
                         {assignedProjects.map((project) => (
                             <Card key={project.id} hover className="group">
                                 <div className="flex items-start justify-between mb-4">
-                                    <h4 className="font-semibold text-white group-hover:text-purple-300 transition-colors">{project.name}</h4>
+                                    <h4 className="font-semibold text-[var(--text-main)] group-hover:text-purple-600 dark:group-hover:text-purple-300 transition-colors">{project.name}</h4>
                                     {getStatusBadge(project.status)}
                                 </div>
-                                <p className="text-sm text-slate-400 mb-4 line-clamp-2">
+                                <p className="text-sm text-[var(--text-dim)] mb-4 line-clamp-2">
                                     {project.description?.substring(0, 100)}...
                                 </p>
                                 {project.tech_stack && project.tech_stack.length > 0 && (
                                     <div className="flex flex-wrap gap-2 mb-4">
                                         {project.tech_stack.slice(0, 3).map((tech, index) => (
-                                            <span key={index} className="px-2 py-1 text-xs font-medium bg-purple-500/20 text-purple-300 rounded-lg border border-purple-500/20">
+                                            <span key={index} className="px-2 py-1 text-xs font-medium bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-300 rounded-lg border border-purple-500/20">
                                                 {tech}
                                             </span>
                                         ))}
                                         {project.tech_stack.length > 3 && (
-                                            <span className="px-2 py-1 text-xs font-medium bg-slate-700/50 text-slate-400 rounded-lg">
+                                            <span className="px-2 py-1 text-xs font-medium bg-[var(--bg-muted)] text-[var(--text-dim)] rounded-lg">
                                                 +{project.tech_stack.length - 3} more
                                             </span>
                                         )}
                                     </div>
                                 )}
-                                <div className="flex items-center gap-2 text-sm text-slate-400 pt-4 border-t border-white/5">
+                                <div className="flex items-center gap-2 text-sm text-[var(--text-dim)] pt-4 border-t border-[var(--border-color)]">
                                     <Users size={14} className="text-purple-400" />
                                     Mentor: {project.mentor?.full_name || 'Unassigned'}
                                 </div>
@@ -226,7 +223,7 @@ const Dashboard: React.FC = () => {
                             activities.slice(0, 5).map((activity, i) => (
                                 <div 
                                     key={i} 
-                                    className="flex items-center gap-4 p-4 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 transition-colors cursor-pointer group"
+                                    className="flex items-center gap-4 p-4 rounded-xl bg-[var(--card-bg)] hover:bg-purple-500/[0.05] transition-colors cursor-pointer group border border-[var(--border-color)]"
                                     onClick={() => activity.link && navigate(activity.link)}
                                 >
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${
@@ -243,18 +240,18 @@ const Dashboard: React.FC = () => {
                                         )}
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-sm text-white group-hover:text-purple-200 transition-colors">
+                                        <p className="text-sm font-bold text-[var(--text-main)] group-hover:text-purple-600 dark:group-hover:text-purple-300 transition-colors uppercase tracking-tight">
                                             {activity.description}
                                         </p>
-                                        <p className="text-xs text-slate-500 mt-1">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mt-1">
                                             {new Date(activity.created_at).toLocaleDateString()}
                                         </p>
                                     </div>
-                                    <ArrowRight size={16} className="text-slate-500 group-hover:text-purple-400 group-hover:translate-x-1 transition-all" />
+                                    <ArrowRight size={16} className="text-[var(--text-muted)] group-hover:text-purple-500 group-hover:translate-x-1 transition-all" />
                                 </div>
                             ))
                         ) : (
-                            <div className="text-center py-8 text-slate-500">
+                            <div className="text-center py-8 text-[var(--text-muted)]">
                                 <Activity size={32} className="mx-auto mb-2 opacity-50" />
                                 <p>No recent activity</p>
                             </div>
@@ -291,7 +288,7 @@ const Dashboard: React.FC = () => {
                                             {alert.title}
                                         </span>
                                     </div>
-                                    <p className="text-sm text-slate-400">
+                                    <p className="text-sm text-[var(--text-dim)]">
                                         {alert.message}
                                     </p>
                                 </div>
@@ -300,9 +297,9 @@ const Dashboard: React.FC = () => {
                             <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                                    <span className="text-sm font-medium text-emerald-400">All Clear</span>
+                                    <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">All Clear</span>
                                 </div>
-                                <p className="text-sm text-slate-400">
+                                <p className="text-sm text-[var(--text-dim)]">
                                     No alerts at this time.
                                 </p>
                             </div>

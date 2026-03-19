@@ -231,7 +231,7 @@ const InternList: React.FC = () => {
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                    <p className="text-slate-400 animate-pulse">Loading interns...</p>
+                    <p className="text-[var(--text-muted)] animate-pulse">Loading interns...</p>
                 </div>
             </div>
         );
@@ -246,10 +246,10 @@ const InternList: React.FC = () => {
             {/* Page Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">
+                    <h1 className="text-3xl font-bold text-[var(--text-main)] mb-2">
                         Intern <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Directory</span>
                     </h1>
-                    <p className="text-slate-400">
+                    <p className="text-[var(--text-dim)]">
                         {user?.role === 'ADMIN'
                             ? selectedDepartment
                                 ? `Interns in ${selectedDepartment}`
@@ -274,20 +274,20 @@ const InternList: React.FC = () => {
             {/* Search and Filter Bar */}
             <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1 group">
-                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-purple-400 transition-colors" />
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] group-focus-within:text-purple-400 transition-colors" />
                     <input
                         type="text"
                         placeholder="Search interns by name, email, university..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                        className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                     />
                 </div>
                 {user?.role === 'ADMIN' && (
                     <select
                         value={selectedDepartment}
                         onChange={(e) => setSelectedDepartment(e.target.value)}
-                        className="px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                        className="px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                     >
                         <option value="">All Departments</option>
                         {departments.map(dept => (
@@ -305,11 +305,11 @@ const InternList: React.FC = () => {
                 {filteredInterns.length === 0 ? (
                     <div className="col-span-full">
                         <Card className="text-center py-12">
-                            <div className="w-16 h-16 mx-auto mb-4 bg-slate-800/50 rounded-full flex items-center justify-center">
-                                <Search size={24} className="text-slate-500" />
+                            <div className="w-16 h-16 mx-auto mb-4 bg-[var(--bg-muted)] rounded-full flex items-center justify-center">
+                                <Search size={24} className="text-[var(--text-muted)]" />
                             </div>
-                            <h3 className="text-lg font-medium text-white mb-2">No interns found</h3>
-                            <p className="text-slate-400">Try adjusting your search or filter criteria</p>
+                            <h3 className="text-lg font-medium text-[var(--text-main)] mb-2">No interns found</h3>
+                            <p className="text-[var(--text-dim)]">Try adjusting your search or filter criteria</p>
                         </Card>
                     </div>
                 ) : (
@@ -328,10 +328,10 @@ const InternList: React.FC = () => {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-start justify-between">
                                         <div>
-                                            <h3 className="font-semibold text-white group-hover:text-purple-200 transition-colors truncate">
+                                            <h3 className="font-semibold text-[var(--text-main)] group-hover:text-purple-200 transition-colors truncate">
                                                 {intern.user?.full_name || 'N/A'}
                                             </h3>
-                                            <p className="text-sm text-slate-400 truncate">{intern.user?.email || 'N/A'}</p>
+                                            <p className="text-sm text-[var(--text-dim)] truncate">{intern.user?.email || 'N/A'}</p>
                                         </div>
                                         {getStatusBadge(intern.status)}
                                     </div>
@@ -340,11 +340,11 @@ const InternList: React.FC = () => {
 
                             {/* Details */}
                             <div className="mt-4 space-y-2">
-                                <div className="flex items-center gap-2 text-sm text-slate-400">
+                                <div className="flex items-center gap-2 text-sm text-[var(--text-dim)]">
                                     <Building size={14} className="text-purple-400" />
                                     <span>{intern.university || 'No university specified'}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-sm text-slate-400">
+                                <div className="flex items-center gap-2 text-sm text-[var(--text-dim)]">
                                     <Phone size={14} className="text-purple-400" />
                                     <span>{intern.phone_number || 'No phone number'}</span>
                                 </div>
@@ -359,7 +359,7 @@ const InternList: React.FC = () => {
                                         </span>
                                     ))}
                                     {intern.skills.length > 3 && (
-                                        <span className="px-2 py-1 text-xs font-medium bg-slate-700/50 text-slate-400 rounded-lg">
+                                        <span className="px-2 py-1 text-xs font-medium bg-[var(--bg-muted)] text-[var(--text-dim)] rounded-lg">
                                             +{intern.skills.length - 3} more
                                         </span>
                                     )}
@@ -367,16 +367,16 @@ const InternList: React.FC = () => {
                             )}
 
                             {/* Actions */}
-                            <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                            <div className="mt-4 pt-4 border-t border-[var(--border-color)] flex items-center justify-between">
                                 <button className="text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 group/btn">
                                     View Profile
                                     <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
                                 </button>
                                 <div className="flex items-center gap-1">
-                                    <button className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-all">
+                                    <button className="p-2 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-muted)] rounded-lg transition-all">
                                         <Eye size={16} />
                                     </button>
-                                    <button className="p-2 text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-all">
+                                    <button className="p-2 text-[var(--text-muted)] hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-all">
                                         <Edit size={16} />
                                     </button>
                                 </div>
@@ -390,18 +390,18 @@ const InternList: React.FC = () => {
             {showAddModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
                     <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowAddModal(false)}></div>
-                    <div className="relative bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-purple-500/20 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
+                    <div className="relative bg-[var(--card-bg)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl shadow-purple-500/20 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
                         {/* Modal Header */}
-                        <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-white/10 z-10">
+                        <div className="sticky top-0 bg-[var(--card-bg)] backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] z-10">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl flex items-center justify-center">
                                     <UserPlus size={18} className="text-purple-400" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-bold text-white">
+                                    <h2 className="text-lg font-bold text-[var(--text-main)]">
                                         {isManager ? 'Add Existing Intern' : 'Add New Intern'}
                                     </h2>
-                                    <p className="text-xs text-slate-400">
+                                    <p className="text-xs text-[var(--text-muted)]">
                                         {isManager
                                             ? 'Select an intern from your department'
                                             : 'Fill in the details below'
@@ -411,9 +411,9 @@ const InternList: React.FC = () => {
                             </div>
                             <button
                                 onClick={() => setShowAddModal(false)}
-                                className="p-2 hover:bg-white/5 rounded-xl transition-colors group"
+                                className="p-2 hover:bg-[var(--bg-muted)] rounded-xl transition-colors group"
                             >
-                                <X size={20} className="text-slate-400 group-hover:text-white transition-colors" />
+                                <X size={20} className="text-[var(--text-muted)] group-hover:text-[var(--text-main)] transition-colors" />
                             </button>
                         </div>
 
@@ -428,28 +428,28 @@ const InternList: React.FC = () => {
                             {isManager ? (
                                 // Manager: Show dropdown of available interns
                                 <div className="space-y-4">
-                                    <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                    <h4 className="text-sm font-semibold text-[var(--text-dim)] flex items-center gap-2">
                                         <div className="w-1 h-4 bg-gradient-to-b from-purple-400 to-pink-400 rounded-full"></div>
                                         Select Intern
                                     </h4>
 
                                     {availableInterns.length === 0 ? (
                                         <div className="text-center py-8">
-                                            <div className="w-16 h-16 mx-auto mb-4 bg-slate-800/50 rounded-full flex items-center justify-center">
-                                                <UserPlus size={24} className="text-slate-500" />
+                                            <div className="w-16 h-16 mx-auto mb-4 bg-[var(--bg-muted)] rounded-full flex items-center justify-center">
+                                                <UserPlus size={24} className="text-[var(--text-muted)]" />
                                             </div>
-                                            <h3 className="text-lg font-medium text-white mb-2">No interns available</h3>
-                                            <p className="text-slate-400">All interns in your department have already been added</p>
+                                            <h3 className="text-lg font-medium text-[var(--text-main)] mb-2">No interns available</h3>
+                                            <p className="text-[var(--text-dim)]">All interns in your department have already been added</p>
                                         </div>
                                     ) : (
                                         <div className="group">
-                                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">
                                                 Available Interns
                                             </label>
                                             <select
                                                 value={selectedInternId}
                                                 onChange={(e) => setSelectedInternId(Number(e.target.value) || '')}
-                                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                                 required
                                             >
                                                 <option value="">Select an intern...</option>
@@ -467,13 +467,13 @@ const InternList: React.FC = () => {
                                 <>
                                     {/* User Information Section */}
                                     <div className="space-y-4">
-                                        <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                        <h4 className="text-sm font-semibold text-[var(--text-dim)] flex items-center gap-2">
                                             <div className="w-1 h-4 bg-gradient-to-b from-purple-400 to-pink-400 rounded-full"></div>
                                             User Information
                                         </h4>
 
                                         <div className="group">
-                                            <label className="block text-sm font-medium text-slate-300 mb-2">Full Name *</label>
+                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Full Name *</label>
                                             <input
                                                 type="text"
                                                 required
@@ -482,15 +482,15 @@ const InternList: React.FC = () => {
                                                     ...prev,
                                                     user: { ...prev.user, full_name: e.target.value }
                                                 }))}
-                                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                                 placeholder="John Doe"
                                             />
                                         </div>
 
                                         <div className="group">
-                                            <label className="block text-sm font-medium text-slate-300 mb-2">Email *</label>
+                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Email *</label>
                                             <div className="relative">
-                                                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                                                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
                                                 <input
                                                     type="email"
                                                     required
@@ -499,14 +499,14 @@ const InternList: React.FC = () => {
                                                         ...prev,
                                                         user: { ...prev.user, email: e.target.value }
                                                     }))}
-                                                    className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                    className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                                     placeholder="john@example.com"
                                                 />
                                             </div>
                                         </div>
 
                                         <div className="group">
-                                            <label className="block text-sm font-medium text-slate-300 mb-2">Password *</label>
+                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Password *</label>
                                             <input
                                                 type="password"
                                                 required
@@ -516,24 +516,24 @@ const InternList: React.FC = () => {
                                                     ...prev,
                                                     user: { ...prev.user, password: e.target.value }
                                                 }))}
-                                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                                 placeholder="••••••••"
                                             />
-                                            <p className="text-xs text-slate-500 mt-1">Minimum 8 characters</p>
+                                            <p className="text-xs text-[var(--text-muted)] mt-1">Minimum 8 characters</p>
                                         </div>
                                     </div>
 
                                     {/* Profile Information Section */}
-                                    <div className="space-y-4 pt-4 border-t border-white/5">
-                                        <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                    <div className="space-y-4 pt-4 border-t border-[var(--border-color)]">
+                                        <h4 className="text-sm font-semibold text-[var(--text-dim)] flex items-center gap-2">
                                             <div className="w-1 h-4 bg-gradient-to-b from-indigo-400 to-purple-400 rounded-full"></div>
                                             Profile Information
                                         </h4>
 
                                         <div className="group">
-                                            <label className="block text-sm font-medium text-slate-300 mb-2">University</label>
+                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">University</label>
                                             <div className="relative">
-                                                <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                                                <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
                                                 <input
                                                     type="text"
                                                     value={newIntern.profile.university}
@@ -541,16 +541,16 @@ const InternList: React.FC = () => {
                                                         ...prev,
                                                         profile: { ...prev.profile, university: e.target.value }
                                                     }))}
-                                                    className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                    className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                                     placeholder="Stanford University"
                                                 />
                                             </div>
                                         </div>
 
                                         <div className="group">
-                                            <label className="block text-sm font-medium text-slate-300 mb-2">Phone Number</label>
+                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Phone Number</label>
                                             <div className="relative">
-                                                <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                                                <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
                                                 <input
                                                     type="text"
                                                     value={newIntern.profile.phone_number}
@@ -558,22 +558,22 @@ const InternList: React.FC = () => {
                                                         ...prev,
                                                         profile: { ...prev.profile, phone_number: e.target.value }
                                                     }))}
-                                                    className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                    className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                                     placeholder="+1 (555) 000-0000"
                                                 />
                                             </div>
                                         </div>
 
                                         <div className="group">
-                                            <label className="block text-sm font-medium text-slate-300 mb-2">Skills</label>
+                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Skills</label>
                                             <input
                                                 type="text"
                                                 placeholder="Python, JavaScript, React..."
                                                 value={newIntern.profile.skills.join(', ')}
                                                 onChange={handleSkillChange}
-                                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                             />
-                                            <p className="text-xs text-slate-500 mt-1">Separate skills with commas</p>
+                                            <p className="text-xs text-[var(--text-muted)] mt-1">Separate skills with commas</p>
                                         </div>
                                     </div>
                                 </>

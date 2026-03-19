@@ -263,13 +263,13 @@ const DocumentsPage: React.FC = () => {
             case 'ACADEMIC_CERTIFICATE':
             case 'INTERNSHIP_CERTIFICATE':
             case 'ACHIEVEMENT_CERTIFICATE':
-                return <FileText size={20} className="text-purple-400" />;
+                return <FileText size={20} className="text-purple-500" />;
             case 'PROJECT_REPORT':
             case 'WEEKLY_PROGRESS':
             case 'TASK_SUBMISSION':
-                return <File size={20} className="text-blue-400" />;
+                return <File size={20} className="text-blue-500" />;
             default:
-                return <File size={20} className="text-slate-400" />;
+                return <File size={20} className="text-[var(--text-dim)]" />;
         }
     };
 
@@ -304,8 +304,8 @@ const DocumentsPage: React.FC = () => {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                    <p className="text-slate-400 animate-pulse">Loading documents...</p>
+                    <div className="w-16 h-16 border-4 border-purple-500/10 border-t-purple-500 rounded-full animate-spin"></div>
+                    <p className="text-[var(--text-dim)] animate-pulse">Loading documents...</p>
                 </div>
             </div>
         );
@@ -316,10 +316,10 @@ const DocumentsPage: React.FC = () => {
             {/* Page Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">
+                    <h1 className="text-3xl font-bold text-[var(--text-main)] mb-2">
                         Document <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Center</span>
                     </h1>
-                    <p className="text-slate-400">Manage and organize your documents</p>
+                    <p className="text-[var(--text-dim)]">Manage and organize your documents</p>
                 </div>
                 <Button
                     onClick={() => setShowUploadModal(true)}
@@ -337,14 +337,14 @@ const DocumentsPage: React.FC = () => {
                     <div className="relative">
                         <button
                             onClick={() => setShowOwnerTypeDropdown(!showOwnerTypeDropdown)}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white hover:border-purple-500/50 transition-all"
+                            className="flex items-center gap-2 px-4 py-2.5 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] hover:border-purple-500/50 transition-all"
                         >
-                            <span className="text-slate-400">Filter by:</span>
+                            <span className="text-[var(--text-dim)]">Filter by:</span>
                             <span className="font-medium">{selectedOwnerTypeLabel}</span>
-                            <ChevronDown size={16} className={`text-slate-400 transition-transform ${showOwnerTypeDropdown ? 'rotate-180' : ''}`} />
+                            <ChevronDown size={16} className={`text-[var(--text-dim)] transition-transform ${showOwnerTypeDropdown ? 'rotate-180' : ''}`} />
                         </button>
                         {showOwnerTypeDropdown && (
-                            <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-20 overflow-hidden">
+                            <div className="absolute top-full left-0 mt-2 w-48 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl shadow-xl z-20 overflow-hidden">
                                 {ownerTypeOptions.map(option => (
                                     <button
                                         key={option.value}
@@ -352,7 +352,7 @@ const DocumentsPage: React.FC = () => {
                                             setSelectedOwnerType(option.value);
                                             setShowOwnerTypeDropdown(false);
                                         }}
-                                        className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-colors ${selectedOwnerType === option.value ? 'text-purple-400 bg-purple-500/10' : 'text-white'
+                                        className={`w-full px-4 py-3 text-left hover:bg-[var(--bg-muted)] transition-colors ${selectedOwnerType === option.value ? 'text-purple-600 dark:text-purple-400 bg-purple-500/10' : 'text-[var(--text-main)]'
                                             }`}
                                     >
                                         {option.label}
@@ -367,14 +367,14 @@ const DocumentsPage: React.FC = () => {
                 <div className="relative">
                     <button
                         onClick={() => setShowDocTypeDropdown(!showDocTypeDropdown)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white hover:border-purple-500/50 transition-all"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] hover:border-purple-500/50 transition-all"
                     >
-                        <span className="text-slate-400">Type:</span>
+                        <span className="text-[var(--text-dim)]">Type:</span>
                         <span className="font-medium">{selectedDocTypeLabel}</span>
-                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${showDocTypeDropdown ? 'rotate-180' : ''}`} />
+                        <ChevronDown size={16} className={`text-[var(--text-dim)] transition-transform ${showDocTypeDropdown ? 'rotate-180' : ''}`} />
                     </button>
                     {showDocTypeDropdown && (
-                        <div className="absolute top-full left-0 mt-2 w-72 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-20 overflow-hidden max-h-80 overflow-y-auto">
+                        <div className="absolute top-full left-0 mt-2 w-72 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl shadow-xl z-20 overflow-hidden max-h-80 overflow-y-auto">
                             {documentTypeOptions.map(option => (
                                 <button
                                     key={option.type}
@@ -382,11 +382,11 @@ const DocumentsPage: React.FC = () => {
                                         setSelectedDocType(option.type);
                                         setShowDocTypeDropdown(false);
                                     }}
-                                    className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-colors flex items-center justify-between ${selectedDocType === option.type ? 'text-purple-400 bg-purple-500/10' : 'text-white'
+                                    className={`w-full px-4 py-3 text-left hover:bg-[var(--bg-muted)] transition-colors flex items-center justify-between ${selectedDocType === option.type ? 'text-purple-600 dark:text-purple-400 bg-purple-500/10' : 'text-[var(--text-main)]'
                                         }`}
                                 >
                                     <span>{option.label}</span>
-                                    <span className={`px-2 py-0.5 rounded-full text-xs ${option.count > 0 ? 'bg-purple-500/20 text-purple-300' : 'bg-slate-700 text-slate-500'
+                                    <span className={`px-2 py-0.5 rounded-full text-xs ${option.count > 0 ? 'bg-purple-500/20 text-purple-700 dark:text-purple-300' : 'bg-[var(--bg-muted)] text-[var(--text-muted)]'
                                         }`}>
                                         {option.count}
                                     </span>
@@ -398,13 +398,13 @@ const DocumentsPage: React.FC = () => {
 
                 {/* Search Bar */}
                 <div className="relative flex-1 max-w-md">
-                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
                     <input
                         type="text"
                         placeholder="Search documents..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-12 pr-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                        className="w-full pl-12 pr-4 py-2.5 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                     />
                 </div>
             </div>
@@ -412,11 +412,11 @@ const DocumentsPage: React.FC = () => {
             {/* Documents Grid */}
             {filteredDocuments.length === 0 ? (
                 <Card className="text-center py-12">
-                    <div className="w-20 h-20 mx-auto mb-4 bg-slate-800/50 rounded-2xl flex items-center justify-center">
-                        <FolderOpen size={32} className="text-slate-500" />
+                    <div className="w-20 h-20 mx-auto mb-4 bg-[var(--bg-muted)] rounded-2xl flex items-center justify-center">
+                        <FolderOpen size={32} className="text-[var(--text-muted)]" />
                     </div>
-                    <h3 className="text-lg font-medium text-white mb-2">No documents found</h3>
-                    <p className="text-slate-400 mb-6">
+                    <h3 className="text-lg font-medium text-[var(--text-main)] mb-2">No documents found</h3>
+                    <p className="text-[var(--text-dim)] mb-6">
                         {searchQuery ? 'Try adjusting your search criteria' : 'Upload your first document to get started'}
                     </p>
                     {!searchQuery && (
@@ -444,7 +444,7 @@ const DocumentsPage: React.FC = () => {
 
                                 {/* Info */}
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="font-semibold text-white group-hover:text-purple-200 transition-colors truncate">
+                                    <h3 className="font-semibold text-[var(--text-main)] group-hover:text-purple-600 dark:group-hover:text-purple-300 transition-colors truncate">
                                         {doc.title}
                                     </h3>
                                     <Badge variant="purple" size="sm" className="mt-1">
@@ -455,15 +455,15 @@ const DocumentsPage: React.FC = () => {
 
                             {/* Description */}
                             {doc.description && (
-                                <p className="text-sm text-slate-400 mt-4 line-clamp-2">
+                                <p className="text-sm text-[var(--text-dim)] mt-4 line-clamp-2">
                                     {doc.description}
                                 </p>
                             )}
 
                             {/* Meta Info */}
                             <div className="mt-4 space-y-2">
-                                <div className="flex items-center gap-2 text-sm text-slate-400">
-                                    <User size={14} className="text-purple-400" />
+                                <div className="flex items-center gap-2 text-sm text-[var(--text-dim)]">
+                                    <User size={14} className="text-purple-500" />
                                     <span>Uploaded by {doc.uploaded_by?.full_name || 'Unknown'}</span>
                                     {doc.uploaded_by?.role === 'MANAGER' && (
                                         <Badge variant="indigo" size="sm">Manager</Badge>
@@ -472,19 +472,19 @@ const DocumentsPage: React.FC = () => {
                                         <Badge variant="success" size="sm">Intern</Badge>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-2 text-sm text-slate-400">
-                                    <Calendar size={14} className="text-purple-400" />
+                                <div className="flex items-center gap-2 text-sm text-[var(--text-dim)]">
+                                    <Calendar size={14} className="text-purple-500" />
                                     <span>{formatDate(doc.created_at)}</span>
                                 </div>
                             </div>
 
                             {/* Actions */}
-                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
+                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-[var(--border-color)]">
                                 <a
                                     href={doc.file}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors"
+                                    className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
                                 >
                                     <ExternalLink size={14} />
                                     View
@@ -493,13 +493,13 @@ const DocumentsPage: React.FC = () => {
                                     <a
                                         href={doc.file}
                                         download
-                                        className="p-2 text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-all"
+                                        className="p-2 text-[var(--text-dim)] hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-all"
                                     >
                                         <Download size={16} />
                                     </a>
                                     <button
                                         onClick={() => handleDelete(doc.id)}
-                                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                        className="p-2 text-[var(--text-dim)] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
                                     >
                                         <Trash2 size={16} />
                                     </button>
@@ -513,24 +513,24 @@ const DocumentsPage: React.FC = () => {
             {/* Upload Modal */}
             {showUploadModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowUploadModal(false)}></div>
-                    <div className="relative bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-purple-500/20 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowUploadModal(false)}></div>
+                    <div className="relative bg-[var(--bg-color)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl shadow-purple-500/10 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
                         {/* Modal Header */}
-                        <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-white/10 z-10">
+                        <div className="sticky top-0 bg-[var(--bg-color)] backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] z-10">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl flex items-center justify-center">
-                                    <Upload size={18} className="text-purple-400" />
+                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl flex items-center justify-center">
+                                    <Upload size={18} className="text-purple-500" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-bold text-white">Upload Document</h2>
-                                    <p className="text-xs text-slate-400">Add a new document to your library</p>
+                                    <h2 className="text-lg font-bold text-[var(--text-main)]">Upload Document</h2>
+                                    <p className="text-xs text-[var(--text-dim)]">Add a new document to your library</p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setShowUploadModal(false)}
-                                className="p-2 hover:bg-white/5 rounded-xl transition-colors group"
+                                className="p-2 hover:bg-[var(--bg-muted)] rounded-xl transition-colors group"
                             >
-                                <X size={20} className="text-slate-400 group-hover:text-white transition-colors" />
+                                <X size={20} className="text-[var(--text-dim)] group-hover:text-[var(--text-main)] transition-colors" />
                             </button>
                         </div>
 
@@ -548,24 +548,24 @@ const DocumentsPage: React.FC = () => {
                             )}
 
                             <div className="group">
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Title *</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Title *</label>
                                 <input
                                     type="text"
                                     required
                                     value={newDocument.title}
                                     onChange={e => setNewDocument(prev => ({ ...prev, title: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
                                     placeholder="Document title"
                                 />
                             </div>
 
                             <div className="group">
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Document Type *</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Document Type *</label>
                                 <select
                                     required
                                     value={newDocument.document_type}
                                     onChange={e => setNewDocument(prev => ({ ...prev, document_type: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
+                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
                                 >
                                     <option value="">Select type...</option>
                                     {getDocumentTypes().map(type => (
@@ -575,7 +575,7 @@ const DocumentsPage: React.FC = () => {
                             </div>
 
                             <div className="group">
-                                <label className="block text-sm font-medium text-slate-300 mb-2">File *</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">File *</label>
                                 <div className="relative">
                                     <input
                                         type="file"
@@ -587,18 +587,18 @@ const DocumentsPage: React.FC = () => {
                                     />
                                     <label
                                         htmlFor="file-upload"
-                                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-700 rounded-xl cursor-pointer hover:border-purple-500/50 hover:bg-slate-800/30 transition-all"
+                                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-[var(--border-color)] rounded-xl cursor-pointer hover:border-purple-500/50 hover:bg-[var(--bg-muted)] transition-all"
                                     >
                                         {newDocument.file ? (
                                             <div className="flex items-center gap-3">
-                                                <FileText size={24} className="text-purple-400" />
-                                                <span className="text-white">{newDocument.file.name}</span>
+                                                <FileText size={24} className="text-purple-500" />
+                                                <span className="text-[var(--text-main)]">{newDocument.file.name}</span>
                                             </div>
                                         ) : (
                                             <>
-                                                <FilePlus size={24} className="text-slate-500 mb-2" />
-                                                <span className="text-sm text-slate-400">Click to upload or drag and drop</span>
-                                                <span className="text-xs text-slate-500 mt-1">PDF, DOC, DOCX, PPT, PPTX, CSV</span>
+                                                <FilePlus size={24} className="text-[var(--text-muted)] mb-2" />
+                                                <span className="text-sm text-[var(--text-dim)]">Click to upload or drag and drop</span>
+                                                <span className="text-xs text-[var(--text-muted)] mt-1">PDF, DOC, DOCX, PPT, PPTX, CSV</span>
                                             </>
                                         )}
                                     </label>
@@ -606,13 +606,13 @@ const DocumentsPage: React.FC = () => {
                             </div>
 
                             <div className="group">
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description</label>
                                 <textarea
                                     value={newDocument.description}
                                     onChange={e => setNewDocument(prev => ({ ...prev, description: e.target.value }))}
                                     rows={3}
                                     placeholder="Optional description..."
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
+                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
                                 />
                             </div>
 

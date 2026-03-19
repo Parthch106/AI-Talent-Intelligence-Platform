@@ -43,13 +43,15 @@ def _send_intelligence_notification(user):
     """Send notification when intelligence is computed."""
     try:
         from apps.notifications.models import Notification
-        from apps.analytics.models import InternIntelligence
+        from apps.analytics.models import Application, ModelPrediction
         
         # Get the latest intelligence score if available
-        intelligence = InternIntelligence.objects.filter(user=user).first()
+        application = Application.objects.filter(intern=user).first()
         score = None
-        if intelligence and intelligence.overall_score is not None:
-            score = intelligence.overall_score * 100
+        if application:
+            prediction = ModelPrediction.objects.filter(application=application).first()
+            if prediction and prediction.suitability_score is not None:
+                score = prediction.suitability_score * 100
         
         message = 'Your intelligence analysis has been completed.'
         if score is not None:

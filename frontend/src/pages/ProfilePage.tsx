@@ -161,11 +161,11 @@ const ProfilePage: React.FC = () => {
     const getRoleBadgeStyle = () => {
         switch (user?.role) {
             case 'ADMIN':
-                return 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 border-purple-500/30';
+                return 'bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-300 border-purple-500/30';
             case 'MANAGER':
-                return 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-300 border-blue-500/30';
+                return 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-300 border-blue-500/30';
             default:
-                return 'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 border-emerald-500/30';
+                return 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/30';
         }
     };
 
@@ -174,7 +174,7 @@ const ProfilePage: React.FC = () => {
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                    <p className="text-slate-400 animate-pulse">Loading profile...</p>
+                    <p className="text-[var(--text-dim)] animate-pulse">Loading profile...</p>
                 </div>
             </div>
         );
@@ -184,10 +184,10 @@ const ProfilePage: React.FC = () => {
         <div className="space-y-6 animate-fade-in">
             {/* Page Header */}
             <div>
-                <h1 className="text-3xl font-bold text-white mb-2">
+                <h1 className="text-3xl font-bold text-[var(--text-main)] mb-2">
                     My <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Profile</span>
                 </h1>
-                <p className="text-slate-400">Manage your personal information and preferences</p>
+                <p className="text-[var(--text-dim)]">Manage your personal information and preferences</p>
             </div>
 
             {error && (
@@ -214,12 +214,12 @@ const ProfilePage: React.FC = () => {
                         </div>
                     </div>
                     <div className="flex-1">
-                        <h2 className="text-2xl font-bold text-white">{userData?.full_name || 'N/A'}</h2>
+                        <h2 className="text-2xl font-bold text-[var(--text-main)]">{userData?.full_name || 'N/A'}</h2>
                         <div className="flex items-center gap-3 mt-2">
                             <span className={`px-3 py-1 text-sm font-semibold rounded-full border ${getRoleBadgeStyle()}`}>
                                 {userData?.role || 'N/A'}
                             </span>
-                            <span className="flex items-center gap-1 text-slate-400">
+                            <span className="flex items-center gap-1 text-[var(--text-dim)]">
                                 <Building size={14} className="text-purple-400" />
                                 {userData?.department || 'No department'}
                             </span>
@@ -241,41 +241,41 @@ const ProfilePage: React.FC = () => {
                 <Card icon={<User size={20} />} title="Account Information" subtitle="Basic account details">
                     <div className="space-y-4">
                         <div className="group">
-                            <label className="block text-sm font-medium text-slate-300 mb-2">Full Name</label>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Full Name</label>
                             <div className="relative">
-                                <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-purple-400 transition-colors" />
+                                <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] group-focus-within:text-purple-400 transition-colors" />
                                 <input
                                     type="text"
                                     value={formData.user.full_name}
                                     onChange={(e) => handleInputChange('user', 'full_name', e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                    className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all hover:border-purple-500/30"
                                 />
                             </div>
                         </div>
 
                         <div className="group">
-                            <label className="block text-sm font-medium text-slate-300 mb-2">Email</label>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Email</label>
                             <div className="relative">
-                                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
                                 <input
                                     type="email"
                                     value={userData?.email || ''}
                                     disabled
-                                    className="w-full pl-12 pr-4 py-3 bg-slate-800/30 border border-slate-700/50 rounded-xl text-slate-400 cursor-not-allowed"
+                                    className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] opacity-50 border border-[var(--border-color)] rounded-xl text-[var(--text-dim)] cursor-not-allowed"
                                 />
                             </div>
                         </div>
 
                         {userData?.role !== 'INTERN' && (
                             <div className="group">
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Department</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Department</label>
                                 <div className="relative">
-                                    <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                                    <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
                                     <input
                                         type="text"
                                         value={formData.user.department}
                                         onChange={(e) => handleInputChange('user', 'department', e.target.value)}
-                                        className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                        className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all hover:border-purple-500/30"
                                     />
                                 </div>
                             </div>
@@ -289,50 +289,50 @@ const ProfilePage: React.FC = () => {
                         {userData?.role === 'INTERN' ? (
                             <>
                                 <div className="group">
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">University</label>
+                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">University</label>
                                     <div className="relative">
-                                        <BookOpen size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-purple-400 transition-colors" />
+                                        <BookOpen size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] group-focus-within:text-purple-400 transition-colors" />
                                         <input
                                             type="text"
                                             value={formData.profile.university}
                                             onChange={(e) => handleInputChange('profile', 'university', e.target.value)}
-                                            className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                            className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all hover:border-purple-500/30"
                                             placeholder={formData.profile.university || "Enter your university"}
                                         />
                                     </div>
                                 </div>
 
                                 <div className="group">
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Phone Number</label>
+                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Phone Number</label>
                                     <div className="relative">
-                                        <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-purple-400 transition-colors" />
+                                        <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] group-focus-within:text-purple-400 transition-colors" />
                                         <input
                                             type="text"
                                             value={formData.profile.phone_number}
                                             onChange={(e) => handleInputChange('profile', 'phone_number', e.target.value)}
-                                            className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                            className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all hover:border-purple-500/30"
                                             placeholder={formData.profile.phone_number || "Enter your phone number"}
                                         />
                                     </div>
                                 </div>
 
                                 <div className="group">
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Skills</label>
+                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Skills</label>
                                     <input
                                         type="text"
                                         value={skillsInput}
                                         onChange={handleSkillChange}
-                                        className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                        className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all hover:border-purple-500/30"
                                         placeholder="Python, JavaScript, React..."
                                     />
-                                    <p className="text-xs text-slate-500 mt-1">Separate skills with commas</p>
+                                    <p className="text-xs text-[var(--text-dim)] mt-1">Separate skills with commas</p>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="group">
-                                        <label className="block text-sm font-medium text-slate-300 mb-2">GPA</label>
+                                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">GPA</label>
                                         <div className="relative">
-                                            <Award size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-purple-400 transition-colors" />
+                                            <Award size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] group-focus-within:text-purple-400 transition-colors" />
                                             <input
                                                 type="number"
                                                 step="0.01"
@@ -340,23 +340,23 @@ const ProfilePage: React.FC = () => {
                                                 max="4"
                                                 value={formData.profile.gpa}
                                                 onChange={(e) => handleInputChange('profile', 'gpa', e.target.value)}
-                                                className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all hover:border-purple-500/30"
                                                 placeholder="3.50"
                                             />
                                         </div>
                                     </div>
 
                                     <div className="group">
-                                        <label className="block text-sm font-medium text-slate-300 mb-2">Graduation Year</label>
+                                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Graduation Year</label>
                                         <div className="relative">
-                                            <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-purple-400 transition-colors" />
+                                            <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] group-focus-within:text-purple-400 transition-colors" />
                                             <input
                                                 type="number"
                                                 min="2000"
                                                 max="2100"
                                                 value={formData.profile.graduation_year}
                                                 onChange={(e) => handleInputChange('profile', 'graduation_year', e.target.value)}
-                                                className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                                className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all hover:border-purple-500/30"
                                                 placeholder="2025"
                                             />
                                         </div>
@@ -364,7 +364,7 @@ const ProfilePage: React.FC = () => {
                                 </div>
                             </>
                         ) : (
-                            <div className="p-4 bg-slate-800/30 rounded-xl text-slate-400 text-center">
+                            <div className="p-4 bg-[var(--bg-color)] rounded-xl text-[var(--text-dim)] text-center border border-[var(--border-color)]">
                                 <Settings size={32} className="mx-auto mb-2 opacity-50" />
                                 <p>Admin and Manager profiles are limited to basic account information.</p>
                             </div>
@@ -377,23 +377,23 @@ const ProfilePage: React.FC = () => {
                     <Card icon={<Award size={20} />} title="Social & Professional Links" subtitle="Your online presence">
                         <div className="space-y-4">
                             <div className="group">
-                                <label className="block text-sm font-medium text-slate-300 mb-2">GitHub Profile</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">GitHub Profile</label>
                                 <input
                                     type="url"
                                     value={formData.profile.github_profile}
                                     onChange={(e) => handleInputChange('profile', 'github_profile', e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all hover:border-purple-500/30"
                                     placeholder="https://github.com/username"
                                 />
                             </div>
 
                             <div className="group">
-                                <label className="block text-sm font-medium text-slate-300 mb-2">LinkedIn Profile</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">LinkedIn Profile</label>
                                 <input
                                     type="url"
                                     value={formData.profile.linkedin_profile}
                                     onChange={(e) => handleInputChange('profile', 'linkedin_profile', e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all hover:border-purple-500/30"
                                     placeholder="https://linkedin.com/in/username"
                                 />
                             </div>
@@ -406,7 +406,7 @@ const ProfilePage: React.FC = () => {
                     <Card icon={<Award size={20} />} title="Skills Overview" subtitle="Your current skills">
                         <div className="flex flex-wrap gap-2">
                             {internProfile.skills.map((skill, index) => (
-                                <span key={index} className="px-3 py-1 text-sm font-medium bg-purple-500/20 text-purple-300 rounded-lg border border-purple-500/30">
+                                <span key={index} className="px-3 py-1 text-sm font-medium bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-300 rounded-lg border border-purple-500/30">
                                     {skill}
                                 </span>
                             ))}

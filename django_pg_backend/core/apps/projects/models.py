@@ -34,6 +34,26 @@ class Project(models.Model):
         return self.name
 
 
+class ProjectModule(models.Model):
+    """
+    Groups tasks within a project into logical modules (e.g., 'Auth', 'Dashboard').
+    Managers assign tasks to interns within these modules.
+    """
+    project = models.ForeignKey(Project, related_name='modules', on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+        unique_together = ('project', 'name')
+
+    def __str__(self):
+        return f"{self.project.name} - {self.name}"
+
+
 class ProjectAssignment(models.Model):
     project = models.ForeignKey(Project, related_name='assignments', on_delete=models.CASCADE)
     intern = models.ForeignKey(

@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Layout } from './components/layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import ToastProvider from './components/common/ToastProvider';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -25,42 +27,50 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import LearningPath from './pages/LearningPath';
 import PerformanceAnalytics from './pages/PerformanceAnalytics';
+import AITaskGenerator from './pages/AITaskGenerator';
+import NotificationsPage from './pages/NotificationsPage';
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+    <ToastProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Router>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/interns" element={<InternList />} />
-            <Route path="/projects" element={<ProjectList />} />
-            <Route path="/feedback" element={<FeedbackPage />} />
-            <Route path="/documents" element={<DocumentsPage />} />
-            <Route path="/analysis" element={<AnalysisPage />} />
-            <Route path="/monitoring" element={<MonitoringOverviewPage />} />
-            <Route path="/tasks" element={<MonitoringTasksPage />} />
-            <Route path="/attendance" element={<MonitoringAttendancePage />} />
-            <Route path="/reports" element={<MonitoringReportsPage />} />
-            <Route path="/upload-report" element={<UploadWeeklyReport />} />
-            <Route path="/my-tasks" element={<InternTasks />} />
-            <Route path="/my-attendance" element={<MyAttendance />} />
-            <Route path="/manager" element={<ManagerDashboard />} />
-            <Route path="/learning-path" element={<LearningPath />} />
-            <Route path="/performance" element={<PerformanceAnalytics />} />
-          </Route>
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/interns" element={<InternList />} />
+              <Route path="/projects" element={<ProjectList />} />
+              <Route path="/feedback" element={<FeedbackPage />} />
+              <Route path="/documents" element={<DocumentsPage />} />
+              <Route path="/analysis" element={<AnalysisPage />} />
+              <Route path="/monitoring" element={<MonitoringOverviewPage />} />
+              <Route path="/tasks" element={<MonitoringTasksPage />} />
+              <Route path="/attendance" element={<MonitoringAttendancePage />} />
+              <Route path="/reports" element={<MonitoringReportsPage />} />
+              <Route path="/upload-report" element={<UploadWeeklyReport />} />
+              <Route path="/my-tasks" element={<InternTasks />} />
+              <Route path="/my-attendance" element={<MyAttendance />} />
+              <Route path="/manager" element={<ManagerDashboard />} />
+              <Route path="/learning-path" element={<LearningPath />} />
+              <Route path="/performance" element={<PerformanceAnalytics />} />
+              <Route path="/monitoring/ai-tasks/:internId?" element={<AITaskGenerator />} />
+            </Route>
 
-          {/* Catch all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+            {/* Catch all */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
+  </ToastProvider>
   );
 };
 

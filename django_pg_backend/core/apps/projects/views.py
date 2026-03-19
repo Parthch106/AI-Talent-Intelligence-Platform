@@ -4,8 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
-from .models import Project, ProjectAssignment
-from .serializers import ProjectSerializer, ProjectAssignmentSerializer
+from .models import Project, ProjectAssignment, ProjectModule
+from .serializers import ProjectSerializer, ProjectAssignmentSerializer, ProjectModuleSerializer
 
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all()
@@ -140,3 +140,24 @@ class ProjectAssignmentViewSet(viewsets.ModelViewSet):
             'message': 'Project sent back for revisions',
             'status': 'ACTIVE'
         })
+
+class ProjectModuleViewSet(viewsets.ModelViewSet):
+    queryset = ProjectModule.objects.all()
+    serializer_class = ProjectModuleSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        project_id = self.request.query_params.get('project_id')
+        
+        qs = ProjectModule.objects.all()
+        if project_id:
+            qs = qs.filter(project_id=project_id)
+            
+        if user.role == 'INTERN':
+            # Modules for projects they are assigned to
+            return qs.filter(project__assignments__intern=user)
+        elif user.role == 'MANAGER':
+            # Modules for projects they mentor
+            return qs.filter(project__mentor=user)
+        return qs

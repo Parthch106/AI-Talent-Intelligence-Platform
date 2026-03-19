@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Bell, LogOut, ChevronDown, Mail, Settings, Zap, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
+import { Bell, LogOut, ChevronDown, Mail, Settings, Zap, Clock, AlertCircle, CheckCircle, Trash2, Sun, Moon } from 'lucide-react';
 import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,6 +16,7 @@ interface Notification {
 
 const Header: React.FC = () => {
     const { user, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const [showNotifications, setShowNotifications] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
@@ -61,6 +63,29 @@ const Header: React.FC = () => {
         return user?.email?.substring(0, 2).toUpperCase() || 'U';
     };
 
+    const deleteNotification = async (notificationId: number) => {
+        try {
+            await api.post('/notifications/delete/', { notification_id: notificationId });
+            setNotifications(prev => prev.filter(n => n.id !== notificationId));
+            const wasUnread = notifications.find(n => n.id === notificationId && !n.is_read);
+            if (wasUnread) {
+                setUnreadCount(prev => Math.max(0, prev - 1));
+            }
+        } catch (err) {
+            console.error('Failed to delete notification:', err);
+        }
+    };
+
+    const clearAll = async () => {
+        try {
+            await api.post('/notifications/delete/', { clear_all: true });
+            setNotifications([]);
+            setUnreadCount(0);
+        } catch (err) {
+            console.error('Failed to clear all notifications:', err);
+        }
+    };
+
     const markAsRead = async (notificationId: number) => {
         try {
             await api.post('/notifications/mark-read/', { notification_id: notificationId });
@@ -98,7 +123,7 @@ const Header: React.FC = () => {
         switch (type) {
             case 'SUCCESS':
             case 'TASK_COMPLETED':
-                return { icon: <CheckCircle size={14} />, color: 'green' };
+                return { icon: <CheckCircle size={14} />, color: 'emerald' };
             case 'WARNING':
             case 'ERROR':
                 return { icon: <AlertCircle size={14} />, color: 'red' };
@@ -114,11 +139,11 @@ const Header: React.FC = () => {
     const getRoleBadgeStyle = () => {
         switch (user?.role) {
             case 'ADMIN':
-                return 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 border-purple-500/30';
+                return 'bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-purple-500/5';
             case 'MANAGER':
-                return 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-300 border-blue-500/30';
+                return 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-blue-500/5';
             default:
-                return 'bg-gradient-to-r from-slate-500/20 to-slate-400/20 text-slate-300 border-slate-500/30';
+                return 'bg-slate-500/10 text-slate-400 border-slate-500/20 shadow-slate-500/5';
         }
     };
 
@@ -129,23 +154,26 @@ const Header: React.FC = () => {
 
     return (
         <>
-            <header className="h-16 bg-slate-900/50 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-6 fixed top-0 left-64 right-0 z-30">
+            <header className="h-20 bg-[var(--header-bg)] backdrop-blur-3xl border-b border-[var(--border-color)] flex items-center justify-between px-8 fixed top-0 left-64 right-0 z-30 transition-all duration-500">
                 {/* Left Section - Welcome */}
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl flex items-center justify-center border border-purple-500/20">
-                            <Zap size={18} className="text-purple-400" />
+                <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-4">
+                        <div className="relative group/zap">
+                            <div className="absolute -inset-1 bg-purple-500/20 rounded-xl blur-lg opacity-0 group-hover/zap:opacity-100 transition-opacity" />
+                            <div className="relative w-11 h-11 bg-white/[0.03] border border-white/10 rounded-xl flex items-center justify-center group-hover/zap:border-purple-500/30 transition-all duration-500">
+                                <Zap size={20} className="text-purple-400 group-hover/zap:scale-110 transition-transform" />
+                            </div>
                         </div>
                         <div>
-                            <h2 className="text-lg font-semibold text-white">
-                                Welcome back, <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">{user?.full_name?.split(' ')[0] || 'User'}</span>
+                            <h2 className="text-xl font-heading font-black tracking-tighter text-white uppercase italic">
+                                Welcome, <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">{user?.full_name?.split(' ')[0] || 'User'}</span>
                             </h2>
-                            <p className="text-xs text-slate-400">Here's what's happening today</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mt-0.5">Systems Operational</p>
                         </div>
                     </div>
-                    <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${getRoleBadgeStyle()}`}>
+                    <div className={`px-4 py-1.5 rounded-full text-[9px] font-black border uppercase tracking-[0.2em] shadow-lg ${getRoleBadgeStyle()}`}>
                         {user?.role}
-                    </span>
+                    </div>
                 </div>
 
                 {/* Right Section */}
@@ -153,9 +181,24 @@ const Header: React.FC = () => {
                     {/* Quick Actions */}
                     <button
                         onClick={() => navigate('/profile')}
-                        className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-300 border border-transparent hover:border-white/10"
+                        className="p-2.5 text-slate-400 hover:text-[var(--text-main)] hover:bg-white/5 rounded-xl transition-all duration-300 border border-transparent hover:border-white/10"
                     >
                         <Settings size={18} />
+                    </button>
+
+                    {/* Theme Toggle */}
+                    <button
+                        onClick={toggleTheme}
+                        className="p-2.5 text-slate-400 hover:text-[var(--text-main)] hover:bg-white/5 rounded-xl transition-all duration-500 border border-transparent hover:border-white/10 group/theme"
+                        title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+                    >
+                        <div className="relative overflow-hidden">
+                            {theme === 'dark' ? (
+                                <Sun size={18} className="text-amber-400 animate-slide-up" />
+                            ) : (
+                                <Moon size={18} className="text-indigo-400 animate-slide-down" />
+                            )}
+                        </div>
                     </button>
 
                     {/* Notifications */}
@@ -174,9 +217,21 @@ const Header: React.FC = () => {
                             <div className="absolute right-0 mt-2 w-80 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-purple-500/10 py-2 animate-scale-in">
                                 <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
                                     <h3 className="font-semibold text-white">Notifications</h3>
-                                    {unreadCount > 0 && (
-                                        <span className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded-full">{unreadCount} new</span>
-                                    )}
+                                    <div className="flex items-center gap-4">
+                                        {notifications.length > 0 && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); clearAll(); }}
+                                                className="text-[10px] font-bold text-red-400 hover:text-red-300 uppercase tracking-widest transition-colors"
+                                            >
+                                                Clear All
+                                            </button>
+                                        )}
+                                        {unreadCount > 0 && (
+                                            <span className="px-2 py-0.5 text-[10px] bg-purple-500/20 text-purple-300 rounded-full font-bold uppercase tracking-widest leading-none flex items-center justify-center">
+                                                {unreadCount} new
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {loadingNotifications ? (
@@ -185,47 +240,70 @@ const Header: React.FC = () => {
                                     </div>
                                 ) : notifications.length > 0 ? (
                                     <>
-                                        <div className="max-h-64 overflow-y-auto">
+                                        <div className="max-h-64 overflow-y-auto custom-scrollbar">
                                             {notifications.slice(0, 5).map((notification) => {
                                                 const { icon, color } = getNotificationIcon(notification.type);
                                                 return (
                                                     <div
                                                         key={notification.id}
                                                         onClick={() => !notification.is_read && markAsRead(notification.id)}
-                                                        className={`px-4 py-3 hover:bg-white/5 cursor-pointer border-l-2 transition-all ${notification.is_read ? 'border-transparent opacity-60' : 'border-purple-500'}`}
+                                                        className={`group relative px-4 py-3 hover:bg-white/[0.03] cursor-pointer border-l-2 transition-all ${notification.is_read ? 'border-transparent opacity-60' : 'border-purple-500 bg-purple-500/[0.02]'}`}
                                                     >
                                                         <div className="flex items-start gap-3">
-                                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-${color}-500/20`}>
+                                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors group-hover:scale-110 duration-500 bg-${color}-500/20`}>
                                                                 <span className={`text-${color}-400`}>{icon}</span>
                                                             </div>
-                                                            <div className="flex-1">
-                                                                <p className="text-sm text-white">{notification.title}</p>
-                                                                <p className="text-xs text-slate-400 mt-0.5">{notification.message}</p>
-                                                                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                                                            <div className="flex-1 min-w-0 pr-6">
+                                                                <p className="text-sm font-bold text-white tracking-tight leading-tight">{notification.title}</p>
+                                                                <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1 group-hover:line-clamp-none transition-all duration-300">{notification.message}</p>
+                                                                <p className="text-[9px] text-slate-500 mt-1 flex items-center gap-1 font-black uppercase tracking-wider">
                                                                     <Clock size={10} />
                                                                     {getTimeAgo(notification.created_at)}
                                                                 </p>
                                                             </div>
                                                         </div>
+                                                        
+                                                        {/* Individual delete button */}
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                deleteNotification(notification.id);
+                                                            }}
+                                                            className="absolute right-3 top-3 p-1.5 text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-500/10"
+                                                        >
+                                                            <Trash2 size={12} />
+                                                        </button>
                                                     </div>
                                                 );
                                             })}
                                         </div>
-                                        {unreadCount > 0 && (
-                                            <div className="px-4 py-2 border-t border-white/10">
+                                        <div className="px-4 py-2 bg-white/[0.02] border-t border-white/5 flex items-center justify-between gap-2">
+                                            {unreadCount > 0 && (
                                                 <button
-                                                    onClick={markAllAsRead}
-                                                    className="w-full text-center text-sm text-purple-400 hover:text-purple-300 transition-colors"
+                                                    onClick={(e) => { e.stopPropagation(); markAllAsRead(); }}
+                                                    className="text-[10px] font-black uppercase tracking-widest text-purple-400 hover:text-purple-300 transition-colors"
                                                 >
-                                                    Mark all as read
+                                                    Mark Read
                                                 </button>
-                                            </div>
-                                        )}
+                                            )}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setShowNotifications(false);
+                                                    navigate('/notifications');
+                                                }}
+                                                className="flex-1 text-center py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-white transition-all bg-white/5 hover:bg-white/10 rounded-lg border border-transparent hover:border-white/10"
+                                            >
+                                                View All Center
+                                            </button>
+                                        </div>
                                     </>
                                 ) : (
-                                    <div className="p-4 text-center text-slate-400">
-                                        <Bell size={24} className="mx-auto mb-2 opacity-50" />
-                                        <p className="text-sm">No notifications yet</p>
+                                    <div className="py-12 text-center text-slate-400">
+                                        <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3 border border-white/5 shadow-inner">
+                                            <Bell size={24} className="opacity-20" />
+                                        </div>
+                                        <p className="text-[10px] font-black uppercase tracking-widest">No Alerts Recorded</p>
                                     </div>
                                 )}
                             </div>

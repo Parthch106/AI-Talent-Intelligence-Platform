@@ -97,15 +97,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ tasks, attendance, performanc
                             { label: 'Engagement', value: performance.engagement_score, color: 'from-violet-500 to-violet-600', icon: Users },
                             { label: 'Growth', value: performance.growth_score, color: 'from-amber-500 to-amber-600', icon: TrendingUp },
                         ].map((metric) => (
-                            <div key={metric.label} className="bg-slate-800/30 rounded-xl p-4 border border-white/5">
+                            <div key={metric.label} className="bg-[var(--card-bg)] rounded-xl p-4 border border-[var(--border-color)]">
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-2">
-                                        <metric.icon size={16} className="text-slate-400" />
-                                        <span className="text-sm font-medium text-slate-300">{metric.label}</span>
+                                        <metric.icon size={16} className="text-[var(--text-muted)]" />
+                                        <span className="text-sm font-medium text-[var(--text-dim)]">{metric.label}</span>
                                     </div>
-                                    <span className="text-lg font-bold text-white">{Math.round(metric.value)}%</span>
+                                    <span className="text-lg font-bold text-[var(--text-main)]">{Math.round(metric.value)}%</span>
                                 </div>
-                                <div className="w-full bg-slate-700/50 rounded-full h-2.5 overflow-hidden">
+                                <div className="w-full bg-[var(--bg-muted)] rounded-full h-2.5 overflow-hidden">
                                     <div
                                         className={`bg-gradient-to-r ${metric.color} h-2.5 rounded-full transition-all duration-500`}
                                         style={{ width: `${metric.value}%` }}
@@ -121,12 +121,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ tasks, attendance, performanc
             <Card title="Recent Tasks" icon={<Target size={20} className="text-blue-500" />}>
                 <div className="space-y-3">
                     {tasksArray.slice(0, 5).map((task) => (
-                        <div key={task.id} className="flex items-center justify-between p-4 bg-slate-800/30 rounded-xl hover:bg-slate-800/50 transition-colors border border-white/5">
+                        <div key={task.id} className="flex items-center justify-between p-4 bg-[var(--card-bg)] hover:bg-purple-500/[0.05] transition-colors border border-[var(--border-color)] rounded-xl">
                             <div className="flex items-center gap-4">
                                 <div className={`w-2 h-2 rounded-full ${task.status === 'COMPLETED' ? 'bg-emerald-500' : task.status === 'BLOCKED' ? 'bg-red-500' : 'bg-blue-500'}`}></div>
                                 <div>
-                                    <p className="font-medium text-white">{task.title}</p>
-                                    <p className="text-sm text-slate-400">Due: {task.due_date}</p>
+                                    <p className="font-medium text-[var(--text-main)]">{task.title}</p>
+                                    <p className="text-sm text-[var(--text-dim)]">Due: {task.due_date}</p>
                                 </div>
                             </div>
                             <Badge variant={getStatusBadge(task.status)}>
@@ -135,8 +135,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ tasks, attendance, performanc
                         </div>
                     ))}
                     {tasksArray.length === 0 && (
-                        <div className="text-center py-8 text-slate-400">
-                            <Target size={40} className="mx-auto mb-3 text-slate-600" />
+                        <div className="text-center py-8 text-[var(--text-muted)]">
+                            <Target size={40} className="mx-auto mb-3 opacity-30" />
                             <p>No tasks assigned yet</p>
                         </div>
                     )}

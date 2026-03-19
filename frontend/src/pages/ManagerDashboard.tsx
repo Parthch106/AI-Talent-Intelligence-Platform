@@ -183,7 +183,7 @@ const ManagerDashboard: React.FC = () => {
             <div className="flex items-center justify-center py-12">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                    <p className="text-slate-400">Loading dashboard...</p>
+                    <p className="text-[var(--text-muted)]">Loading dashboard...</p>
                 </div>
             </div>
         );
@@ -193,10 +193,10 @@ const ManagerDashboard: React.FC = () => {
         <div className="space-y-6 animate-fade-in">
             {/* Page Header */}
             <div>
-                <h1 className="text-3xl font-bold text-white mb-2">
+                <h1 className="text-3xl font-bold text-[var(--text-main)] mb-2">
                     Manager <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Dashboard</span>
                 </h1>
-                <p className="text-slate-400">Manage your intern team, assessments, and feedback</p>
+                <p className="text-[var(--text-dim)]">Manage your intern team, assessments, and feedback</p>
             </div>
 
             {/* Stats Overview */}
@@ -209,8 +209,8 @@ const ManagerDashboard: React.FC = () => {
                     <Card key={stat.label} hover className="group">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-slate-400 mb-1">{stat.label}</p>
-                                <p className="text-3xl font-bold text-white">{stat.value}</p>
+                                <p className="text-sm text-[var(--text-muted)] mb-1">{stat.label}</p>
+                                <p className="text-3xl font-bold text-[var(--text-main)]">{stat.value}</p>
                             </div>
                             <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
                                 <stat.icon size={24} className="text-white" />
@@ -232,7 +232,7 @@ const ManagerDashboard: React.FC = () => {
                         onClick={() => setActiveTab(tab.id as typeof activeTab)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all duration-200 ${activeTab === tab.id
                             ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25'
-                            : 'bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700'
+                            : 'bg-[var(--bg-muted)] text-[var(--text-dim)] hover:bg-[var(--card-bg)] hover:text-[var(--text-main)] border border-[var(--border-color)]'
                             }`}
                     >
                         <tab.icon size={18} />
@@ -250,7 +250,7 @@ const ManagerDashboard: React.FC = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="border-b border-slate-700/50 text-slate-400 text-sm">
+                                <tr className="border-b border-[var(--border-color)] text-[var(--text-muted)] text-sm">
                                     <th className="text-left p-4 font-medium">Intern</th>
                                     <th className="text-left p-4 font-medium">Contact</th>
                                     <th className="text-left p-4 font-medium">University</th>
@@ -261,30 +261,30 @@ const ManagerDashboard: React.FC = () => {
                             <tbody>
                                 {interns.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="p-8 text-center text-slate-400">
+                                        <td colSpan={5} className="p-8 text-center text-[var(--text-muted)]">
                                             <Users size={48} className="mx-auto mb-3 opacity-50" />
                                             <p>No interns found in your department</p>
                                         </td>
                                     </tr>
                                 ) : (
                                     interns.map((intern) => (
-                                        <tr key={intern.id} className="border-b border-slate-700/30 hover:bg-slate-800/30 transition-colors">
+                                        <tr key={intern.id} className="border-b border-[var(--border-color)] hover:bg-purple-500/[0.02] transition-colors">
                                             <td className="p-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getGradient(intern.user.full_name)} flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
                                                         {getInitials(intern.user.full_name)}
                                                     </div>
-                                                    <span className="font-medium text-white">{intern.user.full_name}</span>
+                                                    <span className="font-medium text-[var(--text-main)]">{intern.user.full_name}</span>
                                                 </div>
                                             </td>
                                             <td className="p-4">
-                                                <div className="flex items-center gap-2 text-slate-400">
+                                                <div className="flex items-center gap-2 text-[var(--text-muted)]">
                                                     <Mail size={14} />
                                                     {intern.user.email}
                                                 </div>
                                             </td>
                                             <td className="p-4">
-                                                <div className="flex items-center gap-2 text-slate-300">
+                                                <div className="flex items-center gap-2 text-[var(--text-dim)]">
                                                     <Building size={14} className="text-purple-400" />
                                                     {intern.university}
                                                 </div>
@@ -320,7 +320,7 @@ const ManagerDashboard: React.FC = () => {
             {activeTab === 'assessments' && (
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold text-white">All Assessments</h3>
+                        <h3 className="text-lg font-semibold text-[var(--text-main)]">All Assessments</h3>
                         <Button
                             onClick={() => setShowAssessmentModal(true)}
                             gradient="purple"
@@ -333,8 +333,8 @@ const ManagerDashboard: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {assessments.length === 0 ? (
                             <Card className="col-span-full py-12 text-center">
-                                <ClipboardList size={48} className="mx-auto mb-3 text-slate-600" />
-                                <p className="text-slate-400">No assessments created yet</p>
+                                <ClipboardList size={48} className="mx-auto mb-3 text-[var(--text-muted)] opacity-50" />
+                                <p className="text-[var(--text-muted)]">No assessments created yet</p>
                                 <Button
                                     onClick={() => setShowAssessmentModal(true)}
                                     gradient="purple"
@@ -353,10 +353,10 @@ const ManagerDashboard: React.FC = () => {
                                         </div>
                                         <Badge variant="default" size="sm">{assessment.assessment_type}</Badge>
                                     </div>
-                                    <h4 className="font-semibold text-white mb-1 group-hover:text-purple-400 transition-colors">
+                                    <h4 className="font-semibold text-[var(--text-main)] mb-1 group-hover:text-purple-400 transition-colors">
                                         {assessment.title}
                                     </h4>
-                                    <p className="text-sm text-slate-400 mb-4">
+                                    <p className="text-sm text-[var(--text-muted)] mb-4">
                                         {new Date(assessment.created_at).toLocaleDateString()}
                                     </p>
                                     <Button size="sm" variant="ghost" className="w-full">
@@ -373,7 +373,7 @@ const ManagerDashboard: React.FC = () => {
             {activeTab === 'feedback' && (
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold text-white">Feedback Given</h3>
+                        <h3 className="text-lg font-semibold text-[var(--text-main)]">Feedback Given</h3>
                         <Button
                             onClick={() => setShowFeedbackModal(true)}
                             gradient="purple"
@@ -386,8 +386,8 @@ const ManagerDashboard: React.FC = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         {feedback.length === 0 ? (
                             <Card className="col-span-full py-12 text-center">
-                                <MessageSquare size={48} className="mx-auto mb-3 text-slate-600" />
-                                <p className="text-slate-400">No feedback given yet</p>
+                                <MessageSquare size={48} className="mx-auto mb-3 text-[var(--text-muted)] opacity-50" />
+                                <p className="text-[var(--text-muted)]">No feedback given yet</p>
                                 <Button
                                     onClick={() => setShowFeedbackModal(true)}
                                     gradient="purple"
@@ -406,7 +406,7 @@ const ManagerDashboard: React.FC = () => {
                                                 {getInitials(item.recipient.full_name)}
                                             </div>
                                             <div>
-                                                <p className="font-medium text-white">{item.recipient.full_name}</p>
+                                                <p className="font-medium text-[var(--text-main)]">{item.recipient.full_name}</p>
                                                 <Badge variant="purple" size="sm">{item.feedback_type.replace(/_/g, ' ')}</Badge>
                                             </div>
                                         </div>
@@ -419,11 +419,11 @@ const ManagerDashboard: React.FC = () => {
                                                     color="#f59e0b"
                                                 />
                                             ))}
-                                            <span className="text-sm font-medium text-white ml-1">{item.rating}/5</span>
+                                            <span className="text-sm font-medium text-[var(--text-main)] ml-1">{item.rating}/5</span>
                                         </div>
                                     </div>
-                                    <p className="text-slate-300 mb-3">{item.comments}</p>
-                                    <p className="text-xs text-slate-500">
+                                    <p className="text-[var(--text-dim)] mb-3">{item.comments}</p>
+                                    <p className="text-xs text-[var(--text-muted)]">
                                         {new Date(item.created_at).toLocaleDateString('en-US', {
                                             year: 'numeric',
                                             month: 'long',
@@ -442,32 +442,32 @@ const ManagerDashboard: React.FC = () => {
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
                     <Card className="w-full max-w-md animate-scale-in" padding="lg">
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-semibold text-white">Create Assessment</h3>
+                            <h3 className="text-xl font-semibold text-[var(--text-main)]">Create Assessment</h3>
                             <button
                                 onClick={() => setShowAssessmentModal(false)}
-                                className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+                                className="p-2 rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
                             >
-                                <X size={20} className="text-slate-400" />
+                                <X size={20} className="text-[var(--text-muted)]" />
                             </button>
                         </div>
                         <form onSubmit={handleCreateAssessment} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Title *</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Title *</label>
                                 <input
                                     type="text"
                                     required
                                     value={newAssessment.title}
                                     onChange={e => setNewAssessment(prev => ({ ...prev, title: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                                     placeholder="Enter assessment title"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Type *</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Type *</label>
                                 <select
                                     value={newAssessment.assessment_type}
                                     onChange={e => setNewAssessment(prev => ({ ...prev, assessment_type: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                                 >
                                     <option value="TECHNICAL">Technical Quiz</option>
                                     <option value="CODING">Coding Challenge</option>
@@ -476,12 +476,12 @@ const ManagerDashboard: React.FC = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description</label>
                                 <textarea
                                     value={newAssessment.description}
                                     onChange={e => setNewAssessment(prev => ({ ...prev, description: e.target.value }))}
                                     rows={3}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
+                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
                                     placeholder="Enter description"
                                 />
                             </div>
@@ -513,22 +513,22 @@ const ManagerDashboard: React.FC = () => {
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
                     <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto animate-scale-in" padding="lg">
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-semibold text-white">Give Feedback</h3>
+                            <h3 className="text-xl font-semibold text-[var(--text-main)]">Give Feedback</h3>
                             <button
                                 onClick={() => setShowFeedbackModal(false)}
-                                className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+                                className="p-2 rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
                             >
-                                <X size={20} className="text-slate-400" />
+                                <X size={20} className="text-[var(--text-muted)]" />
                             </button>
                         </div>
                         <form onSubmit={handleCreateFeedback} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Intern *</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Intern *</label>
                                 <select
                                     required
                                     value={newFeedback.recipient_id || ''}
                                     onChange={e => setNewFeedback(prev => ({ ...prev, recipient_id: parseInt(e.target.value) }))}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                                 >
                                     <option value="">Select intern...</option>
                                     {interns.map(intern => (
@@ -537,11 +537,11 @@ const ManagerDashboard: React.FC = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Feedback Type *</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Feedback Type *</label>
                                 <select
                                     value={newFeedback.feedback_type}
                                     onChange={e => setNewFeedback(prev => ({ ...prev, feedback_type: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                                 >
                                     <option value="WEEKLY">Weekly Check-in</option>
                                     <option value="PROJECT">Project Review</option>
@@ -550,7 +550,7 @@ const ManagerDashboard: React.FC = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Rating *</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Rating *</label>
                                 <div className="flex gap-2">
                                     {[1, 2, 3, 4, 5].map((star) => (
                                         <button
@@ -569,33 +569,33 @@ const ManagerDashboard: React.FC = () => {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Comments *</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Comments *</label>
                                 <textarea
                                     required
                                     value={newFeedback.comments}
                                     onChange={e => setNewFeedback(prev => ({ ...prev, comments: e.target.value }))}
                                     rows={3}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
+                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
                                     placeholder="Enter your feedback comments"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Strengths</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Strengths</label>
                                 <textarea
                                     value={newFeedback.strengths}
                                     onChange={e => setNewFeedback(prev => ({ ...prev, strengths: e.target.value }))}
                                     rows={2}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
+                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
                                     placeholder="List areas of strength"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Areas for Improvement</label>
+                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Areas for Improvement</label>
                                 <textarea
                                     value={newFeedback.areas_for_improvement}
                                     onChange={e => setNewFeedback(prev => ({ ...prev, areas_for_improvement: e.target.value }))}
                                     rows={2}
-                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
+                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
                                     placeholder="List areas for improvement"
                                 />
                             </div>

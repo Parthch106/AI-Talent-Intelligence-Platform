@@ -39,22 +39,22 @@ const Modal: React.FC<ModalProps> = ({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                className="absolute inset-0 bg-[#050510]/80 backdrop-blur-md"
                 onClick={onClose}
             ></div>
             <div
-                className={`relative glass-card w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden animate-modal-enter`}
+                className={`relative glass-card w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden animate-modal-enter shadow-[0_0_50px_rgba(0,0,0,0.5)] border-white/10`}
             >
-                <div className={`flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r ${gradientClasses[gradient]}`}>
-                    <h2 className="text-xl font-bold text-white">{title}</h2>
+                <div className={`flex items-center justify-between px-8 py-6 border-b border-white/5 bg-gradient-to-r ${gradientClasses[gradient]}`}>
+                    <h2 className="text-xl font-heading font-black tracking-tighter text-white uppercase italic">{title}</h2>
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                        className="p-2 hover:bg-white/5 rounded-xl transition-all duration-300 border border-transparent hover:border-white/10 group"
                     >
-                        <X size={20} className="text-slate-400 hover:text-white" />
+                        <X size={20} className="text-slate-500 group-hover:text-white transition-colors" />
                     </button>
                 </div>
-                <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)] text-slate-200">
+                <div className="p-8 overflow-y-auto max-h-[calc(90vh-80px)] text-slate-300 leading-relaxed font-sans">
                     {children}
                 </div>
             </div>

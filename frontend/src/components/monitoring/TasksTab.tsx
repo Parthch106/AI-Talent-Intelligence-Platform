@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
-import { Plus, Target, Clock, Award, ChevronDown, CheckCircle, AlertTriangle, PlayCircle, Star, Code, Bug, LayoutGrid, List, Sparkles, Wand2, Loader2, MessageSquare } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { 
+    Plus, Target, Clock, Award, ChevronDown, CheckCircle, 
+    AlertTriangle, PlayCircle, Star, Code, Bug, LayoutGrid, 
+    List, Sparkles, Wand2, Loader2, MessageSquare, 
+    Calendar, Filter, Search, MoreHorizontal, ArrowRight,
+    Layers
+} from 'lucide-react';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
 import axios from '../../api/axios';
-
-interface AITaskSuggestion {
-    title: string;
-    description: string;
-    priority: string;
-    estimated_hours: number;
-    due_date: string;
-    skills_required: string[];
-    rationale: string;
-}
+import toast from 'react-hot-toast';
 
 interface Task {
     id: number;
@@ -35,6 +33,10 @@ interface Task {
         name: string;
         status: string;
     } | null;
+    module?: {
+        id: number;
+        name: string;
+    } | null;
 }
 
 interface TasksTabProps {
@@ -45,44 +47,59 @@ interface TasksTabProps {
     onRefresh?: () => void;
     internId?: number;
     internName?: string;
+    monthFilter: number | 'all';
+    setMonthFilter: (value: number | 'all') => void;
+    yearFilter: number | 'all';
+    setYearFilter: (value: number | 'all') => void;
 }
 
-const TasksTab: React.FC<TasksTabProps> = ({ tasks, onAddTask, canCreate, onStatusChange, onRefresh, internId, internName }) => {
+const TasksTab: React.FC<TasksTabProps> = ({ 
+    tasks, 
+    onAddTask, 
+    canCreate, 
+    onStatusChange, 
+    onRefresh, 
+    internId, 
+    internName,
+    monthFilter,
+    setMonthFilter,
+    yearFilter,
+    setYearFilter
+}) => {
     const tasksArray = Array.isArray(tasks) ? tasks : [];
-
-    // Extract unique projects from tasks
-    React.useEffect(() => {
-        const uniqueProjects = new Map<number, string>();
-        tasksArray.forEach(task => {
-            if (task.project && task.project.id) {
-                uniqueProjects.set(task.project.id, task.project.name);
-            }
-        });
-        setProjects(Array.from(uniqueProjects.entries()).map(([id, name]) => ({ id, name })));
-    }, [tasksArray]);
 
     const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
     const [showEvaluationModal, setShowEvaluationModal] = useState(false);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-    const [saving, setSaving] = useState(false);
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [projectFilter, setProjectFilter] = useState<number | null>(null);
     const [projects, setProjects] = useState<{id: number; name: string}[]>([]);
-    const [monthFilter, setMonthFilter] = useState<number>(new Date().getMonth() + 1);
-    const [yearFilter, setYearFilter] = useState<number>(new Date().getFullYear());
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const ITEMS_PER_PAGE = 12;
 
-    // AI Task Generation State
-    const [showAITaskModal, setShowAITaskModal] = useState(false);
-    const [generatingTasks, setGeneratingTasks] = useState(false);
-    const [aiTasks, setAiTasks] = useState<AITaskSuggestion[]>([]);
-    const [aiSummary, setAiSummary] = useState<string>('');
-    const [selectedAITask, setSelectedAITask] = useState<AITaskSuggestion | null>(null);
-    const [editingTask, setEditingTask] = useState<AITaskSuggestion | null>(null);
-    const [projectRequirements, setProjectRequirements] = useState<string>('');
-    const [targetRole, setTargetRole] = useState<string>('');
-    const [assigningTask, setAssigningTask] = useState(false);
-    const [aiError, setAiError] = useState<string>('');
+    const navigate = useNavigate();
+
+    React.useEffect(() => {
+        fetchProjects();
+    }, [internId]);
+
+    const fetchProjects = async () => {
+        try {
+            if (internId) {
+                const response = await axios.get('/projects/assignments/', { params: { intern_id: internId } });
+                const assignments = response.data.results || response.data;
+                const uniqueProjects = Array.from(new Set(assignments.map((a: any) => JSON.stringify({id: a.project.id, name: a.project.name}))))
+                    .map((s: any) => JSON.parse(s));
+                setProjects(uniqueProjects);
+            } else {
+                const response = await axios.get('/projects/projects/');
+                setProjects(response.data.results || response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching projects:', error);
+        }
+    };
 
     const [evaluation, setEvaluation] = useState({
         quality_rating: 0,
@@ -93,17 +110,7 @@ const TasksTab: React.FC<TasksTabProps> = ({ tasks, onAddTask, canCreate, onStat
         status: 'COMPLETED'
     });
 
-    // Feedback Modal State
-    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-    const [feedbackTask, setFeedbackTask] = useState<Task | null>(null);
-    const [feedbackData, setFeedbackData] = useState({
-        task_status: 'COMPLETED_APPROVED',
-        rating: 5,
-        comments: '',
-        strengths: '',
-        areas_for_improvement: ''
-    });
-    const [submittingFeedback, setSubmittingFeedback] = useState(false);
+    const [savingEvaluation, setSavingEvaluation] = useState(false);
 
     const getStatusBadge = (status: string) => {
         const variants: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
@@ -133,13 +140,13 @@ const TasksTab: React.FC<TasksTabProps> = ({ tasks, onAddTask, canCreate, onStat
             {
                 value: 'IN_PROGRESS',
                 label: 'In Progress',
-                icon: <PlayCircle size={14} className="text-blue-400" />,
+                icon: <PlayCircle size={14} className="text-blue-500 dark:text-blue-400" />,
                 disabled: task.status === 'IN_PROGRESS'
             },
             {
                 value: 'SUBMITTED',
                 label: 'Submitted',
-                icon: <CheckCircle size={14} className="text-yellow-400" />,
+                icon: <CheckCircle size={14} className="text-yellow-600 dark:text-yellow-400" />,
                 disabled: task.status === 'SUBMITTED'
             },
             {
@@ -151,19 +158,31 @@ const TasksTab: React.FC<TasksTabProps> = ({ tasks, onAddTask, canCreate, onStat
             {
                 value: 'BLOCKED',
                 label: 'Blocked',
-                icon: <AlertTriangle size={14} className="text-red-400" />,
+                icon: <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />,
                 disabled: task.status === 'BLOCKED'
             },
         ];
         return options;
     };
 
-    const handleStatusChange = (taskId: number, newStatus: string) => {
-        setActiveDropdown(null);
-        if (onStatusChange) {
-            onStatusChange(taskId, newStatus);
-        }
-    };
+    const monthYearFilteredTasks = tasksArray.filter(task => {
+        const taskDate = new Date(task.due_date);
+        const taskMonth = taskDate.getMonth() + 1;
+        const taskYear = taskDate.getFullYear();
+        const monthMatch = monthFilter === 'all' || taskMonth === monthFilter;
+        const yearMatch = yearFilter === 'all' || taskYear === yearFilter;
+        return monthMatch && yearMatch;
+    });
+
+    const filteredTasks = statusFilter ? monthYearFilteredTasks.filter(task => task.status === statusFilter) : monthYearFilteredTasks;
+    const projectFilteredTasks = projectFilter ? filteredTasks.filter(task => task.project && task.project.id === projectFilter) : filteredTasks;
+
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [statusFilter, projectFilter, monthFilter, yearFilter, viewMode]);
+
+    const totalPages = Math.ceil(projectFilteredTasks.length / ITEMS_PER_PAGE);
+    const paginatedTasks = projectFilteredTasks.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
     const openEvaluationModal = (task: Task) => {
         setSelectedTask(task);
@@ -180,1183 +199,285 @@ const TasksTab: React.FC<TasksTabProps> = ({ tasks, onAddTask, canCreate, onStat
 
     const submitEvaluation = async () => {
         if (!selectedTask) return;
-
         try {
-            setSaving(true);
-            await axios.patch(`/analytics/tasks/evaluate/`, {
-                task_id: selectedTask.id,
-                ...evaluation
-            });
+            setSavingEvaluation(true);
+            await axios.patch(`/analytics/tasks/evaluate/`, { task_id: selectedTask.id, ...evaluation });
             setShowEvaluationModal(false);
-            if (onRefresh) {
-                onRefresh();
-            }
+            if (onRefresh) onRefresh();
+            toast.success('Evaluation saved');
         } catch (error) {
             console.error('Error submitting evaluation:', error);
-            alert('Failed to submit evaluation. Please try again.');
+            toast.error('Failed to submit evaluation');
         } finally {
-            setSaving(false);
+            setSavingEvaluation(false);
         }
     };
 
-    // Submit feedback for a task
-    const submitFeedback = async () => {
-        if (!feedbackTask || !internId) return;
-
-        try {
-            setSubmittingFeedback(true);
-            await axios.post('/feedback/', {
-                recipient_id: internId,
-                task_id: feedbackTask.id,
-                feedback_type: 'TASK',
-                task_status: feedbackData.task_status,
-                rating: feedbackData.rating,
-                comments: feedbackData.comments,
-                strengths: feedbackData.strengths,
-                areas_for_improvement: feedbackData.areas_for_improvement
-            });
-            setShowFeedbackModal(false);
-            setFeedbackTask(null);
-            setFeedbackData({
-                task_status: 'COMPLETED_APPROVED',
-                rating: 5,
-                comments: '',
-                strengths: '',
-                areas_for_improvement: ''
-            });
-            if (onRefresh) {
-                onRefresh();
-            }
-        } catch (error) {
-            console.error('Error submitting feedback:', error);
-            alert('Failed to submit feedback. Please try again.');
-        } finally {
-            setSubmittingFeedback(false);
-        }
+    const handleStatusChange = (taskId: number, newStatus: string) => {
+        setActiveDropdown(null);
+        if (onStatusChange) onStatusChange(taskId, newStatus);
     };
 
-    const canEvaluate = (task: Task) => {
-        return task.status === 'COMPLETED';
-    };
-
-    const openFeedbackModal = (task: Task) => {
-        setFeedbackTask(task);
-        setShowFeedbackModal(true);
-    };
-
-    const canGiveFeedback = (task: Task) => {
-        return task.status === 'COMPLETED' || task.status === 'SUBMITTED' || task.status === 'REVIEWED';
-    };
-
-    // AI Task Generation Functions
-    const generateAITasks = async () => {
-        if (!internId) {
-            setAiError('No intern selected. Please select an intern first.');
-            return;
-        }
-
-        try {
-            setGeneratingTasks(true);
-            setAiError('');
-            const response = await axios.post('/analytics/llm/generate-tasks/', {
-                intern_id: internId,
-                project_requirements: projectRequirements || undefined,
-                target_role: targetRole || undefined,
-                num_suggestions: 3
-            });
-
-            setAiTasks(response.data.tasks || []);
-            setAiSummary(response.data.summary || '');
-        } catch (error: any) {
-            console.error('Error generating AI tasks:', error);
-            setAiError(error.response?.data?.error || 'Failed to generate AI tasks. Please try again.');
-        } finally {
-            setGeneratingTasks(false);
-        }
-    };
-
-    const assignAITask = async (task: AITaskSuggestion) => {
-        if (!internId) return;
-
-        try {
-            setAssigningTask(true);
-            await axios.post('/analytics/tasks/create/', {
-                title: task.title,
-                description: task.description,
-                priority: task.priority,
-                estimated_hours: task.estimated_hours,
-                due_date: task.due_date,
-                status: 'ASSIGNED',
-                intern_id: internId
-            });
-
-            setShowAITaskModal(false);
-            setAiTasks([]);
-            setAiSummary('');
-            setSelectedAITask(null);
-            setEditingTask(null);
-
-            if (onRefresh) {
-                onRefresh();
-            }
-
-            alert('Task assigned successfully!');
-        } catch (error: any) {
-            console.error('Error assigning task:', error);
-            alert(error.response?.data?.error || 'Failed to assign task. Please try again.');
-        } finally {
-            setAssigningTask(false);
-        }
-    };
-
-    const openTaskDetails = (task: AITaskSuggestion) => {
-        setSelectedAITask(task);
-        setEditingTask({ ...task });
-    };
-
-    const saveEditedTask = () => {
-        if (editingTask) {
-            setSelectedAITask(editingTask);
-        }
-    };
-
-    // Filter tasks by month and year only (for status card counts)
-    const monthYearFilteredTasks = tasksArray.filter(task => {
-        const taskDate = new Date(task.due_date);
-        const taskMonth = taskDate.getMonth() + 1;
-        const taskYear = taskDate.getFullYear();
-        return taskMonth === monthFilter && taskYear === yearFilter;
-    });
-
-    // Filter tasks by status if filter is selected (for task list)
-    const filteredTasks = statusFilter
-        ? monthYearFilteredTasks.filter(task => task.status === statusFilter)
-        : monthYearFilteredTasks;
-    
-    // Apply project filter
-    const projectFilteredTasks = projectFilter
-        ? filteredTasks.filter(task => task.project && task.project.id === projectFilter)
-        : filteredTasks;
-
-    const getStatCardClass = (status: string) => {
+    const getStatCardClass = (status: string, color: string) => {
         const isActive = statusFilter === status;
-        return `relative rounded-2xl border backdrop-blur-xl bg-slate-800/30 border-white/5 p-5 text-center cursor-pointer transition-all hover:scale-105 ${isActive ? 'border-purple-500/50 bg-slate-800/50' : ''}`;
+        const isAll = status === 'ALL' && statusFilter === null;
+        const selected = isActive || isAll;
+        
+        const activeColorMap: Record<string, string> = {
+            slate: 'border-slate-500/50 bg-slate-500/5 shadow-slate-500/10',
+            indigo: 'border-indigo-500/50 bg-indigo-500/5 shadow-indigo-500/10',
+            blue: 'border-blue-500/50 bg-blue-500/5 shadow-blue-500/10',
+            yellow: 'border-yellow-500/50 bg-yellow-500/5 shadow-yellow-500/10',
+            emerald: 'border-emerald-500/50 bg-emerald-500/5 shadow-emerald-500/10',
+            red: 'border-red-500/50 bg-red-500/5 shadow-red-500/10',
+        };
+        
+        return `group relative overflow-hidden rounded-3xl border p-6 transition-all duration-500 cursor-pointer 
+            ${selected ? activeColorMap[color] : 'bg-[var(--card-bg)] border-[var(--border-color)] hover:border-purple-500/30 hover:bg-purple-500/[0.03]'}`;
     };
 
-    const TaskCard: React.FC<{
-        task: Task;
-        showDropdown: boolean;
-        onToggleDropdown: () => void;
-    }> = ({ task, showDropdown, onToggleDropdown }) => {
-        const statusBadge = getStatusBadge(task.status);
-        const priorityBadge = getPriorityBadge(task.priority);
-        const availableStatuses = getAvailableStatuses(task);
-
-        return (
-            <div
-                className={`relative rounded-2xl border backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 ${showDropdown
-                    ? 'z-50 bg-slate-800/50 border-purple-500/50 shadow-xl shadow-purple-500/20'
-                    : 'bg-slate-800/30 border-white/5 hover:border-purple-500/30 hover:bg-slate-800/50 hover:shadow-lg hover:shadow-purple-500/10'
-                    } p-5`}
-            >
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-5/5 pointer-events-none rounded-2xl"></div>
-
+    // Sub-components
+    const TaskCard = ({ task, idx }: { task: Task, idx: number }) => (
+        <div className="group relative bg-[var(--card-bg)] border border-[var(--border-color)] rounded-[32px] overflow-hidden p-8 transition-all duration-500 hover:bg-purple-500/[0.02] hover:border-purple-500/20 hover:shadow-2xl dark:hover:shadow-black/50">
+            <div className="flex justify-between items-start mb-6">
+                <div className="space-y-2">
+                    <span className="text-[9px] font-black font-mono text-[var(--text-muted)] tracking-widest">{task.task_id}</span>
+                    <div className="flex gap-2">
+                        <Badge variant={getStatusBadge(task.status)} size="sm">{task.status.replace('_', ' ')}</Badge>
+                        <Badge variant={getPriorityBadge(task.priority)} size="sm">{task.priority}</Badge>
+                    </div>
+                </div>
                 <div className="relative">
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-slate-500 font-mono">{task.task_id}</span>
-                            <Badge variant={statusBadge} withDot>
-                                {task.status.replace('_', ' ')}
-                            </Badge>
-                        </div>
-                        {onStatusChange && (
-                            <div className="relative">
-                                <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={onToggleDropdown}
-                                    icon={<ChevronDown size={14} />}
-                                    iconPosition="right"
-                                >
-                                    Status
-                                </Button>
-
-                                {showDropdown && (
-                                    <div className="absolute right-0 top-full mt-2 w-40 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-[100] animate-scale-in overflow-hidden">
-                                        <div className="py-2">
-                                            {availableStatuses.map((option) => (
-                                                <button
-                                                    key={option.value}
-                                                    onClick={() => handleStatusChange(task.id, option.value)}
-                                                    disabled={option.disabled}
-                                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${option.disabled
-                                                        ? 'text-slate-500 cursor-not-allowed'
-                                                        : 'text-white hover:bg-slate-700'
-                                                        }`}
-                                                >
-                                                    {option.icon}
-                                                    <span>{option.label}</span>
-                                                    {option.disabled && (
-                                                        <span className="ml-auto text-xs text-slate-500">Current</span>
-                                                    )}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+                    <button 
+                        onClick={() => setActiveDropdown(activeDropdown === task.id ? null : task.id)}
+                        className="p-3 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)] hover:bg-purple-500/10 transition-colors text-[var(--text-dim)]"
+                    >
+                        <ChevronDown size={14} className={`transition-transform duration-300 ${activeDropdown === task.id ? 'rotate-180' : ''}`} />
+                    </button>
+                    {activeDropdown === task.id && (
+                        <div className="absolute right-0 top-full mt-3 w-56 bg-[var(--bg-muted)] backdrop-blur-2xl border border-[var(--border-color)] rounded-2xl shadow-2xl z-50 overflow-hidden animate-scale-in">
+                            <div className="py-2">
+                                <p className="px-4 py-2 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest border-b border-[var(--border-color)] mb-1">Update Status</p>
+                                {getAvailableStatuses(task).map((opt) => (
+                                    <button 
+                                        key={opt.value}
+                                        onClick={() => handleStatusChange(task.id, opt.value)}
+                                        className="w-full flex items-center justify-between px-5 py-3 text-xs font-bold text-[var(--text-dim)] hover:bg-purple-500/10 hover:text-[var(--text-main)] transition-colors"
+                                    >
+                                        <span className="flex items-center gap-3">{opt.icon} {opt.label}</span>
+                                        <ArrowRight size={12} className="opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
+                                    </button>
+                                ))}
                             </div>
-                        )}
-                    </div>
-
-                    <h3 className="font-semibold text-lg text-white mb-3">{task.title}</h3>
-
-                    <div className="flex flex-wrap gap-2 mb-4">
-                        <Badge variant={priorityBadge} size="sm">
-                            {task.priority}
-                        </Badge>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                            <Clock size={14} />
-                            <span>Due: {task.due_date}</span>
-                        </div>
-                        {task.quality_rating && (
-                            <div className="flex items-center gap-1">
-                                <Award size={14} className="text-amber-500" />
-                                <span className="text-sm font-medium">{task.quality_rating}/5</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {(task.quality_rating !== null || task.code_review_score !== null) && (
-                        <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-white/10">
-                            {task.quality_rating !== null && (
-                                <div className="flex items-center gap-1 text-amber-400">
-                                    <Star size={14} fill="currentColor" />
-                                    <span className="text-sm font-medium">{task.quality_rating}/5</span>
-                                </div>
-                            )}
-                            {task.code_review_score !== null && (
-                                <div className="flex items-center gap-1 text-blue-400">
-                                    <Code size={14} />
-                                    <span className="text-sm font-medium">{task.code_review_score}%</span>
-                                </div>
-                            )}
-                            {task.bug_count && task.bug_count > 0 && (
-                                <div className="flex items-center gap-1 text-red-400">
-                                    <Bug size={14} />
-                                    <span className="text-sm font-medium">{task.bug_count}</span>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {canEvaluate(task) && (
-                        <div className="mt-3 pt-3 border-t border-white/10">
-                            <Button
-                                fullWidth
-                                onClick={() => openEvaluationModal(task)}
-                            >
-                                {task.quality_rating === null ? 'Evaluate Task' : 'Update Evaluation'}
-                            </Button>
-                            {canGiveFeedback(task) && internId && (
-                                <Button
-                                    fullWidth
-                                    variant="secondary"
-                                    className="mt-2"
-                                    onClick={() => openFeedbackModal(task)}
-                                >
-                                    <MessageSquare size={14} className="mr-1" />
-                                    Give Feedback
-                                </Button>
-                            )}
                         </div>
                     )}
                 </div>
-
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"></div>
             </div>
-        );
-    };
-
-    const TaskListItem: React.FC<{
-        task: Task;
-        showDropdown: boolean;
-        onToggleDropdown: () => void;
-    }> = ({ task, showDropdown, onToggleDropdown }) => {
-        const statusBadge = getStatusBadge(task.status);
-        const priorityBadge = getPriorityBadge(task.priority);
-        const availableStatuses = getAvailableStatuses(task);
-
-        return (
-            <div
-                className={`relative rounded-xl border backdrop-blur-xl transition-all duration-200 ${showDropdown
-                    ? 'z-50 bg-slate-800/50 border-purple-500/50 shadow-xl'
-                    : 'bg-slate-800/30 border-white/5 hover:border-purple-500/30 hover:bg-slate-800/50'
-                    } p-4`}
-            >
-                <div className="flex items-center gap-4">
-                    <div className="flex-shrink-0 w-20">
-                        <span className="text-xs text-slate-500 font-mono">{task.task_id}</span>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-white truncate">{task.title}</h3>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                        <Badge variant={statusBadge} withDot>
-                            {task.status.replace('_', ' ')}
-                        </Badge>
-                        <Badge variant={priorityBadge} size="sm">
-                            {task.priority}
-                        </Badge>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-sm text-slate-400 flex-shrink-0 w-32">
-                        <Clock size={14} />
-                        <span>{task.due_date}</span>
-                    </div>
-
-                    {(task.quality_rating !== null || task.code_review_score !== null) && (
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                            {task.quality_rating !== null && (
-                                <div className="flex items-center gap-1 text-amber-400">
-                                    <Star size={14} fill="currentColor" />
-                                    <span className="text-sm font-medium">{task.quality_rating}/5</span>
-                                </div>
-                            )}
-                            {task.code_review_score !== null && (
-                                <div className="flex items-center gap-1 text-blue-400">
-                                    <Code size={14} />
-                                    <span className="text-sm font-medium">{task.code_review_score}%</span>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                        {onStatusChange && (
-                            <div className="relative">
-                                <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={onToggleDropdown}
-                                    icon={<ChevronDown size={14} />}
-                                    iconPosition="right"
-                                >
-                                    Status
-                                </Button>
-
-                                {showDropdown && (
-                                    <div className="absolute right-0 top-full mt-2 w-40 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-[100] animate-scale-in overflow-hidden">
-                                        <div className="py-2">
-                                            {availableStatuses.map((option) => (
-                                                <button
-                                                    key={option.value}
-                                                    onClick={() => handleStatusChange(task.id, option.value)}
-                                                    disabled={option.disabled}
-                                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${option.disabled
-                                                        ? 'text-slate-500 cursor-not-allowed'
-                                                        : 'text-white hover:bg-slate-700'
-                                                        }`}
-                                                >
-                                                    {option.icon}
-                                                    <span>{option.label}</span>
-                                                    {option.disabled && (
-                                                        <span className="ml-auto text-xs text-slate-500">Current</span>
-                                                    )}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        {canEvaluate(task) && (
-                            <Button
-                                size="sm"
-                                onClick={() => openEvaluationModal(task)}
-                            >
-                                {task.quality_rating === null ? 'Evaluate' : 'Update'}
-                            </Button>
-                        )}
-                        {canGiveFeedback(task) && internId && (
-                            <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => openFeedbackModal(task)}
-                            >
-                                <MessageSquare size={14} className="mr-1" />
-                                Feedback
-                            </Button>
-                        )}
+            <h3 className="text-xl font-black text-[var(--text-main)] leading-tight mb-4 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors capitalize">{task.title}</h3>
+            {task.module && (
+                <div className="flex items-center gap-2 mb-6">
+                    <Layers size={12} className="text-blue-500" />
+                    <span className="text-[10px] font-black tracking-widest text-[var(--text-muted)] uppercase">{task.module.name}</span>
+                </div>
+            )}
+            <div className="flex items-center justify-between pt-6 border-t border-[var(--border-color)]">
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--text-dim)]">
+                        <Clock size={12} /> {task.due_date}
                     </div>
                 </div>
+                <div className="flex gap-2">
+                    {task.quality_rating && <Badge variant="warning" size="sm">★{task.quality_rating}</Badge>}
+                    {task.status === 'COMPLETED' && (
+                        <button 
+                            onClick={() => openEvaluationModal(task)}
+                            className="px-4 py-1.5 rounded-lg bg-[var(--bg-muted)] border border-[var(--border-color)] text-[10px] font-black uppercase tracking-widest text-[var(--text-dim)] hover:bg-purple-500/10 hover:text-[var(--text-main)] transition-colors"
+                        >
+                            Evaluate
+                        </button>
+                    )}
+                </div>
             </div>
-        );
-    };
+        </div>
+    );
+
+    const TaskListItem = ({ task }: { task: Task }) => (
+        <div className="bg-[var(--card-bg)] hover:bg-purple-500/[0.03] border border-[var(--border-color)] hover:border-purple-500/20 rounded-2xl p-5 flex items-center gap-6 transition-all group">
+            <div className="w-16 shrink-0 text-[10px] font-mono text-[var(--text-muted)] tracking-tighter">{task.task_id}</div>
+            <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-black text-[var(--text-main)] truncate capitalize group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{task.title}</h4>
+                <div className="flex items-center gap-4 mt-1">
+                    <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest">{task.project?.name || 'General'}</span>
+                    {task.module && <span className="text-[10px] text-blue-500/50 font-black tracking-widest uppercase italic">{task.module.name}</span>}
+                </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+                <Badge variant={getStatusBadge(task.status)} size="sm">{task.status.replace('_', ' ')}</Badge>
+                <Badge variant={getPriorityBadge(task.priority)} size="sm">{task.priority}</Badge>
+            </div>
+            <div className="w-28 shrink-0 flex items-center gap-2 text-[10px] font-bold text-[var(--text-dim)]">
+                <Calendar size={12} /> {task.due_date}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+                <button 
+                    onClick={() => setActiveDropdown(activeDropdown === task.id ? null : task.id)}
+                    className="p-2 rounded-xl bg-[var(--bg-muted)] hover:bg-purple-500/10 transition-colors text-[var(--text-dim)]"
+                >
+                    <MoreHorizontal size={16} />
+                </button>
+                {task.status === 'COMPLETED' && <Button size="sm" onClick={() => openEvaluationModal(task)}>Evaluate</Button>}
+            </div>
+        </div>
+    );
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="space-y-10 animate-fade-in pb-20">
+            {/* Header Area */}
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8">
                 <div>
-                    <h2 className="text-2xl font-bold text-white">Task Management</h2>
-                    <p className="text-slate-400 mt-1">Track and manage assigned tasks</p>
+                    <h2 className="text-4xl font-black text-[var(--text-main)] tracking-tighter uppercase italic">Tasks</h2>
+                    <p className="text-[var(--text-dim)] mt-4 font-medium max-w-md leading-relaxed">Track and manage intern assignments and performance.</p>
                 </div>
                 {canCreate && (
-                    <div className="flex gap-2">
-                        <Button
-                            onClick={() => setShowAITaskModal(true)}
-                            icon={<Sparkles size={18} />}
-                            variant="secondary"
-                        >
-                            Generate AI Tasks
-                        </Button>
-                        <Button
-                            onClick={onAddTask}
-                            icon={<Plus size={18} />}
-                            gradient="blue"
-                        >
-                            Assign New Task
-                        </Button>
+                    <div className="flex flex-wrap gap-4 w-full sm:w-auto">
+                        <button onClick={() => navigate(`/monitoring/ai-tasks/${internId || ''}`)} className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl dark:shadow-purple-950/20 shadow-purple-500/10">
+                            <Sparkles size={18} /> AI Generator
+                        </button>
+                        <button onClick={onAddTask} className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-4 bg-[var(--text-main)] text-[var(--bg-color)] rounded-2xl font-black text-xs uppercase tracking-widest hover:opacity-90 active:scale-[0.98] transition-all">
+                            <Plus size={18} /> New Task
+                        </button>
                     </div>
                 )}
             </div>
 
-            {/* Month/Year Filter */}
-            <div className="flex flex-wrap items-center gap-4 mb-4">
-                <div className="flex items-center gap-2">
-                    <label className="text-sm text-slate-400">Month:</label>
-                    <select
-                        value={monthFilter}
-                        onChange={(e) => setMonthFilter(parseInt(e.target.value))}
-                        className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
-                    >
-                        <option value={1}>January</option>
-                        <option value={2}>February</option>
-                        <option value={3}>March</option>
-                        <option value={4}>April</option>
-                        <option value={5}>May</option>
-                        <option value={6}>June</option>
-                        <option value={7}>July</option>
-                        <option value={8}>August</option>
-                        <option value={9}>September</option>
-                        <option value={10}>October</option>
-                        <option value={11}>November</option>
-                        <option value={12}>December</option>
-                    </select>
-                </div>
-                <div className="flex items-center gap-2">
-                    <label className="text-sm text-slate-400">Year:</label>
-                    <select
-                        value={yearFilter}
-                        onChange={(e) => setYearFilter(parseInt(e.target.value))}
-                        className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
-                    >
-                        <option value={2024}>2024</option>
-                        <option value={2025}>2025</option>
-                        <option value={2026}>2026</option>
-                        <option value={2027}>2027</option>
-                        <option value={2028}>2028</option>
-                    </select>
-                </div>
-                {projects.length > 0 && (
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm text-slate-400">Project:</label>
-                        <select
-                            value={projectFilter || ''}
-                            onChange={(e) => setProjectFilter(e.target.value ? parseInt(e.target.value) : null)}
-                            className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
-                        >
-                            <option value="">All Projects</option>
-                            {projects.map(project => (
-                                <option key={project.id} value={project.id}>{project.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                )}
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-                <button
-                    onClick={() => setStatusFilter(statusFilter === null ? null : null)}
-                    className={getStatCardClass('ALL')}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-5/5 pointer-events-none rounded-2xl"></div>
-                    <div className="relative">
-                        <p className="text-2xl font-bold text-white">{monthYearFilteredTasks.length}</p>
-                        <p className="text-sm text-slate-400">Total Tasks</p>
-                    </div>
-                </button>
-                <button
-                    onClick={() => setStatusFilter(statusFilter === 'ASSIGNED' ? null : 'ASSIGNED')}
-                    className={getStatCardClass('ASSIGNED')}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-5/5 pointer-events-none rounded-2xl"></div>
-                    <div className="relative">
-                        <p className="text-2xl font-bold text-indigo-400">{monthYearFilteredTasks.filter(t => t.status === 'ASSIGNED').length}</p>
-                        <p className="text-sm text-slate-400">Assigned</p>
-                    </div>
-                </button>
-                <button
-                    onClick={() => setStatusFilter(statusFilter === 'IN_PROGRESS' ? null : 'IN_PROGRESS')}
-                    className={getStatCardClass('IN_PROGRESS')}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-5/5 pointer-events-none rounded-2xl"></div>
-                    <div className="relative">
-                        <p className="text-2xl font-bold text-blue-400">{monthYearFilteredTasks.filter(t => t.status === 'IN_PROGRESS').length}</p>
-                        <p className="text-sm text-slate-400">In Progress</p>
-                    </div>
-                </button>
-                <button
-                    onClick={() => setStatusFilter(statusFilter === 'SUBMITTED' ? null : 'SUBMITTED')}
-                    className={getStatCardClass('SUBMITTED')}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-5/5 pointer-events-none rounded-2xl"></div>
-                    <div className="relative">
-                        <p className="text-2xl font-bold text-yellow-400">{monthYearFilteredTasks.filter(t => t.status === 'SUBMITTED').length}</p>
-                        <p className="text-sm text-slate-400">Submitted</p>
-                    </div>
-                </button>
-                <button
-                    onClick={() => setStatusFilter(statusFilter === 'COMPLETED' ? null : 'COMPLETED')}
-                    className={getStatCardClass('COMPLETED')}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-5/5 pointer-events-none rounded-2xl"></div>
-                    <div className="relative">
-                        <p className="text-2xl font-bold text-emerald-400">{monthYearFilteredTasks.filter(t => t.status === 'COMPLETED').length}</p>
-                        <p className="text-sm text-slate-400">Completed</p>
-                    </div>
-                </button>
-                <button
-                    onClick={() => setStatusFilter(statusFilter === 'BLOCKED' ? null : 'BLOCKED')}
-                    className={getStatCardClass('BLOCKED')}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-5/5 pointer-events-none rounded-2xl"></div>
-                    <div className="relative">
-                        <p className="text-2xl font-bold text-red-400">{monthYearFilteredTasks.filter(t => t.status === 'BLOCKED').length}</p>
-                        <p className="text-sm text-slate-400">Blocked</p>
-                    </div>
-                </button>
-            </div>
-
-            {/* View Toggle */}
-            <div className="flex items-center gap-2">
-                <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
-                    title="Grid View"
-                >
-                    <LayoutGrid size={18} />
-                </button>
-                <button
-                    onClick={() => setViewMode('list')}
-                    className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
-                    title="List View"
-                >
-                    <List size={18} />
-                </button>
-            </div>
-
-            {/* Tasks Display - Grid or List View */}
-            {viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {projectFilteredTasks.map((task) => (
-                        <div
-                            key={task.id}
-                            style={{ zIndex: activeDropdown === task.id ? 50 : 1 }}
-                        >
-                            <TaskCard
-                                task={task}
-                                showDropdown={activeDropdown === task.id}
-                                onToggleDropdown={() => setActiveDropdown(activeDropdown === task.id ? null : task.id)}
-                            />
+            {/* Stat Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+                {[
+                    { id: 'ALL', label: 'Total Tasks', count: monthYearFilteredTasks.length, color: 'slate', icon: Target, glowColor: 'bg-slate-500' },
+                    { id: 'ASSIGNED', label: 'Assigned', count: monthYearFilteredTasks.filter(t => t.status === 'ASSIGNED').length, color: 'indigo', icon: Wand2, glowColor: 'bg-indigo-500' },
+                    { id: 'IN_PROGRESS', label: 'In Progress', count: monthYearFilteredTasks.filter(t => t.status === 'IN_PROGRESS').length, color: 'blue', icon: PlayCircle, glowColor: 'bg-blue-500' },
+                    { id: 'SUBMITTED', label: 'Submitted', count: monthYearFilteredTasks.filter(t => t.status === 'SUBMITTED').length, color: 'yellow', icon: Clock, glowColor: 'bg-yellow-500' },
+                    { id: 'COMPLETED', label: 'Completed', count: monthYearFilteredTasks.filter(t => t.status === 'COMPLETED').length, color: 'emerald', icon: CheckCircle, glowColor: 'bg-emerald-500' },
+                    { id: 'BLOCKED', label: 'Blocked', count: monthYearFilteredTasks.filter(t => t.status === 'BLOCKED').length, color: 'red', icon: AlertTriangle, glowColor: 'bg-red-500' },
+                ].map((stat) => (
+                    <div key={stat.id} onClick={() => setStatusFilter(stat.id === 'ALL' ? null : (statusFilter === stat.id ? null : stat.id))} className={getStatCardClass(stat.id, stat.color)}>
+                        <div className={`absolute top-0 right-0 w-24 h-24 ${stat.glowColor}/10 blur-3xl -mr-8 -mt-8 rounded-full`} />
+                        <div className="relative flex flex-col items-center text-center">
+                            <stat.icon className="mb-3 text-[var(--text-muted)] transition-colors" size={20} />
+                            <p className="text-3xl font-black text-[var(--text-main)] group-hover:scale-110 transition-transform">{stat.count}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-dim)] mt-1 whitespace-nowrap">{stat.label}</p>
                         </div>
-                    ))}
-                    {projectFilteredTasks.length === 0 && (
-                        <div className="col-span-full text-center py-12">
-                            <div className="relative rounded-2xl border backdrop-blur-xl bg-slate-800/30 border-white/5 p-12">
-                                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-500/5 pointer-events-none rounded-2xl"></div>
-                                <Target size={48} className="mx-auto mb-4 text-slate-600 relative" />
-                                <p className="text-lg font-medium text-white relative">No tasks found</p>
-                                <p className="text-sm text-slate-400 mt-1 relative">Tasks will appear here once assigned</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* Filter Bar */}
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-6 p-2">
+                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                    <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl p-1 shrink-0">
+                        <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-lg' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)]'}`}><LayoutGrid size={18} /></button>
+                        <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-lg' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)]'}`}><List size={18} /></button>
+                    </div>
+                    <div className="h-6 w-px bg-[var(--border-color)] hidden sm:block" />
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="relative group">
+                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={14} />
+                            <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value === 'all' ? 'all' : parseInt(e.target.value))} className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl pl-9 pr-8 py-2.5 text-xs font-bold text-[var(--text-dim)] appearance-none hover:bg-purple-500/5 cursor-pointer">
+                                <option value="all">ANY MONTH</option>
+                                {[...Array(12)].map((_, i) => <option key={i+1} value={i+1}>{new Date(0, i).toLocaleString('en', { month: 'long' }).toUpperCase()}</option>)}
+                            </select>
+                        </div>
+                        <div className="relative group">
+                            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={14} />
+                            <select value={yearFilter} onChange={(e) => setYearFilter(e.target.value === 'all' ? 'all' : parseInt(e.target.value))} className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl pl-9 pr-8 py-2.5 text-xs font-bold text-[var(--text-dim)] appearance-none hover:bg-purple-500/5 cursor-pointer">
+                                <option value="all">ANY YEAR</option>
+                                {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                            </select>
+                        </div>
+                        {projects.length > 0 && (
+                            <div className="relative group">
+                                <Target className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={14} />
+                                <select value={projectFilter || ''} onChange={(e) => setProjectFilter(e.target.value ? parseInt(e.target.value) : null)} className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl pl-9 pr-8 py-2.5 text-xs font-bold text-[var(--text-dim)] appearance-none hover:bg-purple-500/5 cursor-pointer">
+                                    <option value="">ALL DOMAINS</option>
+                                    {projects.map(p => <option key={p.id} value={p.id}>{p.name.toUpperCase()}</option>)}
+                                </select>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Content Area */}
+            {projectFilteredTasks.length > 0 ? (
+                <>
+                    {viewMode === 'grid' ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                            {paginatedTasks.map((task, idx) => (
+                                <TaskCard key={task.id} task={task} idx={idx} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {paginatedTasks.map((task) => (
+                                <TaskListItem key={task.id} task={task} />
+                            ))}
+                        </div>
+                    )}
+
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between pt-10">
+                            <p className="text-xs font-bold text-[var(--text-dim)] tracking-widest uppercase">Page <span className="text-[var(--text-main)]">{currentPage}</span> / <span className="text-[var(--text-muted)]">{totalPages}</span></p>
+                            <div className="flex gap-4">
+                                <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="px-6 py-2.5 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] text-xs font-bold text-[var(--text-dim)] disabled:opacity-20 font-mono">PREV</button>
+                                <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="px-6 py-2.5 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] text-xs font-bold text-[var(--text-dim)] disabled:opacity-20 font-mono">NEXT</button>
                             </div>
                         </div>
                     )}
-                </div>
+                </>
             ) : (
-                <div className="overflow-x-auto rounded-xl border border-white/10">
-                    <table className="w-full min-w-[900px]">
-                        <thead>
-                            <tr className="bg-slate-800/80 text-left text-sm text-slate-400">
-                                <th className="px-4 py-3 font-medium w-20">ID</th>
-                                <th className="px-4 py-3 font-medium min-w-[280px]">Title</th>
-                                <th className="px-4 py-3 font-medium w-28">Status</th>
-                                <th className="px-4 py-3 font-medium w-24">Priority</th>
-                                <th className="px-4 py-3 font-medium w-28">Due Date</th>
-                                <th className="px-4 py-3 font-medium w-24">Quality</th>
-                                <th className="px-4 py-3 font-medium w-24">Code %</th>
-                                <th className="px-4 py-3 font-medium w-32">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {projectFilteredTasks.map((task) => (
-                                <tr 
-                                    key={task.id} 
-                                    className="bg-slate-800/30 hover:bg-slate-800/50 transition-colors"
-                                >
-                                    <td className="px-4 py-3">
-                                        <span className="text-xs text-slate-500 font-mono">{task.task_id}</span>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <span className="text-white font-medium truncate block w-full" title={task.title}>{task.title}</span>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <Badge variant={getStatusBadge(task.status)} withDot>
-                                            {task.status.replace('_', ' ')}
-                                        </Badge>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <Badge variant={getPriorityBadge(task.priority)} size="sm">
-                                            {task.priority}
-                                        </Badge>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-1 text-sm text-slate-400">
-                                            <Clock size={14} />
-                                            <span>{task.due_date}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        {task.quality_rating !== null ? (
-                                            <span className="text-amber-400 text-sm font-medium">★ {task.quality_rating}/5</span>
-                                        ) : (
-                                            <span className="text-slate-600 text-sm">-</span>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        {task.code_review_score !== null ? (
-                                            <span className="text-blue-400 text-sm font-medium">{task.code_review_score}%</span>
-                                        ) : (
-                                            <span className="text-slate-600 text-sm">-</span>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-2">
-                                            {onStatusChange && (
-                                                <div className="relative">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="secondary"
-                                                        onClick={() => setActiveDropdown(activeDropdown === task.id ? null : task.id)}
-                                                    >
-                                                        Status
-                                                    </Button>
-                                                    {activeDropdown === task.id && (
-                                                        <div className="absolute right-0 top-full mt-1 w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-[100] animate-scale-in">
-                                                            <div className="py-1">
-                                                                {getAvailableStatuses(task).map((option) => (
-                                                                    <button
-                                                                        key={option.value}
-                                                                        onClick={() => handleStatusChange(task.id, option.value)}
-                                                                        disabled={option.disabled}
-                                                                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${option.disabled
-                                                                            ? 'text-slate-500 cursor-not-allowed'
-                                                                            : 'text-white hover:bg-slate-700'
-                                                                            }`}
-                                                                    >
-                                                                        {option.icon}
-                                                                        <span>{option.label}</span>
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                            {canEvaluate(task) && (
-                                                <Button
-                                                    size="sm"
-                                                    onClick={() => openEvaluationModal(task)}
-                                                >
-                                                    {task.quality_rating === null ? 'Evaluate' : 'Update'}
-                                                </Button>
-                                            )}
-                                            {canGiveFeedback(task) && internId && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    onClick={() => openFeedbackModal(task)}
-                                                >
-                                                    <MessageSquare size={14} />
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    {projectFilteredTasks.length === 0 && (
-                        <div className="text-center py-12 bg-slate-800/30">
-                            <Target size={48} className="mx-auto mb-4 text-slate-600" />
-                            <p className="text-lg font-medium text-white">No tasks found</p>
-                            <p className="text-sm text-slate-400 mt-1">Tasks will appear here once assigned</p>
-                        </div>
-                    )}
+                <div className="py-32 flex flex-col items-center justify-center text-center animate-fade-in">
+                    <Target size={80} className="text-[var(--text-muted)] opacity-20 mb-8" />
+                    <h3 className="text-2xl font-black text-[var(--text-main)] uppercase italic mb-2">No tasks found</h3>
+                    <p className="text-[var(--text-dim)] max-w-sm font-medium">No tasks match your current filter parameters.</p>
                 </div>
             )}
 
-            <Modal
-                isOpen={showEvaluationModal}
-                onClose={() => setShowEvaluationModal(false)}
-                title={`Evaluate: ${selectedTask?.title}`}
-                gradient="violet"
-                size="md"
-            >
-                <div className="space-y-5">
-                    <div className="bg-slate-800/50 rounded-xl p-4">
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                            <Clock size={14} />
-                            <span>Est: {selectedTask?.estimated_hours || 0}h | Actual: {selectedTask?.actual_hours || 0}h</span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Quality Rating (0-5)</label>
-                        <div className="flex items-center gap-1">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                                <button key={star} type="button" onClick={() => setEvaluation({ ...evaluation, quality_rating: star })} className="focus:outline-none p-1">
-                                    <Star size={28} className={star <= evaluation.quality_rating ? 'text-yellow-400 fill-yellow-400' : 'text-slate-600'} />
-                                </button>
-                            ))}
-                            <span className="ml-2 text-slate-400 text-sm">{evaluation.quality_rating > 0 ? `${evaluation.quality_rating}.0` : '-'}</span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Code Review Score (0-100)</label>
-                        <div className="flex items-center gap-4">
-                            <input type="range" min="0" max="100" value={evaluation.code_review_score} onChange={(e) => setEvaluation({ ...evaluation, code_review_score: parseInt(e.target.value) })} className="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer" />
-                            <span className="w-12 text-center text-white font-medium">{evaluation.code_review_score}%</span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Bugs Found</label>
-                        <input type="number" min="0" value={evaluation.bug_count} onChange={(e) => setEvaluation({ ...evaluation, bug_count: parseInt(e.target.value) || 0 })} className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white" />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Mentor Feedback</label>
-                        <textarea value={evaluation.mentor_feedback} onChange={(e) => setEvaluation({ ...evaluation, mentor_feedback: e.target.value })} rows={3} className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white" />
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        <input type="checkbox" id="rework" checked={evaluation.rework_required} onChange={(e) => setEvaluation({ ...evaluation, rework_required: e.target.checked })} className="w-5 h-5" />
-                        <label htmlFor="rework" className="text-sm text-slate-300">Require Rework</label>
-                    </div>
-
-                    <div className="flex gap-3 pt-4 border-t border-white/10">
-                        <Button variant="secondary" fullWidth onClick={() => setShowEvaluationModal(false)}>Cancel</Button>
-                        <Button fullWidth onClick={submitEvaluation} disabled={saving}>
-                            {saving ? 'Saving...' : 'Submit Evaluation'}
-                        </Button>
-                    </div>
-                </div>
-            </Modal>
-
-            {/* Task Feedback Modal */}
-            <Modal
-                isOpen={showFeedbackModal}
-                onClose={() => {
-                    setShowFeedbackModal(false);
-                    setFeedbackTask(null);
-                }}
-                title={`Provide Feedback: ${feedbackTask?.title || ''}`}
-                gradient="emerald"
-                size="md"
-            >
-                <div className="space-y-5">
-                    <div className="bg-slate-800/50 rounded-xl p-4">
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                            <MessageSquare size={14} />
-                            <span>Task ID: {feedbackTask?.task_id}</span>
-                        </div>
-                    </div>
-
-                    {/* Task Status Selection */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Task Status</label>
-                        <select
-                            value={feedbackData.task_status}
-                            onChange={(e) => setFeedbackData({ ...feedbackData, task_status: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white"
-                        >
-                            <option value="IN_PROGRESS">In Progress</option>
-                            <option value="COMPLETED_APPROVED">Complete - Approved</option>
-                            <option value="COMPLETED_REWORK">Complete - Needs Rework</option>
-                        </select>
-                    </div>
-
-                    {/* Rating */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Rating (1-5)</label>
-                        <div className="flex items-center gap-1">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                                <button key={star} type="button" onClick={() => setFeedbackData({ ...feedbackData, rating: star })} className="focus:outline-none p-1">
-                                    <Star size={28} className={star <= feedbackData.rating ? 'text-yellow-400 fill-yellow-400' : 'text-slate-600'} />
-                                </button>
-                            ))}
-                            <span className="ml-2 text-slate-400 text-sm">{feedbackData.rating > 0 ? `${feedbackData.rating}.0` : '-'}</span>
-                        </div>
-                    </div>
-
-                    {/* Comments */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Comments</label>
-                        <textarea
-                            value={feedbackData.comments}
-                            onChange={(e) => setFeedbackData({ ...feedbackData, comments: e.target.value })}
-                            rows={3}
-                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white"
-                            placeholder="Provide feedback on the task completion..."
-                        />
-                    </div>
-
-                    {/* Strengths */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Strengths</label>
-                        <textarea
-                            value={feedbackData.strengths}
-                            onChange={(e) => setFeedbackData({ ...feedbackData, strengths: e.target.value })}
-                            rows={2}
-                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white"
-                            placeholder="What did the intern do well?"
-                        />
-                    </div>
-
-                    {/* Areas for Improvement */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Areas for Improvement</label>
-                        <textarea
-                            value={feedbackData.areas_for_improvement}
-                            onChange={(e) => setFeedbackData({ ...feedbackData, areas_for_improvement: e.target.value })}
-                            rows={2}
-                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white"
-                            placeholder="What can be improved?"
-                        />
-                    </div>
-
-                    <div className="flex gap-3 pt-4 border-t border-white/10">
-                        <Button variant="secondary" fullWidth onClick={() => setShowFeedbackModal(false)}>Cancel</Button>
-                        <Button fullWidth onClick={submitFeedback} disabled={submittingFeedback}>
-                            {submittingFeedback ? 'Sending...' : 'Submit Feedback'}
-                        </Button>
-                    </div>
-                </div>
-            </Modal>
-
-            {/* AI Task Generation Modal */}
-            <Modal
-                isOpen={showAITaskModal}
-                onClose={() => {
-                    setShowAITaskModal(false);
-                    setAiTasks([]);
-                    setAiSummary('');
-                    setSelectedAITask(null);
-                    setEditingTask(null);
-                    setAiError('');
-                }}
-                title="AI Task Generator"
-                size="xl"
-            >
-                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                    {/* Intern Info */}
-                    {internId && internName && (
-                        <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
-                            <p className="text-sm text-purple-300">
-                                Generating tasks for: <span className="font-semibold">{internName}</span>
-                            </p>
-                        </div>
-                    )}
-
-                    {!internId && (
-                        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-                            <p className="text-sm text-yellow-300">
-                                Please select an intern from the dashboard to generate AI tasks.
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Project Requirements Input */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-1">
-                            Project Requirements (Optional)
-                        </label>
-                        <textarea
-                            value={projectRequirements}
-                            onChange={(e) => setProjectRequirements(e.target.value)}
-                            placeholder="Describe the project or specific requirements for the task..."
-                            className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 h-20 resize-none"
-                        />
-                    </div>
-
-                    {/* Target Role Input */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-1">
-                            Target Role (Optional)
-                        </label>
-                        <input
-                            type="text"
-                            value={targetRole}
-                            onChange={(e) => setTargetRole(e.target.value)}
-                            placeholder="e.g., Frontend Developer, ML Engineer..."
-                            className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
-                        />
-                    </div>
-
-                    {/* Error Message */}
-                    {aiError && (
-                        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                            <p className="text-sm text-red-300">{aiError}</p>
-                        </div>
-                    )}
-
-                    {/* Generate Button */}
-                    <Button
-                        onClick={generateAITasks}
-                        disabled={generatingTasks || !internId}
-                        icon={generatingTasks ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
-                        gradient="purple"
-                        fullWidth
-                    >
-                        {generatingTasks ? 'Generating Tasks...' : 'Generate AI Task Suggestions'}
-                    </Button>
-
-                    {/* AI Summary */}
-                    {aiSummary && (
-                        <div className="bg-slate-800/50 border border-white/10 rounded-lg p-3">
-                            <p className="text-sm text-slate-300">{aiSummary}</p>
-                        </div>
-                    )}
-
-                    {/* AI Task Suggestions */}
-                    {aiTasks.length > 0 && !selectedAITask && (
-                        <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-                            <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                                <Sparkles size={14} className="text-purple-400" />
-                                Suggested Tasks (Click to Review)
-                            </h4>
-                            {aiTasks.map((task, index) => (
-                                <button
-                                    key={index}
-                                    type="button"
-                                    className="w-full bg-slate-800/50 border border-white/10 rounded-xl p-4 cursor-pointer transition-all hover:border-purple-500/50 hover:bg-purple-500/5 group text-left"
-                                    onClick={() => openTaskDetails(task)}
-                                >
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div className="flex-1">
-                                            <h5 className="font-semibold text-white group-hover:text-purple-300 transition-colors">{task.title}</h5>
-                                            <p className="text-sm text-slate-400 mt-1 line-clamp-2">{task.description}</p>
-                                        </div>
-                                        <Badge variant={task.priority === 'HIGH' ? 'warning' : task.priority === 'CRITICAL' ? 'danger' : task.priority === 'LOW' ? 'default' : 'info'}>
-                                            {task.priority}
-                                        </Badge>
-                                    </div>
-                                    
-                                    {/* Task Meta Info */}
-                                    <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-white/10">
-                                        <div className="flex items-center gap-1 text-xs text-slate-400">
-                                            <Clock size={12} className="text-blue-400" />
-                                            <span>{task.estimated_hours}h estimated</span>
-                                        </div>
-                                        <div className="flex items-center gap-1 text-xs text-slate-400">
-                                            <Award size={12} className="text-green-400" />
-                                            <span>Due: {task.due_date}</span>
-                                        </div>
-                                        {task.skills_required && task.skills_required.length > 0 && (
-                                            <div className="flex items-center gap-1 text-xs text-slate-400">
-                                                <Code size={12} className="text-purple-400" />
-                                                <span>{task.skills_required.slice(0, 3).join(', ')}</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Rationale Preview */}
-                                    {task.rationale && (
-                                        <div className="mt-3 p-2 bg-purple-500/10 rounded-lg">
-                                            <p className="text-xs text-purple-300 line-clamp-2">
-                                                <Sparkles size={10} className="inline mr-1" />
-                                                {task.rationale}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {/* Click to review hint */}
-                                    <div className="mt-3 flex items-center justify-center gap-1 text-xs text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <span>Click to review and assign</span>
-                                        <ChevronDown size={12} />
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Task Details & Assignment */}
-                    {selectedAITask && editingTask && (
-                        <div className="bg-slate-800/50 border border-purple-500/30 rounded-lg p-4 space-y-4">
-                            <div className="flex items-center justify-between">
-                                <h4 className="font-semibold text-white flex items-center gap-2">
-                                    <Sparkles size={16} className="text-purple-400" />
-                                    Task Details - Review & Assign
-                                </h4>
-                                <Badge variant={editingTask.priority === 'HIGH' ? 'warning' : editingTask.priority === 'CRITICAL' ? 'danger' : editingTask.priority === 'LOW' ? 'default' : 'info'}>
-                                    {editingTask.priority} Priority
-                                </Badge>
+            {/* Evaluation Modal */}
+            <Modal isOpen={showEvaluationModal} onClose={() => setShowEvaluationModal(false)} title="Task Evaluation" size="md">
+                <div className="space-y-8 p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)]">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-1">Quality Rating</p>
+                            <div className="flex items-center gap-2">
+                                {[1,2,3,4,5].map(s => <Star key={s} size={20} fill={s <= evaluation.quality_rating ? 'currentColor' : 'none'} className={`cursor-pointer transition-all ${s <= evaluation.quality_rating ? 'text-amber-500' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)]'}`} onClick={() => setEvaluation({...evaluation, quality_rating: s})} />)}
                             </div>
-
-                            {/* Task Title */}
+                        </div>
+                        <div className="p-4 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)]">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-1">Code Review Score</p>
+                            <div className="flex items-center gap-3 text-[var(--text-main)] font-mono text-xs">
+                                <input type="range" min="0" max="100" value={evaluation.code_review_score} onChange={(e) => setEvaluation({...evaluation, code_review_score: parseInt(e.target.value)})} className="flex-1 h-1 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-purple-500" />
+                                {evaluation.code_review_score}%
+                            </div>
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-1">Feedback</label>
+                        <textarea value={evaluation.mentor_feedback} onChange={(e) => setEvaluation({...evaluation, mentor_feedback: e.target.value})} rows={4} className="w-full bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-2xl px-5 py-4 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/30 resize-none placeholder-[var(--text-muted)]" placeholder="Enter feedback..." />
+                    </div>
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-red-500/5 border border-red-500/10">
+                        <div className="flex items-center gap-3">
+                            <AlertTriangle size={18} className="text-red-500" />
                             <div>
-                                <label className="block text-xs text-slate-400 mb-1">Task Title</label>
-                                <input
-                                    type="text"
-                                    value={editingTask.title}
-                                    onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
-                                    className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 font-medium"
-                                    placeholder="Enter task title..."
-                                />
-                            </div>
-
-                            {/* Task Description */}
-                            <div>
-                                <label className="block text-xs text-slate-400 mb-1">Task Description</label>
-                                <textarea
-                                    value={editingTask.description}
-                                    onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
-                                    className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 h-32 resize-none"
-                                    placeholder="Describe the task in detail..."
-                                />
-                            </div>
-
-                            {/* Skills Required */}
-                            {editingTask.skills_required && editingTask.skills_required.length > 0 && (
-                                <div>
-                                    <label className="block text-xs text-slate-400 mb-2">Skills Required</label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {editingTask.skills_required.map((skill, idx) => (
-                                            <span key={idx} className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs">
-                                                {skill}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Task Timeline */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs text-slate-400 mb-1">Due Date</label>
-                                    <input
-                                        type="date"
-                                        value={editingTask.due_date}
-                                        onChange={(e) => setEditingTask({ ...editingTask, due_date: e.target.value })}
-                                        className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs text-slate-400 mb-1">Estimated Hours</label>
-                                    <input
-                                        type="number"
-                                        value={editingTask.estimated_hours}
-                                        onChange={(e) => setEditingTask({ ...editingTask, estimated_hours: parseInt(e.target.value) || 0 })}
-                                        className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
-                                        min="1"
-                                        max="40"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Priority Selection */}
-                            <div>
-                                <label className="block text-xs text-slate-400 mb-2">Priority Level</label>
-                                <div className="grid grid-cols-4 gap-2">
-                                    {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((p) => (
-                                        <button
-                                            key={p}
-                                            onClick={() => setEditingTask({ ...editingTask, priority: p })}
-                                            className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                                                editingTask.priority === p
-                                                    ? p === 'CRITICAL' ? 'bg-red-500/30 text-red-300 border border-red-500/50'
-                                                    : p === 'HIGH' ? 'bg-orange-500/30 text-orange-300 border border-orange-500/50'
-                                                    : p === 'MEDIUM' ? 'bg-blue-500/30 text-blue-300 border border-blue-500/50'
-                                                    : 'bg-slate-500/30 text-slate-300 border border-slate-500/50'
-                                                    : 'bg-slate-800 text-slate-500 border border-white/10 hover:bg-slate-700'
-                                            }`}
-                                        >
-                                            {p}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* AI Rationale - More Prominent */}
-                            {selectedAITask.rationale && (
-                                <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-lg p-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Sparkles size={14} className="text-purple-400" />
-                                        <span className="text-sm font-semibold text-purple-300">AI Recommendation Reason</span>
-                                    </div>
-                                    <p className="text-sm text-slate-300 leading-relaxed">
-                                        {selectedAITask.rationale}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Task Summary Card */}
-                            <div className="bg-slate-900/50 border border-white/10 rounded-lg p-3">
-                                <div className="grid grid-cols-3 gap-4 text-center">
-                                    <div>
-                                        <p className="text-lg font-bold text-white">{editingTask.estimated_hours}h</p>
-                                        <p className="text-xs text-slate-500">Duration</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-lg font-bold text-white">{editingTask.due_date || 'Not set'}</p>
-                                        <p className="text-xs text-slate-500">Due Date</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-lg font-bold text-white">{editingTask.skills_required?.length || 0}</p>
-                                        <p className="text-xs text-slate-500">Skills</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex gap-3 pt-2">
-                                <Button
-                                    variant="secondary"
-                                    fullWidth
-                                    onClick={() => {
-                                        setSelectedAITask(null);
-                                        setEditingTask(null);
-                                    }}
-                                >
-                                    Back to Suggestions
-                                </Button>
-                                <Button
-                                    fullWidth
-                                    onClick={() => assignAITask(editingTask)}
-                                    disabled={assigningTask}
-                                    icon={assigningTask ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
-                                    gradient="purple"
-                                >
-                                    {assigningTask ? 'Assigning...' : 'Confirm & Assign'}
-                                </Button>
+                                <p className="text-xs font-black text-[var(--text-main)] uppercase tracking-tighter">Mark for Rework</p>
+                                <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">Flag for mandatory revision</p>
                             </div>
                         </div>
-                    )}
+                        <input type="checkbox" checked={evaluation.rework_required} onChange={(e) => setEvaluation({...evaluation, rework_required: e.target.checked})} className="w-5 h-5 rounded border-white/10 bg-white/5 checked:bg-red-500 cursor-pointer" />
+                    </div>
+                    <div className="flex gap-4 pt-4">
+                        <Button fullWidth variant="outline" onClick={() => setShowEvaluationModal(false)}>CANCEL</Button>
+                        <Button fullWidth gradient="purple" onClick={submitEvaluation} disabled={savingEvaluation}>{savingEvaluation ? <Loader2 className="animate-spin" /> : 'SAVE EVALUATION'}</Button>
+                    </div>
                 </div>
             </Modal>
         </div>
@@ -1364,4 +485,3 @@ const TasksTab: React.FC<TasksTabProps> = ({ tasks, onAddTask, canCreate, onStat
 };
 
 export default TasksTab;
-

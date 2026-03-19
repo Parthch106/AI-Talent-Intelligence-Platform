@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 interface YearHeatmapProps {
   data?: Record<string, number>;
@@ -27,7 +28,7 @@ const YearContributionHeatmap: React.FC<YearHeatmapProps> = ({
   onCellClick,
 }) => {
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
-  const [tooltipTimeout, setTooltipTimeout] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const colorSchemes = {
     green: {
@@ -127,51 +128,27 @@ const YearContributionHeatmap: React.FC<YearHeatmapProps> = ({
   };
 
   const handleMouseEnter = (date: Date, value: number, _isCurrentYear: boolean, event: React.MouseEvent) => {
-    if (tooltipTimeout) {
-      clearTimeout(tooltipTimeout);
+    setTooltip({
+      date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
+      formattedDate: formatDate(date),
+      value,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  };
+
+  const handleMouseMove = (event: React.MouseEvent) => {
+    if (tooltip) {
+      setTooltip(prev => prev ? {
+        ...prev,
+        x: event.clientX,
+        y: event.clientY,
+      } : null);
     }
-
-    const timeoutId = window.setTimeout(() => {
-      const rect = (event.target as HTMLElement).getBoundingClientRect();
-      
-      const viewportWidth = window.innerWidth;
-      
-      let x = rect.left + rect.width / 2;
-      let y = rect.top - 10;
-      
-      const tooltipWidth = 150;
-      const tooltipHeight = 60;
-      
-      if (x + tooltipWidth / 2 > viewportWidth) {
-        x = rect.right - tooltipWidth / 2 - 5;
-      } else if (x - tooltipWidth / 2 < 0) {
-        x = tooltipWidth / 2 + 5;
-      }
-      
-      if (y - tooltipHeight < 0) {
-        y = rect.bottom + 10;
-      }
-
-      setTooltip({
-        date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
-        formattedDate: formatDate(date),
-        value,
-        x,
-        y,
-      });
-    }, 100);
-
-    setTooltipTimeout(timeoutId);
   };
 
   const handleMouseLeave = () => {
-    if (tooltipTimeout) {
-      clearTimeout(tooltipTimeout);
-    }
-    const timeoutId = window.setTimeout(() => {
-      setTooltip(null);
-    }, 150);
-    setTooltipTimeout(timeoutId);
+    setTooltip(null);
   };
 
   const handleClick = (date: Date, value: number, isCurrentYear: boolean) => {
@@ -231,9 +208,9 @@ const YearContributionHeatmap: React.FC<YearHeatmapProps> = ({
                     opacity: day.isCurrentYear ? 1 : 0.4,
                   }}
                   onMouseEnter={(e) => handleMouseEnter(day.date, day.value, day.isCurrentYear, e)}
+                  onMouseMove={handleMouseMove}
                   onMouseLeave={handleMouseLeave}
                   onClick={() => handleClick(day.date, day.value, day.isCurrentYear)}
-                  title={day.isCurrentYear ? `${formatDate(day.date)}: ${day.value} contribution${day.value !== 1 ? 's' : ''}` : 'Outside ' + year}
                 />
               ))}
             </div>
@@ -274,23 +251,26 @@ const YearContributionHeatmap: React.FC<YearHeatmapProps> = ({
         @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: translateX(-50%) translateY(5px);
+            transform: translateY(-95%);
           }
           to {
             opacity: 1;
-            transform: translateX(-50%) translateY(0);
+            transform: translateY(-100%);
           }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.1s ease-out forwards;
         }
       `}</style>
       
-      {tooltip && (
+      {/* Tooltip with animation - Using Portal to avoid clipping */}
+      {tooltip && createPortal(
         <div
-          className="fixed z-50 bg-slate-800 text-white text-xs px-3 py-2 rounded-lg shadow-xl border border-slate-700 pointer-events-none"
+          className="fixed z-[9999] bg-slate-800 text-white text-xs px-3 py-2 rounded-lg shadow-xl border border-slate-700 pointer-events-none animate-fadeIn"
           style={{
-            left: tooltip.x,
-            top: tooltip.y,
-            transform: 'translateX(-50%)',
-            animation: 'fadeIn 0.15s ease-out forwards',
+            left: tooltip.x + 15,
+            top: tooltip.y - 15,
+            transform: 'translateY(-100%)',
             maxWidth: '180px',
           }}
         >
@@ -303,7 +283,8 @@ const YearContributionHeatmap: React.FC<YearHeatmapProps> = ({
                 : `${tooltip.value} contribution${tooltip.value !== 1 ? 's' : ''}`
             }
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

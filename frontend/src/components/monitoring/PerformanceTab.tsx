@@ -174,8 +174,8 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-white">Performance Analytics</h2>
-                    <p className="text-slate-400 mt-1">AI-Powered Performance Insights & Recommendations</p>
+                    <h2 className="text-2xl font-bold text-[var(--text-main)]">Performance Analytics</h2>
+                    <p className="text-[var(--text-dim)] mt-1">AI-Powered Performance Insights & Recommendations</p>
                 </div>
                 <div className="flex gap-3">
                     <button
@@ -183,8 +183,8 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                         disabled={evaluating}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${
                             evaluating
-                                ? 'bg-slate-700/50 text-slate-400 cursor-not-allowed'
-                                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                                ? 'bg-[var(--bg-muted)] text-[var(--text-muted)] cursor-not-allowed'
+                                : 'bg-[var(--bg-muted)] text-[var(--text-dim)] hover:bg-purple-500/10 hover:text-[var(--text-main)] border border-[var(--border-color)]'
                         }`}
                     >
                         {evaluating ? (
@@ -199,8 +199,8 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                         disabled={recomputing}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${
                             recomputing
-                                ? 'bg-slate-700/50 text-slate-400 cursor-not-allowed'
-                                : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/25'
+                                ? 'bg-[var(--bg-muted)] text-[var(--text-muted)] cursor-not-allowed'
+                                : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg dark:hover:shadow-purple-900/20'
                         }`}
                     >
                         {recomputing ? (
@@ -247,12 +247,12 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                             {/* Details */}
                             <div className="flex-1 w-full">
                                 <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-xl font-bold text-white">AI Performance Assessment</h3>
-                                    <span className="text-sm text-slate-400">
+                                    <h3 className="text-xl font-bold text-[var(--text-main)]">AI Performance Assessment</h3>
+                                    <span className="text-sm text-[var(--text-dim)]">
                                         Score: {Math.round(rlEvaluation.performance_score * 100)}%
                                     </span>
                                 </div>
-                                <p className="text-slate-300 mb-4">{rlEvaluation.reasoning}</p>
+                                <p className="text-[var(--text-dim)] mb-4">{rlEvaluation.reasoning}</p>
                                 
                                 {/* Key Metrics */}
                                 <div className="grid grid-cols-3 gap-3">
@@ -261,9 +261,9 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                                         { label: 'Quality', value: rlEvaluation.metrics.quality_score },
                                         { label: 'Growth', value: rlEvaluation.metrics.growth_velocity },
                                     ].map((m) => (
-                                        <div key={m.label} className="bg-slate-800/50 rounded-lg p-3 text-center">
-                                            <div className="text-2xl font-bold text-white">{Math.round(m.value * 100)}%</div>
-                                            <div className="text-xs text-slate-400">{m.label}</div>
+                                        <div key={m.label} className="bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-lg p-3 text-center">
+                                            <div className="text-2xl font-bold text-[var(--text-main)]">{Math.round(m.value * 100)}%</div>
+                                            <div className="text-xs text-[var(--text-muted)]">{m.label}</div>
                                         </div>
                                     ))}
                                 </div>
@@ -274,14 +274,14 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                     {/* Toggle AI Details */}
                     <button
                         onClick={() => setShowAIDetails(!showAIDetails)}
-                        className="w-full flex items-center justify-between p-4 bg-slate-800/30 border border-slate-700 rounded-xl hover:bg-slate-800/50 transition-colors"
+                        className="w-full flex items-center justify-between p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl hover:bg-purple-500/[0.03] transition-colors"
                     >
                         <div className="flex items-center gap-3">
-                            <Brain className="text-purple-400" size={20} />
-                            <span className="text-white font-medium">View Detailed AI Analysis</span>
+                            <Brain className="text-purple-500 dark:text-purple-400" size={20} />
+                            <span className="text-[var(--text-main)] font-medium">View Detailed AI Analysis</span>
                         </div>
                         <div className={`transform transition-transform ${showAIDetails ? 'rotate-180' : ''}`}>
-                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-[var(--text-dim)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                         </div>
@@ -292,22 +292,22 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Weak Areas & Diagnosis */}
                             <Card padding="lg">
-                                <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+                                <h3 className="font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
                                     <AlertTriangle size={18} className="text-amber-500" />
                                     Performance Diagnosis
                                 </h3>
                                 {rlEvaluation.diagnosis.weak_areas.length > 0 ? (
                                     <div className="space-y-4">
                                         {rlEvaluation.diagnosis.weak_areas.map((area, idx) => (
-                                            <div key={idx} className="bg-slate-800/30 rounded-lg p-3 border border-slate-700">
+                                            <div key={idx} className="bg-[var(--bg-muted)] rounded-lg p-3 border border-[var(--border-color)]">
                                                 <div className="flex items-center gap-2 mb-2">
                                                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                                                    <span className="text-amber-400 font-medium text-sm">{area}</span>
+                                                    <span className="text-amber-600 dark:text-amber-400 font-medium text-sm">{area}</span>
                                                 </div>
                                                 {rlEvaluation.diagnosis.possible_causes[area] && (
                                                     <ul className="ml-4 space-y-1">
                                                         {rlEvaluation.diagnosis.possible_causes[area].map((cause, cIdx) => (
-                                                            <li key={cIdx} className="text-slate-400 text-sm">• {cause}</li>
+                                                            <li key={cIdx} className="text-[var(--text-dim)] text-sm">• {cause}</li>
                                                         ))}
                                                     </ul>
                                                 )}
@@ -324,15 +324,15 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
 
                             {/* AI Recommendations */}
                             <Card padding="lg">
-                                <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+                                <h3 className="font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
                                     <Lightbulb size={18} className="text-yellow-500" />
                                     AI Improvement Suggestions
                                 </h3>
                                 {rlEvaluation.recommendations.length > 0 ? (
                                     <ul className="space-y-3">
                                         {rlEvaluation.recommendations.slice(0, 6).map((rec, idx) => (
-                                            <li key={idx} className="flex items-start gap-3 text-slate-300">
-                                                <span className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-xs flex-shrink-0">
+                                            <li key={idx} className="flex items-start gap-3 text-[var(--text-dim)]">
+                                                <span className="w-6 h-6 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xs flex-shrink-0 font-bold">
                                                     {idx + 1}
                                                 </span>
                                                 <span className="text-sm">{rec}</span>
@@ -340,21 +340,21 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                                         ))}
                                     </ul>
                                 ) : (
-                                    <p className="text-slate-400">No specific recommendations at this time</p>
+                                    <p className="text-[var(--text-muted)]">No specific recommendations at this time</p>
                                 )}
                             </Card>
 
                             {/* Learning Path */}
                             <Card padding="lg" className="md:col-span-2">
-                                <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+                                <h3 className="font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
                                     <BookOpen size={18} className="text-blue-500" />
                                     Personalized Learning Path
                                 </h3>
                                 {rlEvaluation.learning_path.has_path ? (
                                     <div className="space-y-3">
                                         <div className="flex items-center gap-2 mb-4">
-                                            <span className="text-slate-400">Target Role:</span>
-                                            <span className="text-white font-medium bg-blue-500/20 px-3 py-1 rounded-full text-sm">
+                                            <span className="text-[var(--text-dim)]">Target Role:</span>
+                                            <span className="text-blue-600 dark:text-blue-400 font-bold bg-blue-500/10 px-3 py-1 rounded-full text-sm border border-blue-500/20">
                                                 {rlEvaluation.learning_path.target_role}
                                             </span>
                                         </div>
@@ -363,10 +363,10 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                                                 key={idx} 
                                                 className={`flex items-center gap-4 p-3 rounded-lg border ${
                                                     idx < rlEvaluation.learning_path.current_position
-                                                        ? 'bg-emerald-500/10 border-emerald-500/30'
+                                                        ? 'bg-emerald-500/10 border-emerald-500/20'
                                                         : idx === rlEvaluation.learning_path.current_position
-                                                            ? 'bg-blue-500/10 border-blue-500/30'
-                                                            : 'bg-slate-800/30 border-slate-700'
+                                                            ? 'bg-blue-500/10 border-blue-500/20 shadow-sm'
+                                                            : 'bg-[var(--bg-muted)] border-[var(--border-color)]'
                                                 }`}
                                             >
                                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -374,7 +374,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                                                         ? 'bg-emerald-500 text-white'
                                                         : idx === rlEvaluation.learning_path.current_position
                                                             ? 'bg-blue-500 text-white'
-                                                            : 'bg-slate-700 text-slate-400'
+                                                            : 'bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500'
                                                 }`}>
                                                     {idx < rlEvaluation.learning_path.current_position ? (
                                                         <CheckCircle size={16} />
@@ -383,9 +383,9 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                                                     )}
                                                 </div>
                                                 <div className="flex-1">
-                                                    <div className="text-white font-medium">{milestone.skill_name || milestone.title || `Step ${idx + 1}`}</div>
+                                                    <div className="text-[var(--text-main)] font-semibold">{milestone.skill_name || milestone.title || `Step ${idx + 1}`}</div>
                                                     {milestone.topics && (
-                                                        <div className="text-slate-400 text-sm">
+                                                        <div className="text-[var(--text-muted)] text-sm">
                                                             {milestone.topics.slice(0, 3).join(', ')}
                                                         </div>
                                                     )}
@@ -394,8 +394,8 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="text-center py-6 text-slate-400">
-                                        <BookOpen size={32} className="mx-auto mb-2 text-slate-600" />
+                                    <div className="text-center py-6 text-[var(--text-muted)]">
+                                        <BookOpen size={32} className="mx-auto mb-2 opacity-20" />
                                         <p>No learning path generated yet</p>
                                         <p className="text-sm">Generate one from the Learning Path page</p>
                                     </div>
@@ -404,20 +404,20 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
 
                             {/* Next Task Recommendation */}
                             <Card padding="lg" className="md:col-span-2">
-                                <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+                                <h3 className="font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
                                     <Target size={18} className="text-pink-500" />
                                     Recommended Next Task
                                 </h3>
-                                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-pink-500/10 to-purple-500/10 border border-pink-500/30 rounded-xl">
+                                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-pink-500/5 to-purple-500/5 border border-pink-500/20 rounded-xl">
                                     <div>
-                                        <div className="text-slate-400 text-sm">Task Type</div>
-                                        <div className="text-white font-bold text-lg">
+                                        <div className="text-[var(--text-muted)] text-sm uppercase tracking-wider font-bold">Task Type</div>
+                                        <div className="text-[var(--text-main)] font-black text-xl">
                                             {rlEvaluation.next_task_type.replace('_', ' ')}
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <div className="text-slate-400 text-sm">Optimal Difficulty</div>
-                                        <div className="text-white font-bold text-lg">
+                                        <div className="text-[var(--text-muted)] text-sm uppercase tracking-wider font-bold">Optimal Difficulty</div>
+                                        <div className="text-[var(--text-main)] font-black text-xl">
                                             Level {rlEvaluation.optimal_difficulty} / 5
                                         </div>
                                     </div>
@@ -432,8 +432,8 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
             {evaluating && !rlEvaluation && (
                 <div className="flex justify-center items-center py-12">
                     <div className="flex flex-col items-center gap-4">
-                        <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                        <p className="text-slate-400">Analyzing intern performance with AI...</p>
+                        <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+                        <p className="text-[var(--text-dim)] font-medium">Analyzing intern performance with AI...</p>
                     </div>
                 </div>
             )}
@@ -457,8 +457,8 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                                     />
                                 </svg>
                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-4xl font-bold text-white">{Math.round(performance.overall_performance_score)}</span>
-                                    <span className="text-sm text-slate-400">out of 100</span>
+                                    <span className="text-4xl font-bold text-[var(--text-main)]">{Math.round(performance.overall_performance_score)}</span>
+                                    <span className="text-sm text-[var(--text-muted)]">out of 100</span>
                                 </div>
                             </div>
                             <div className="flex-1 grid grid-cols-2 gap-4 w-full">
@@ -485,7 +485,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                     {/* Risk & PPO Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <Card padding="lg">
-                            <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+                            <h3 className="font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
                                 <AlertTriangle size={18} className="text-amber-500" />
                                 Risk Assessment
                             </h3>
@@ -494,13 +494,13 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                                     <AlertTriangle size={28} className="text-white" />
                                 </div>
                                 <div>
-                                    <p className="text-2xl font-bold text-white">{performance.dropout_risk} Risk</p>
-                                    <p className="text-sm text-slate-400">Score: {Math.round(performance.dropout_risk_score)}%</p>
+                                    <p className="text-2xl font-bold text-[var(--text-main)]">{performance.dropout_risk} Risk</p>
+                                    <p className="text-sm text-[var(--text-dim)]">Score: {Math.round(performance.dropout_risk_score)}%</p>
                                 </div>
                             </div>
                         </Card>
                         <Card padding="lg">
-                            <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+                            <h3 className="font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
                                 <Award size={18} className="text-teal-500" />
                                 PPO Eligibility
                             </h3>
@@ -509,8 +509,8 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                                     <Award size={28} className="text-white" />
                                 </div>
                                 <div>
-                                    <p className="text-2xl font-bold text-white">{Math.round(performance.promotion_probability)}%</p>
-                                    <p className="text-sm text-slate-400">Full-Time Readiness</p>
+                                    <p className="text-2xl font-bold text-[var(--text-main)]">{Math.round(performance.promotion_probability)}%</p>
+                                    <p className="text-sm text-[var(--text-dim)]">Full-Time Readiness</p>
                                 </div>
                             </div>
                         </Card>
@@ -520,9 +520,9 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
 
             {/* No Data State */}
             {!performance && !rlEvaluation && !evaluating && (
-                <div className="text-center py-16 text-slate-400">
-                    <TrendingUp size={48} className="mx-auto mb-4 text-slate-600" />
-                    <p className="text-lg font-medium text-white">No performance data available</p>
+                <div className="text-center py-16 text-[var(--text-muted)] animate-fade-in">
+                    <TrendingUp size={48} className="mx-auto mb-4 opacity-20" />
+                    <p className="text-lg font-medium text-[var(--text-main)]">No performance data available</p>
                     <p className="text-sm">Data will appear once metrics are computed</p>
                 </div>
             )}
