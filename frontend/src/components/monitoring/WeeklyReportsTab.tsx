@@ -20,6 +20,8 @@ interface WeeklyReport {
     is_reviewed?: boolean;
     pdf_url: string | null;
     submitted_at?: string;
+    status_mismatch?: boolean;
+    mismatch_details?: string[];
 }
 
 interface WeeklyReportsTabProps {
@@ -94,6 +96,26 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                             )}
                             <ChevronRight size={20} className="text-[var(--text-dim)]" />
                         </div>
+
+                        {report.status_mismatch && (
+                            <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl animate-pulse-slow">
+                                <div className="flex items-start gap-3">
+                                    <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18} />
+                                    <div>
+                                        <p className="text-sm font-bold text-red-500 uppercase tracking-tight">Status Mismatch Detected</p>
+                                        <ul className="mt-1 space-y-1">
+                                            {report.mismatch_details?.map((detail, idx) => (
+                                                <li key={idx} className="text-xs text-red-400 font-medium list-disc list-inside">
+                                                    {detail}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        <p className="text-[10px] text-red-400/60 mt-2 italic">* Discrepancy between PDF report and system task records.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {report.is_submitted && (
                             <div className="mt-4 pt-4 border-t border-[var(--border-color)] space-y-3">
                                 {report.accomplishments && (

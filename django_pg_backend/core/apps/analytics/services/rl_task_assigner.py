@@ -291,6 +291,112 @@ def get_optimal_difficulty(intern_id: int) -> int:
     return ACTION_DIFFICULTY_MAP.get(best_action, 3)
 
 
+def assign_task_recommendation_greedy(intern_id: int) -> dict:
+    """
+    Full RL pipeline using greedy policy (no exploration).
+    Returns consistent top 3 task recommendations based on the intern's current state.
+    This is used when we want deterministic, consistent results (e.g., for displaying
+    top recommendations that don't change on refresh).
+    """
+    state = get_state(intern_id)
+    key = _state_key(state)
+    _ensure_q_row(intern_id, key)
+
+    # Use greedy policy - select best action based on Q-values (no exploration)
+    q_values = _Q_TABLE[intern_id][key]
+    
+    # If all Q-values are 0 (new intern with no history), use default moderate task
+    if max(q_values) == 0:
+        best_action_idx = 1  # Default to MODERATE_TASK
+    else:
+        best_action_idx = q_values.index(max(q_values))
+    
+    action = ACTIONS[best_action_idx]
+    difficulty = ACTION_DIFFICULTY_MAP.get(action, 3)
+
+    # Get all action types sorted by Q-value to return top 3 diverse recommendations
+    action_scores = [(ACTIONS[i], q_values[i], ACTION_DIFFICULTY_MAP.get(ACTIONS[i], 3)) for i in range(len(ACTIONS))]
+    action_scores.sort(key=lambda x: x[1], reverse=True)
+
+    # Find matching templates from DB - get top 3 from different action types
+    recommended_templates = []
+    try:
+        from apps.analytics.models import TaskTemplate
+        
+        # First try: Get templates for top actions with flexible matching
+        for act, _, diff in action_scores[:3]:
+            # Try exact match first
+            templates = TaskTemplate.objects.filter(
+                difficulty=diff,
+                action_type=act,
+                is_active=True
+            )[:1]
+            if not templates:
+                # Fallback: get any templates with similar difficulty
+                templates = TaskTemplate.objects.filter(
+                    difficulty__gte=diff-1,
+                    difficulty__lte=diff+1,
+                    is_active=True
+                )[:1]
+            for t in templates:
+                recommended_templates.append({
+                    'id': t.id,
+                    'title': t.title,
+                    'difficulty': t.difficulty,
+                    'estimated_hours': t.estimated_hours,
+                    'skills': t.skills_required,
+                    'learning_value': t.learning_value,
+                    'action_type': t.action_type,
+                })
+        
+        # Fallback: If still no templates found, get any active templates
+        if not recommended_templates:
+            templates = TaskTemplate.objects.filter(is_active=True)[:3]
+            recommended_templates = [
+                {
+                    'id': t.id,
+                    'title': t.title,
+                    'difficulty': t.difficulty,
+                    'estimated_hours': t.estimated_hours,
+                    'skills': t.skills_required,
+                    'learning_value': t.learning_value,
+                    'action_type': t.action_type,
+                }
+                for t in templates
+            ]
+            
+        # Last resort: If STILL no templates, create dummy templates for demo
+        if not recommended_templates:
+            recommended_templates = [
+                {'id': 1, 'title': 'Build RESTful APIs', 'difficulty': 3, 'estimated_hours': 3, 'skills': ['Python', 'API'], 'learning_value': 0.8, 'action_type': 'MODERATE_TASK'},
+                {'id': 2, 'title': 'Database Schema Design', 'difficulty': 3, 'estimated_hours': 2, 'skills': ['SQL', 'Database'], 'learning_value': 0.75, 'action_type': 'MODERATE_TASK'},
+                {'id': 3, 'title': 'Code Review Practice', 'difficulty': 2, 'estimated_hours': 1, 'skills': ['Communication', 'Quality'], 'learning_value': 0.7, 'action_type': 'EASY_TASK'},
+            ]
+    except Exception as e:
+        logger.warning(f"Could not fetch task templates: {e}")
+        # Fallback to dummy templates on error
+        recommended_templates = [
+            {'id': 1, 'title': 'Build RESTful APIs', 'difficulty': 3, 'estimated_hours': 3, 'skills': ['Python', 'API'], 'learning_value': 0.8, 'action_type': 'MODERATE_TASK'},
+            {'id': 2, 'title': 'Database Schema Design', 'difficulty': 3, 'estimated_hours': 2, 'skills': ['SQL', 'Database'], 'learning_value': 0.75, 'action_type': 'MODERATE_TASK'},
+            {'id': 3, 'title': 'Code Review Practice', 'difficulty': 2, 'estimated_hours': 1, 'skills': ['Communication', 'Quality'], 'learning_value': 0.7, 'action_type': 'EASY_TASK'},
+        ]
+
+    # Limit to top 3 overall
+    recommended_templates = recommended_templates[:3]
+
+    return {
+        'intern_id': intern_id,
+        'state_vector': state,
+        'action': action,
+        'recommended_difficulty': difficulty,
+        'exploration_rate': 0.0,  # Always 0 for greedy policy
+        'q_values': q_values,
+        'recommended_templates': recommended_templates,
+        'rationale': _generate_rationale(action, state),
+        'is_greedy': True,  # Indicates this uses greedy policy for consistency
+    }
+
+
 def assign_task_recommendation(intern_id: int) -> dict:
     """
     Full RL pipeline:

@@ -46,15 +46,23 @@ class PerformanceMetrics:
     engagement: float
     difficulty_handled: float
     dropout_risk: float
+    total_tasks: int = 0
+    completed_tasks: int = 0
+    in_progress_tasks: int = 0
+    avg_quality: float = 0.0
     
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             'quality_score': self.quality_score,
             'completion_rate': self.completion_rate,
             'growth_velocity': self.growth_velocity,
             'engagement': self.engagement,
             'difficulty_handled': self.difficulty_handled,
-            'dropout_risk': self.dropout_risk
+            'dropout_risk': self.dropout_risk,
+            'total_tasks': self.total_tasks,
+            'completed_tasks': self.completed_tasks,
+            'in_progress_tasks': self.in_progress_tasks,
+            'avg_quality': self.avg_quality
         }
 
 
@@ -123,31 +131,49 @@ class PerformanceEvaluator:
         )
         
         total_tasks = tasks.count()
+        if total_tasks < 5:
+            # Fallback for demo systems or low-activity periods: if few tasks recently, look back further
+            all_tasks = TaskTracking.objects.filter(intern=self.intern)
+            if all_tasks.exists():
+                logger.info(f"Few tasks ({total_tasks}) in last {days} days for intern {self.intern_id}. Looking back 365 days.")
+                start_date = now - timedelta(days=365)
+                tasks = TaskTracking.objects.filter(
+                    intern=self.intern,
+                    assigned_at__gte=start_date
+                )
+                total_tasks = tasks.count()
+
         if total_tasks == 0:
             # Return default metrics for new interns
             return PerformanceMetrics(
-                quality_score=0.5,
-                completion_rate=0.5,
-                growth_velocity=0.5,
-                engagement=0.5,
-                difficulty_handled=1.0,
-                dropout_risk=0.0
+                quality_score=0.0,
+                completion_rate=0.0,
+                growth_velocity=0.0,
+                engagement=0.0,
+                difficulty_handled=0.0,
+                dropout_risk=0.0,
+                total_tasks=0,
+                completed_tasks=0,
+                in_progress_tasks=0,
+                avg_quality=0.0
             )
         
         # Quality Score: Average of quality ratings
         completed_tasks = tasks.filter(status='COMPLETED')
+        completion_count = completed_tasks.count()
         quality_avg = completed_tasks.aggregate(Avg('quality_rating'))['quality_rating__avg']
-        quality_score = (quality_avg / 5.0) if quality_avg else 0.5
+        quality_score = (quality_avg / 5.0) if quality_avg else 0.0
         
         # Completion Rate: Completed / Total
         completion_count = completed_tasks.count()
         completion_rate = completion_count / total_tasks
         
-        # Growth Velocity: From monthly evaluations
+        # Growth Velocity: From monthly evaluations (always use 365-day window)
         try:
+            eval_start_date = now - timedelta(days=365)
             evaluations = MonthlyEvaluationReport.objects.filter(
                 intern=self.intern,
-                evaluation_month__gte=start_date.date()
+                evaluation_month__gte=eval_start_date.date()
             ).order_by('evaluation_month')
             
             if evaluations.count() >= 2:
@@ -157,20 +183,32 @@ class PerformanceEvaluator:
             else:
                 # Use overall skill development progress
                 latest_eval = evaluations.last()
-                growth_velocity = latest_eval.skill_development_progress / 100.0 if latest_eval else 0.5
+                growth_velocity = latest_eval.skill_development_progress / 100.0 if latest_eval else 0.0
         except Exception as e:
             # If table doesn't exist or other error, use default
             logger.warning(f"Could not fetch MonthlyEvaluationReport: {e}")
-            growth_velocity = 0.5
+            growth_velocity = 0.0
+        
+        # Fallback for growth: use total task completion count as a proxy for progress if no reports
+        if growth_velocity == 0.0:
+            all_completed = TaskTracking.objects.filter(intern=self.intern, status='COMPLETED').count()
+            if all_completed > 0:
+                growth_velocity = min(all_completed / 20.0, 0.8)
         
         # Engagement: Based on attendance and task submission patterns
         attendance = AttendanceRecord.objects.filter(
             intern=self.intern,
             date__gte=start_date.date()
         )
-        present_days = attendance.filter(status='PRESENT').count()
+        
+        # Fallback for demo data: if no attendance in window, use overall attendance
+        if attendance.count() == 0:
+            attendance = AttendanceRecord.objects.filter(intern=self.intern)
+            
+        present_statuses = ['PRESENT', 'LATE', 'HALF_DAY', 'WORK_FROM_HOME']
+        present_days = attendance.filter(status__in=present_statuses).count()
         total_days = attendance.count()
-        engagement = present_days / total_days if total_days > 0 else 0.5
+        engagement = present_days / total_days if total_days > 0 else 0.0
         
         # Difficulty Handled: Average difficulty of completed tasks
         difficulty_values = list(completed_tasks.values_list('priority', flat=True))
@@ -180,7 +218,7 @@ class PerformanceEvaluator:
             difficulties = [priority_map.get(p, 2) for p in difficulty_values]
             difficulty_handled = np.mean(difficulties) / 4.0  # Normalize to 0-1
         else:
-            difficulty_handled = 0.5
+            difficulty_handled = 0.0
         
         # Dropout Risk: Based on overdue tasks and engagement
         overdue_tasks = tasks.filter(
@@ -191,13 +229,19 @@ class PerformanceEvaluator:
         overdue_ratio = overdue_tasks / total_tasks if total_tasks > 0 else 0
         dropout_risk = min((overdue_ratio * 0.7) + ((1 - engagement) * 0.3), 1.0)
         
+        in_progress_tasks = tasks.filter(status='IN_PROGRESS').count()
+        
         return PerformanceMetrics(
             quality_score=quality_score,
             completion_rate=completion_rate,
             growth_velocity=growth_velocity,
             engagement=engagement,
             difficulty_handled=difficulty_handled,
-            dropout_risk=dropout_risk
+            dropout_risk=dropout_risk,
+            total_tasks=total_tasks,
+            completed_tasks=completion_count,
+            in_progress_tasks=in_progress_tasks,
+            avg_quality=quality_avg or 0.0
         )
     
     def calculate_performance_score(self, metrics: PerformanceMetrics) -> float:

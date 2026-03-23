@@ -907,6 +907,31 @@ class WeeklyReportView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    def _get_actual_task_counts(self, intern_id, start_date, end_date):
+        """Helper to get actual task counts from TaskTracking for a specific week."""
+        # Normalize to datetime for comparison
+        # Using a small buffer for hours to include tasks on the boundary dates
+        s_date = datetime.strptime(str(start_date), '%Y-%m-%d').date()
+        e_date = datetime.strptime(str(end_date), '%Y-%m-%d').date()
+        
+        tasks = TaskTracking.objects.filter(
+            intern_id=intern_id,
+            assigned_at__date__lte=e_date
+        ).filter(
+            Q(completed_at__date__gte=s_date) | Q(completed_at__isnull=True)
+        )
+        
+        # More precise: completed tasks must have completed_at within the range
+        completed = tasks.filter(status='COMPLETED', completed_at__date__range=[s_date, e_date]).count()
+        in_progress = tasks.filter(status__in=['IN_PROGRESS', 'ASSIGNED', 'SUBMITTED', 'REWORK']).count()
+        blocked = tasks.filter(status='BLOCKED').count()
+        
+        return {
+            'completed': completed,
+            'in_progress': in_progress,
+            'blocked': blocked
+        }
+
     def get(self, request):
         """Get weekly reports for an intern."""
         user = request.user
@@ -929,23 +954,39 @@ class WeeklyReportView(APIView):
 
         reports = WeeklyReport.objects.filter(intern_id=target_id)
 
-        data = [{
-            'id': report.id,
-            'week_start_date': report.week_start_date,
-            'week_end_date': report.week_end_date,
-            'tasks_completed': report.tasks_completed,
-            'tasks_in_progress': report.tasks_in_progress,
-            'tasks_blocked': report.tasks_blocked,
-            'accomplishments': report.accomplishments,
-            'challenges': report.challenges,
-            'learnings': report.learnings,
-            'next_week_goals': report.next_week_goals,
-            'self_rating': report.self_rating,
-            'is_submitted': report.is_submitted,
-            'submitted_at': report.submitted_at,
-            'is_reviewed': report.is_reviewed,
-            'pdf_url': report.pdf_report.url if report.pdf_report else None,
-        } for report in reports]
+        data = []
+        for report in reports:
+            actual = self._get_actual_task_counts(target_id, report.week_start_date, report.week_end_date)
+            
+            # Mismatch logic: if any count differs from DB
+            mismatches = []
+            if report.tasks_completed != actual['completed']:
+                mismatches.append(f"Completed tasks mismatch: Reported {report.tasks_completed}, DB shows {actual['completed']}")
+            if report.tasks_in_progress != actual['in_progress']:
+                mismatches.append(f"In-progress tasks mismatch: Reported {report.tasks_in_progress}, DB shows {actual['in_progress']}")
+            if report.tasks_blocked != actual['blocked']:
+                mismatches.append(f"Blocked tasks mismatch: Reported {report.tasks_blocked}, DB shows {actual['blocked']}")
+                
+            data.append({
+                'id': report.id,
+                'week_start_date': report.week_start_date,
+                'week_end_date': report.week_end_date,
+                'tasks_completed': report.tasks_completed,
+                'tasks_in_progress': report.tasks_in_progress,
+                'tasks_blocked': report.tasks_blocked,
+                'actual_tasks': actual,
+                'status_mismatch': len(mismatches) > 0,
+                'mismatch_details': mismatches,
+                'accomplishments': report.accomplishments,
+                'challenges': report.challenges,
+                'learnings': report.learnings,
+                'next_week_goals': report.next_week_goals,
+                'self_rating': report.self_rating,
+                'is_submitted': report.is_submitted,
+                'submitted_at': report.submitted_at,
+                'is_reviewed': report.is_reviewed,
+                'pdf_url': report.pdf_report.url if report.pdf_report else None,
+            })
 
         return Response({'weekly_reports': data})
 
@@ -1565,6 +1606,7 @@ class RLAssignTaskView(APIView):
 
     Returns an RL-powered task difficulty recommendation for an intern.
     Managers/Admins trigger this; the result is a recommendation, not a direct assignment.
+    Uses epsilon-greedy exploration - results may vary on each call.
     """
     permission_classes = [IsAuthenticated]
 
@@ -1595,6 +1637,46 @@ class RLAssignTaskView(APIView):
         except Exception as e:
             logger.error(f"RLAssignTaskView error: {e}")
             return Response({'error': 'Failed to generate recommendation.', 'detail': str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class RLTopTasksView(APIView):
+    """
+    POST /api/analytics/rl/top-tasks/
+
+    Returns the top 3 RL-powered task recommendations using greedy policy.
+    Results are deterministic and consistent - will return the same recommendations
+    for the same intern state (no exploration/randomness).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+
+        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+            return Response({'error': 'Only managers and admins can request task recommendations.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        intern_id = request.data.get('intern_id')
+        if not intern_id:
+            return Response({'error': 'intern_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            intern = User.objects.get(id=int(intern_id), role=User.Role.INTERN)
+        except User.DoesNotExist:
+            return Response({'error': 'Intern not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        is_valid, err = validate_manager_access(user, intern.id)
+        if not is_valid:
+            return err
+
+        try:
+            from apps.analytics.services.rl_task_assigner import assign_task_recommendation_greedy
+            result = assign_task_recommendation_greedy(intern.id)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"RLTopTasksView error: {e}")
+            return Response({'error': 'Failed to generate recommendations.', 'detail': str(e)},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

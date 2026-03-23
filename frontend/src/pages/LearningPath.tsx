@@ -329,20 +329,22 @@ function RLRecommendationCard({ recommendation, loading, onRefresh }: {
                             <span className="font-black text-sm uppercase tracking-tight">{info?.label}</span>
                         </div>
 
-                        {/* Difficulty & Stats */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="p-3 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)]">
-                                <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1">Impact Level</p>
+                        {/* Difficulty Level Display */}
+                        <div className="p-4 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)]">
+                            <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-2">Recommended Difficulty</p>
+                            <div className="flex items-center gap-3">
                                 <div className="flex gap-1">
                                     {[1, 2, 3, 4, 5].map(d => (
-                                        <div key={d} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${d <= recommendation.recommended_difficulty ? 'bg-violet-500' : 'dark:bg-slate-700 bg-slate-300'}`} />
+                                        <div key={d} className={`h-2 flex-1 rounded-full transition-all duration-500 ${d <= recommendation.recommended_difficulty ? 'bg-violet-500' : 'dark:bg-slate-700 bg-slate-300'}`} />
                                     ))}
                                 </div>
+                                <span className="text-sm font-bold text-[var(--text-main)]">{recommendation.recommended_difficulty}/5</span>
                             </div>
-                            <div className="p-3 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)]">
-                                <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1">Exploration</p>
-                                <p className="text-sm font-black text-[var(--text-main)]">{(recommendation.exploration_rate * 100).toFixed(0)}%</p>
-                            </div>
+                            <p className="text-xs text-[var(--text-dim)] mt-2">
+                                {recommendation.recommended_difficulty <= 2 ? 'Recommended for current skill level' : 
+                                 recommendation.recommended_difficulty === 3 ? 'Moderate challenge recommended' : 
+                                 'High difficulty - stretch goal'}
+                            </p>
                         </div>
 
                         {/* Rationale */}
@@ -352,30 +354,6 @@ function RLRecommendationCard({ recommendation, loading, onRefresh }: {
                                 {recommendation.rationale}
                             </p>
                         </div>
-
-                        {/* Templates */}
-                        {recommendation.recommended_templates.length > 0 && (
-                            <div className="space-y-2.5">
-                                <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest ml-1">Candidate Archetypes</p>
-                                <div className="space-y-2">
-                                    {recommendation.recommended_templates.map(t => (
-                                        <div key={t.id} className="group/item flex items-center justify-between p-3 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] hover:bg-[var(--bg-muted)]/80 transition-all cursor-crosshair">
-                                            <div className="space-y-0.5">
-                                                <p className="text-xs font-bold text-[var(--text-main)] group-hover/item:text-violet-600 dark:group-hover/item:text-violet-300 transition-colors uppercase tracking-tight">{t.title}</p>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-bold text-[var(--text-muted)]">{t.estimated_hours}h</span>
-                                                    <span className="w-1 h-1 rounded-full dark:bg-slate-700 bg-slate-300" />
-                                                    <span className="text-[10px] font-bold text-indigo-400">Val: {(t.learning_value * 100).toFixed(0)}%</span>
-                                                </div>
-                                            </div>
-                                            <div className="w-8 h-8 rounded-lg dark:bg-slate-900 dark:border-slate-700 bg-white border border-slate-200 flex items-center justify-center">
-                                                <ChevronRight size={14} className="dark:text-slate-500 text-slate-400 group-hover/item:dark:text-white group-hover/item:text-slate-700 transition-all transform group-hover/item:translate-x-0.5" />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
 
                         {/* Q-Values visualization */}
                         <div className="pt-2">
@@ -428,7 +406,7 @@ const LearningPath: React.FC = () => {
     const [loadingTasks, setLoadingTasks] = useState(false);
     const [activeTaskModal, setActiveTaskModal] = useState<Task | null>(null);
     const [taskPage, setTaskPage] = useState(1);
-    const TASKS_PER_PAGE = 5;
+    const TASKS_PER_PAGE = 10;
     const [showSkillsMap, setShowSkillsMap] = useState(false);
     const [targetRole, setTargetRole] = useState('');
     const [jobRoles, setJobRoles] = useState<{id: number; role_title: string; role_description: string}[]>([]);
@@ -501,7 +479,7 @@ const LearningPath: React.FC = () => {
         if (!isManagerOrAdmin) return;
         setLoadingRec(true);
         try {
-            const res = await api.post('/analytics/rl/assign-task/', { intern_id: internId });
+            const res = await api.post('/analytics/rl/top-tasks/', { intern_id: internId });
             setRecommendation(res.data);
         } catch (_) {} finally {
             setLoadingRec(false);
@@ -1021,13 +999,13 @@ const LearningPath: React.FC = () => {
                                     {/* SVG ring */}
                                     <div className="relative w-20 h-20 flex-shrink-0">
                                         <svg viewBox="0 0 36 36" className="w-20 h-20 -rotate-90">
-                                            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#1e293b" strokeWidth="3" />
+                                            <circle cx="18" cy="18" r="15.9" fill="none" className="dark:text-slate-700 text-slate-300" strokeWidth="3" />
                                             <circle cx="18" cy="18" r="15.9" fill="none" stroke="#8b5cf6" strokeWidth="3"
-                                                strokeDasharray={`${path.completion_percentage} ${100 - path.completion_percentage}`}
+                                                strokeDasharray={`${path.completion_percentage || 0} ${100 - (path.completion_percentage || 0)}`}
                                                 strokeLinecap="round" style={{ transition: 'stroke-dasharray 0.8s ease' }} />
                                         </svg>
                                         <div className="absolute inset-0 flex items-center justify-center">
-                                            <span className="text-sm font-bold text-violet-300">{path.completion_percentage.toFixed(0)}%</span>
+                                            <span className="text-sm font-bold dark:text-violet-300 text-violet-600">{path.completion_percentage?.toFixed(0) || 0}%</span>
                                         </div>
                                     </div>
                                     <div className="space-y-1.5">

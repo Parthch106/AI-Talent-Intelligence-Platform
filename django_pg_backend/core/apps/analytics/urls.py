@@ -22,6 +22,7 @@ from .views import (
     AttendanceHeatmapView,
     # RL & Learning Path Views
     RLAssignTaskView,
+    RLTopTasksView,
     RLOptimalDifficultyView,
     LearningPathView,
     LearningPathProgressView,
@@ -116,6 +117,7 @@ urlpatterns = [
     # RL DYNAMIC TASK ASSIGNMENT & LEARNING PATH ENDPOINTS
     # ============================================================================
     path('rl/assign-task/', RLAssignTaskView.as_view(), name='rl-assign-task'),
+    path('rl/top-tasks/', RLTopTasksView.as_view(), name='rl-top-tasks'),
     path('rl/optimal-difficulty/<int:intern_id>/', RLOptimalDifficultyView.as_view(), name='rl-optimal-difficulty'),
     path('learning-path/<int:intern_id>/', LearningPathView.as_view(), name='learning-path'),
     path('learning-path/<int:intern_id>/progress/', LearningPathProgressView.as_view(), name='learning-path-progress'),

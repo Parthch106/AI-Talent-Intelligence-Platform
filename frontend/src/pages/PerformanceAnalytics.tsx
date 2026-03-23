@@ -175,18 +175,23 @@ const PerformanceAnalytics: React.FC = () => {
             
             // Fetch tasks (non-essential)
             try {
-                const tasksRes = await api.get(`/analytics/tasks/?intern_id=${selectedInternId}&limit=50`);
-                const tasks = Array.isArray(tasksRes.data) ? tasksRes.data : 
-                              tasksRes.data?.results || [];
+                const tasksRes = await api.get('/analytics/tasks/', { 
+                    params: { 
+                        intern_id: selectedInternId,
+                        limit: 1000 
+                    } 
+                });
+                const tasksData = Array.isArray(tasksRes.data.tasks) ? tasksRes.data.tasks : [];
                 // Sort by completed_at or assigned_at to show most recent first
-                const sortedTasks = tasks.sort((a: any, b: any) => {
+                const sortedTasks = tasksData.sort((a: any, b: any) => {
                     const dateA = a.completed_at || a.assigned_at || '';
                     const dateB = b.completed_at || b.assigned_at || '';
                     return new Date(dateB).getTime() - new Date(dateA).getTime();
                 });
-                setTaskHistory(sortedTasks.slice(0, 15));
+                setTaskHistory(sortedTasks.slice(0, 20));
             } catch (e) {
-                console.warn('Tasks unavailable');
+                console.warn('Tasks unavailable', e);
+                setTaskHistory([]);
             }
             
             // Try RL recommendation (optional)
@@ -215,14 +220,22 @@ const PerformanceAnalytics: React.FC = () => {
     };
 
     const calculateReadinessScore = () => {
-        if (!performanceData?.metrics) return 0;
+        if (!performanceData) return 0;
+        
+        // If backend already provides the final score, use it (it's 0.0-1.0)
+        if (performanceData.performance_score !== undefined) {
+            return Math.round(performanceData.performance_score * 100);
+        }
+        
+        if (!performanceData.metrics) return 0;
         const metrics = performanceData.metrics;
-        // Handle both flat metrics and nested metrics structure
-        const quality = metrics.quality_score ?? metrics.quality ?? 0;
-        const completion = metrics.completion_rate ?? metrics.completion ?? 0;
-        const growth = metrics.growth_velocity ?? metrics.growth ?? 0;
-        const engage = metrics.engagement ?? metrics.attendance_rate ?? 0;
-        const difficulty = metrics.difficulty_handled ?? metrics.difficulty ?? 0;
+        
+        // Handle both flat metrics and nested metrics structure (all 0.0-1.0)
+        const quality = metrics.quality_score ?? metrics.quality ?? 0.0;
+        const completion = metrics.completion_rate ?? metrics.completion ?? 0.0;
+        const growth = metrics.growth_velocity ?? metrics.growth ?? 0.0;
+        const engage = metrics.engagement ?? metrics.attendance_rate ?? 0.0;
+        const difficulty = metrics.difficulty_handled ?? metrics.difficulty ?? 0.0;
         const risk = metrics.dropout_risk ?? metrics.risk ?? 0;
         
         const score = (
@@ -231,8 +244,9 @@ const PerformanceAnalytics: React.FC = () => {
             growth * 0.15 +
             engage * 0.15 +
             difficulty * 0.10 +
-            ((100 - risk) / 100) * 0.10
+            (1 - risk) * 0.10
         ) * 100;
+        
         return Math.round(score);
     };
 
@@ -264,6 +278,22 @@ const PerformanceAnalytics: React.FC = () => {
         return completedStatuses.includes(status?.toUpperCase() || '');
     };
 
+    const getPerformanceCategory = (score: number) => {
+        if (score >= 90) return 'Excellent';
+        if (score >= 75) return 'Good';
+        if (score >= 50) return 'Fair';
+        if (score > 0) return 'Needs Improvement';
+        return 'No Data';
+    };
+
+    const toTitleCase = (str: string) => {
+        if (!str) return '';
+        return str.replace(
+            /\w\S*/g,
+            (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+        ).replace(/_/g, ' ');
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-96">
@@ -272,7 +302,7 @@ const PerformanceAnalytics: React.FC = () => {
         );
     }
 
-    // Show message when no intern selected (for managers/admins with no interns)
+    // Show message when no intern selected
     if (!selectedInternId) {
         const isManagerOrAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER';
         if (isManagerOrAdmin && interns.length === 0) {
@@ -295,11 +325,15 @@ const PerformanceAnalytics: React.FC = () => {
                 </div>
             );
         }
+        
         return (
-            <div className="flex items-center justify-center h-96">
-                <div className="text-center">
-                    <Activity className="mx-auto h-12 w-12 text-[var(--text-muted)] mb-4" />
-                    <p className="text-[var(--text-dim)]">Select an intern to view performance data</p>
+            <div className="flex items-center justify-center h-[60vh]">
+                <div className="text-center animate-fade-in">
+                    <div className="w-24 h-24 rounded-full bg-purple-500/10 flex items-center justify-center mx-auto mb-6 border border-purple-500/20">
+                        <Users className="h-10 w-10 text-purple-400 opacity-50" />
+                    </div>
+                    <h2 className="text-2xl font-heading font-bold text-[var(--text-main)] mb-2">No Intern Selected</h2>
+                    <p className="text-[var(--text-dim)] max-w-sm mx-auto">Please select an intern from the dropdown above to view their comprehensive performance analytics.</p>
                 </div>
             </div>
         );
@@ -339,98 +373,125 @@ const PerformanceAnalytics: React.FC = () => {
                 )}
             </div>
 
-            <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+            <div className="glass-card-hover p-6 bg-gradient-to-br from-purple-600/10 via-transparent to-indigo-600/10 border-purple-500/20 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 blur-[100px] -mr-32 -mt-32 rounded-full"></div>
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+                    <div className="flex items-center gap-6">
+                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-black shadow-glow animate-float">
                             {(getInternName() || 'U')[0].toUpperCase()}
                         </div>
                         <div>
-                            <h2 className="text-xl font-semibold text-white">{getInternName()}</h2>
-                            <p className="text-sm text-slate-400">{performanceData?.performance_status || 'Performance Overview'}</p>
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-3xl font-heading font-black text-white">{getInternName()}</h2>
+                                <Badge variant={getStatusBadge(performanceData?.performance_status || 'UNKNOWN')}>
+                                    {toTitleCase(performanceData?.performance_status || 'Not Evaluated')}
+                                </Badge>
+                            </div>
+                            <p className="text-slate-400 mt-1 flex items-center gap-2">
+                                <Calendar size={14} />
+                                Data evaluated as of {performanceData?.evaluated_at ? new Date(performanceData.evaluated_at).toLocaleDateString() : 'N/A'}
+                            </p>
                         </div>
                     </div>
-                    <div className="text-right">
-                        <p className="text-sm text-[var(--text-dim)]">Overall Readiness Score</p>
-                        <p className={`text-4xl font-bold ${getReadinessColor(readinessScore)}`}>
-                            {readinessScore}%
-                        </p>
+                    
+                    <div className="flex flex-col items-center gap-2 bg-black/20 px-10 py-5 rounded-3xl border border-white/5 backdrop-blur-xl">
+                        <div className="text-center">
+                            <p className="label-premium mb-1">Overall Readiness</p>
+                            <p className={`text-5xl font-heading font-black tracking-tighter ${getReadinessColor(readinessScore)}`}>
+                                {readinessScore}%
+                            </p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1">
+                                {getPerformanceCategory(readinessScore)}
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="p-5">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-[var(--text-dim)]">Quality Score</p>
-                            <p className="text-2xl font-bold text-[var(--text-main)]">
-                                {Math.round((performanceData?.metrics?.quality_score ?? performanceData?.metrics?.quality ?? 0) * 100)}%
-                            </p>
-                        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="stats-card-premium group">
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <Award className="text-amber-400" size={24} />
                     </div>
-                    <div className="mt-2 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                    <p className="label-premium mb-1">Quality Score</p>
+                    <div className="flex items-baseline gap-2">
+                        <p className="text-3xl font-heading font-black text-white">
+                            {Math.round((performanceData?.metrics?.quality_score ?? 0.0) * 100)}%
+                        </p>
+                        <span className="text-[10px] font-bold text-amber-400 capitalize opacity-80">
+                            {getPerformanceCategory(Math.round((performanceData?.metrics?.quality_score ?? 0.0) * 100))}
+                        </span>
+                    </div>
+                    <div className="w-full mt-4 h-1 bg-white/5 rounded-full overflow-hidden">
                         <div 
-                            className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
-                            style={{ width: `${(performanceData?.metrics?.quality_score ?? performanceData?.metrics?.quality ?? 0) * 100}%` }}
+                            className="h-full bg-amber-500 rounded-full"
+                            style={{ width: `${(performanceData?.metrics?.quality_score ?? 0.0) * 100}%` }}
                         />
                     </div>
-                </Card>
+                </div>
 
-                <Card className="p-5">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-[var(--text-dim)]">Completion Rate</p>
-                            <p className="text-2xl font-bold text-[var(--text-main)]">
-                                {Math.round((performanceData?.metrics?.completion_rate ?? performanceData?.metrics?.completion ?? 0) * 100)}%
-                            </p>
-                        </div>
+                <div className="stats-card-premium group">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <CheckCircle className="text-emerald-400" size={24} />
                     </div>
-                    <div className="mt-2 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                    <p className="label-premium mb-1">Completion Rate</p>
+                    <div className="flex items-baseline gap-2">
+                        <p className="text-3xl font-heading font-black text-white">
+                            {Math.round((performanceData?.metrics?.completion_rate ?? 0.0) * 100)}%
+                        </p>
+                        <span className="text-[10px] font-bold text-emerald-400 capitalize opacity-80">
+                            {getPerformanceCategory(Math.round((performanceData?.metrics?.completion_rate ?? 0.0) * 100))}
+                        </span>
+                    </div>
+                    <div className="w-full mt-4 h-1 bg-white/5 rounded-full overflow-hidden">
                         <div 
-                            className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"
-                            style={{ width: `${(performanceData?.metrics?.completion_rate ?? performanceData?.metrics?.completion ?? 0) * 100}%` }}
+                            className="h-full bg-emerald-500 rounded-full"
+                            style={{ width: `${(performanceData?.metrics?.completion_rate ?? 0.0) * 100}%` }}
                         />
                     </div>
-                </Card>
+                </div>
 
-                <Card className="p-5">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-[var(--text-dim)]">Growth Velocity</p>
-                            <p className="text-2xl font-bold text-[var(--text-main)]">
-                                {Math.round((performanceData?.metrics?.growth_velocity ?? performanceData?.metrics?.growth ?? 0) * 100)}%
-                            </p>
-                        </div>
+                <div className="stats-card-premium group">
+                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <TrendingUp className="text-blue-400" size={24} />
                     </div>
-                    <div className="mt-2 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                    <p className="label-premium mb-1">Growth Velocity</p>
+                    <div className="flex items-baseline gap-2">
+                        <p className="text-3xl font-heading font-black text-white">
+                            {Math.round((performanceData?.metrics?.growth_velocity ?? 0.0) * 100)}%
+                        </p>
+                        <span className="text-[10px] font-bold text-blue-400 capitalize opacity-80">
+                            {getPerformanceCategory(Math.round((performanceData?.metrics?.growth_velocity ?? 0.0) * 100))}
+                        </span>
+                    </div>
+                    <div className="w-full mt-4 h-1 bg-white/5 rounded-full overflow-hidden">
                         <div 
-                            className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"
-                            style={{ width: `${(performanceData?.metrics?.growth_velocity ?? performanceData?.metrics?.growth ?? 0) * 100}%` }}
+                            className="h-full bg-blue-500 rounded-full"
+                            style={{ width: `${(performanceData?.metrics?.growth_velocity ?? 0.0) * 100}%` }}
                         />
                     </div>
-                </Card>
+                </div>
 
-                <Card className="p-5">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-[var(--text-dim)]">Engagement</p>
-                            <p className="text-2xl font-bold text-[var(--text-main)]">
-                                {Math.round((performanceData?.metrics?.engagement ?? performanceData?.metrics?.attendance_rate ?? 0) * 100)}%
-                            </p>
-                        </div>
+                <div className="stats-card-premium group">
+                    <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <Activity className="text-purple-400" size={24} />
                     </div>
-                    <div className="mt-2 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                    <p className="label-premium mb-1">Engagement</p>
+                    <div className="flex items-baseline gap-2">
+                        <p className="text-3xl font-heading font-black text-white">
+                            {Math.round((performanceData?.metrics?.engagement ?? 0.0) * 100)}%
+                        </p>
+                        <span className="text-[10px] font-bold text-purple-400 capitalize opacity-80">
+                            {getPerformanceCategory(Math.round((performanceData?.metrics?.engagement ?? 0.0) * 100))}
+                        </span>
+                    </div>
+                    <div className="w-full mt-4 h-1 bg-white/5 rounded-full overflow-hidden">
                         <div 
-                            className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
-                            style={{ width: `${(performanceData?.metrics?.engagement ?? performanceData?.metrics?.attendance_rate ?? 0) * 100}%` }}
+                            className="h-full bg-purple-500 rounded-full"
+                            style={{ width: `${(performanceData?.metrics?.engagement ?? 0.0) * 100}%` }}
                         />
                     </div>
-                </Card>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -552,39 +613,43 @@ const PerformanceAnalytics: React.FC = () => {
                         </div>
                     </Card>
 
-                    <Card className="p-5">
-                        <h3 className="text-lg font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
+                    <div className="glass-card-hover p-6">
+                        <h3 className="text-xl font-heading font-black text-white mb-6 flex items-center gap-3">
                             <BarChart3 className="text-cyan-400" />
                             Performance Trends
                         </h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="bg-[var(--bg-muted)] rounded-lg p-4 text-center">
-                                <p className="text-3xl font-bold text-[var(--text-main)]">{taskHistory.filter(t => isTaskCompleted(t.status)).length}</p>
-                                <p className="text-xs text-[var(--text-dim)] mt-1">Tasks Completed</p>
-                            </div>
-                            <div className="bg-[var(--bg-muted)] rounded-lg p-4 text-center">
-                                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{taskHistory.filter(t => t.status === 'IN_PROGRESS').length}</p>
-                                <p className="text-xs text-[var(--text-dim)] mt-1">In Progress</p>
-                            </div>
-                            <div className="bg-[var(--bg-muted)] rounded-lg p-4 text-center">
-                                <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
-                                    {taskHistory.length > 0 
-                                        ? (taskHistory.reduce((sum, t) => sum + (t.quality_rating || 0), 0) / taskHistory.filter(t => t.quality_rating).length || 0).toFixed(1)
-                                        : 'N/A'}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="bg-black/30 rounded-3xl p-6 border border-white/5 text-center">
+                                <p className="label-premium mb-2">Completed</p>
+                                <p className="text-4xl font-heading font-black text-white">
+                                    {performanceData?.metrics?.completed_tasks ?? 0}
                                 </p>
-                                <p className="text-xs text-[var(--text-dim)] mt-1">Avg Quality</p>
                             </div>
-                            <div className="bg-[var(--bg-muted)] rounded-lg p-4 text-center">
-                                <p className={`text-3xl font-bold ${
-                                    (performanceData?.metrics?.dropout_risk ?? performanceData?.metrics?.risk ?? 0) < 30 ? 'text-emerald-400' :
-                                    (performanceData?.metrics?.dropout_risk ?? performanceData?.metrics?.risk ?? 0) < 60 ? 'text-yellow-400' : 'text-red-400'
+                            <div className="bg-black/30 rounded-3xl p-6 border border-white/5 text-center">
+                                <p className="label-premium mb-2">In Progress</p>
+                                <p className="text-4xl font-heading font-black text-blue-400">
+                                    {performanceData?.metrics?.in_progress_tasks ?? 0}
+                                </p>
+                            </div>
+                            <div className="bg-black/30 rounded-3xl p-6 border border-white/5 text-center">
+                                <p className="label-premium mb-2">Quality</p>
+                                <p className="text-4xl font-heading font-black text-amber-400">
+                                    {performanceData?.metrics?.avg_quality !== undefined
+                                        ? performanceData.metrics.avg_quality.toFixed(1)
+                                        : '0.0'}
+                                </p>
+                            </div>
+                            <div className="bg-black/30 rounded-3xl p-6 border border-white/5 text-center">
+                                <p className="label-premium mb-2">Retention</p>
+                                <p className={`text-4xl font-heading font-black ${
+                                    (performanceData?.metrics?.dropout_risk ?? 0) > 0.6 ? 'text-red-400' :
+                                    (performanceData?.metrics?.dropout_risk ?? 0) > 0.3 ? 'text-yellow-400' : 'text-emerald-400'
                                 }`}>
-                                    {Math.round(100 - (performanceData?.metrics?.dropout_risk ?? performanceData?.metrics?.risk ?? 0))}%
+                                    {Math.round((1 - (performanceData?.metrics?.dropout_risk ?? 0)) * 100)}%
                                 </p>
-                                <p className="text-xs text-[var(--text-dim)] mt-1">Retention</p>
                             </div>
                         </div>
-                    </Card>
+                    </div>
                 </div>
 
                 <div className="space-y-6">

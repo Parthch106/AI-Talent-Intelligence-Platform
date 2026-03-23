@@ -125,7 +125,7 @@
 
   /* Stats Card Refined */
   .stats-card-premium {
-    @apply glass-card p-8 flex flex-col items-center text-center group cursor-pointer transition-all duration-500 hover:scale-[1.05];
+    @apply glass-card p-8 flex flex-col items-center text-center cursor-pointer transition-all duration-500 hover:scale-[1.05];
   }
 
   /* Sidebar Styles */
@@ -137,6 +137,10 @@
 
   .sidebar-nav-item.active {
     @apply bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-glow;
+  }
+
+  .label-premium {
+    @apply text-[10px] font-black uppercase tracking-[0.2em] text-slate-500;
   }
 
   /* Card Hover Effect */
