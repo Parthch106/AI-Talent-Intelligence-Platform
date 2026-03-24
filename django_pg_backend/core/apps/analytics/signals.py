@@ -81,6 +81,7 @@ def connect_task_tracking_signals():
     def task_status_changed(sender, instance, created, **kwargs):
         """
         Create notifications when task status changes.
+        Also calculates skill mastery for project tasks.
         """
         try:
             # Skip if it's a new task (created) - we only notify on status changes
@@ -91,6 +92,8 @@ def connect_task_tracking_signals():
                 _notify_task_completed(instance)
                 # Check if all tasks for the project are completed
                 _check_project_completion(instance)
+                # Calculate skill mastery for project tasks
+                _calculate_skill_mastery(instance)
             elif instance.status == 'IN_PROGRESS':
                 _notify_task_started(instance)
         except Exception as e:
@@ -201,3 +204,84 @@ def _notify_task_started(task):
         )
     except Exception as e:
         logger.error(f"Error sending task started notification: {str(e)}")
+
+
+def _calculate_skill_mastery(task):
+    """
+    Calculate and update skill mastery for project tasks.
+    Only updates skills that are NOT already in the intern's SkillProfile.
+    
+    Mastery calculation:
+    - Base value: 0.1 (10% mastery per completed task)
+    - Quality bonus: If quality_rating exists, add up to 0.05 based on rating (0-5 scale)
+    - Code review bonus: If code_review_score exists, add up to 0.05 based on score (0-100)
+    
+    Formula: mastery = 0.1 + (quality_rating / 100) * 0.05 + (code_review_score / 100) * 0.05
+    Maximum initial mastery: 0.2 (20%)
+    """
+    try:
+        # Only process project tasks (tasks with project_assignment)
+        if not task.project_assignment:
+            logger.debug(f"Task {task.task_id} is not a project task, skipping mastery calculation")
+            return
+        
+        # Check if task has skills defined
+        skills = task.skills_required
+        if not skills or not isinstance(skills, list) or len(skills) == 0:
+            logger.debug(f"Task {task.task_id} has no skills_required, skipping mastery calculation")
+            return
+        
+        from apps.analytics.models import SkillProfile
+        
+        # Calculate base mastery based on task completion
+        base_mastery = 0.1  # 10% base mastery per completed task
+        
+        # Add quality bonus if available (0-5 rating -> 0-0.05 bonus)
+        quality_bonus = 0.0
+        if task.quality_rating is not None:
+            quality_bonus = (task.quality_rating / 5.0) * 0.05
+        
+        # Add code review bonus if available (0-100 score -> 0-0.05 bonus)
+        code_review_bonus = 0.0
+        if task.code_review_score is not None:
+            code_review_bonus = (task.code_review_score / 100.0) * 0.05
+        
+        # Calculate total mastery (cap at 0.2 for new skills)
+        mastery_level = min(0.2, base_mastery + quality_bonus + code_review_bonus)
+        
+        # Update or create SkillProfile for each skill
+        skills_updated = []
+        for skill_name in skills:
+            if not skill_name or not isinstance(skill_name, str):
+                continue
+            
+            # Normalize skill name (strip whitespace, capitalize first letter)
+            skill_name = skill_name.strip().title()
+            if not skill_name:
+                continue
+            
+            # Check if skill already exists in SkillProfile
+            existing_profile = SkillProfile.objects.filter(
+                intern=task.intern,
+                skill_name=skill_name
+            ).first()
+            
+            if existing_profile:
+                logger.debug(f"Skill '{skill_name}' already exists for {task.intern.email}, skipping")
+                continue
+            
+            # Create new SkillProfile entry
+            SkillProfile.objects.create(
+                intern=task.intern,
+                skill_name=skill_name,
+                mastery_level=mastery_level,
+                learning_rate=0.1  # Default learning rate
+            )
+            skills_updated.append(skill_name)
+            logger.info(f"Created SkillProfile for {task.intern.email}: {skill_name} = {mastery_level:.2f}")
+        
+        if skills_updated:
+            logger.info(f"Skill mastery calculated for {task.intern.email}: {', '.join(skills_updated)}")
+        
+    except Exception as e:
+        logger.error(f"Error calculating skill mastery for task {task.task_id}: {str(e)}")

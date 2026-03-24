@@ -103,7 +103,7 @@ const MonitoringDashboard: React.FC = () => {
 
     // Form states
     const [taskForm, setTaskForm] = useState({
-        title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '',
+        title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] as string[],
     });
     const [attendanceForm, setAttendanceForm] = useState({
         date: new Date().toISOString().split('T')[0], status: 'PRESENT', check_in_time: '', check_out_time: '', notes: '',
@@ -281,7 +281,8 @@ const MonitoringDashboard: React.FC = () => {
                 priority: taskForm.priority,
                 due_date: taskForm.due_date,
                 estimated_hours: taskForm.estimated_hours,
-                intern_id: selectedIntern
+                intern_id: selectedIntern,
+                skills_required: taskForm.skills_required
             };
             // Only include project_assignment_id if it's not empty
             if (taskForm.project_assignment_id) {
@@ -293,7 +294,7 @@ const MonitoringDashboard: React.FC = () => {
             await axios.post('/analytics/tasks/create/', taskPayload);
             setSuccess('Task created successfully!');
             closeModal();
-            setTaskForm({ title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '' });
+            setTaskForm({ title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] });
             fetchData();
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
@@ -578,13 +579,14 @@ const MonitoringDashboard: React.FC = () => {
                     </div>
                     {modules.length > 0 && (
                         <div>
-                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Module</label>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Module {taskForm.project_assignment_id ? '' : '(Select a project first)'}</label>
                             <select
                                 value={taskForm.project_module_id}
                                 onChange={(e) => setTaskForm({ ...taskForm, project_module_id: e.target.value })}
-                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                                disabled={!taskForm.project_assignment_id}
+                                className={`w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all ${!taskForm.project_assignment_id ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
-                                <option value="">Select Module</option>
+                                <option value="">{taskForm.project_assignment_id ? 'Select Module' : 'No project selected'}</option>
                                 {modules.map((m) => (
                                     <option key={m.id} value={m.id}>
                                         {m.name}
@@ -593,6 +595,16 @@ const MonitoringDashboard: React.FC = () => {
                             </select>
                         </div>
                     )}
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Skills Developed (comma-separated)</label>
+                        <input
+                            type="text"
+                            placeholder="e.g., Python, Django, React"
+                            value={taskForm.skills_required.join(', ')}
+                            onChange={(e) => setTaskForm({ ...taskForm, skills_required: e.target.value.split(',').map(s => s.trim()).filter(s => s) })}
+                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                        />
+                    </div>
                     <div>
                         <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Due Date</label>
                         <input

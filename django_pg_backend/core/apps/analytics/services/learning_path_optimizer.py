@@ -14,8 +14,10 @@ updates the LearningPath model after path generation.
 
 import heapq
 import logging
+import uuid
 from dataclasses import dataclass, field
 from typing import Optional
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -256,18 +258,25 @@ def _astar(
 
 # ─── Milestone Generation ─────────────────────────────────────────────────────
 
-def _skill_to_milestone(skill: str, position: int, intern_mastery: float = 0.0) -> dict:
+def _skill_to_milestone(skill: str, position: int, intern_mastery: float = 0.0, basics_only: bool = False) -> dict:
     """Convert a skill node to a milestone object."""
     difficulty = _get_skill_difficulty(skill)
     # Estimated hours: harder skills take more time, partially mastered skills less
     base_hours = difficulty * 4.0
     adjusted_hours = base_hours * (1.0 - intern_mastery)
+    
+    title = f"Master {skill}"
+    description = f"Learn and apply {skill} through hands-on tasks and projects."
+    
+    if basics_only:
+        title = f"{skill} Fundamentals"
+        description = f"Focus on the core concepts and absolute basics of {skill}."
 
     return {
         'position': position,
         'skill': skill,
-        'title': f"Master {skill}",
-        'description': f"Learn and apply {skill} through hands-on tasks and projects.",
+        'title': title,
+        'description': description,
         'difficulty': difficulty,
         'estimated_hours': round(max(adjusted_hours, 1.0), 1),
         'resources': _get_default_resources(skill),
@@ -376,12 +385,242 @@ def update_progress(intern_id: int, skill_id: str, mastery: float) -> None:
             logger.warning(f"update_progress: path update failed: {e}")
 
 
+def generate_custom_skill_path(intern_id: int, skill_list: list[str], title: str, basics_only: bool = False) -> dict:
+    """
+    Generate a new learning path based on a specific list of skills, then
+    auto-generate LLM-powered tasks for every milestone so the manager only
+    needs to review and approve.
+    Returns serializable path data.
+    """
+    from apps.analytics.models import LearningPath
+    from apps.accounts.models import User
+
+    # 1. Get current skills
+    intern_mastery = _get_intern_mastery(intern_id)
+
+    # 2. Expand with prerequisites
+    all_needed: list[str] = []
+    for skill in skill_list:
+        prereqs = _get_all_prerequisite_skills(skill)
+        for p in prereqs:
+            if p not in all_needed:
+                all_needed.append(p)
+        if skill not in all_needed:
+            all_needed.append(skill)
+
+    # 3. A* ordering
+    ordered_skills = _astar(intern_mastery, skill_list, all_needed)
+
+    # 4. Build milestones
+    milestones = []
+    for i, skill in enumerate(ordered_skills):
+        mastery = intern_mastery.get(skill, 0.0)
+        milestone = _skill_to_milestone(skill, i, mastery, basics_only=basics_only)
+        milestones.append(milestone)
+
+    full_title = f"{title} (Basics Focus)" if basics_only else title
+
+    path_defaults = {
+        'milestones': milestones,
+        'current_position': 0,
+        'completed_milestones': [],
+        'completion_percentage': 0.0,
+        'target_role_title': full_title,
+    }
+
+    # JobRole is None for custom paths
+    learning_path, created = LearningPath.objects.update_or_create(
+        intern_id=intern_id,
+        job_role=None,
+        target_role_title=full_title,
+        defaults=path_defaults,
+    )
+
+    logger.info(f"generate_custom_skill_path: intern={intern_id}, title='{full_title}', {len(milestones)} milestones generated")
+
+    # Auto-generate tasks for every milestone so manager can directly review
+    try:
+        intern = User.objects.get(id=intern_id)
+        intern_name = intern.full_name or intern.email
+    except Exception:
+        intern_name = f'Intern #{intern_id}'
+
+    goal_text = full_title
+    _auto_generate_tasks_for_path(learning_path, intern_name=intern_name, goal_text=goal_text, basics_only=basics_only)
+
+    # Refresh milestones from DB (tasks may have been embedded)
+    learning_path.refresh_from_db()
+
+    return {
+        'path_id': learning_path.id,
+        'intern_id': intern_id,
+        'target_role': full_title,
+        'milestones': learning_path.milestones,
+        'total_milestones': len(learning_path.milestones),
+        'current_position': learning_path.current_position,
+        'completion_percentage': learning_path.completion_percentage,
+        'created': created,
+        'tasks_auto_generated': True,
+    }
+
+
+def _auto_generate_tasks_for_path(learning_path, intern_name: str, goal_text: str, basics_only: bool = False) -> None:
+    """
+    Automatically generate LLM-powered tasks for every milestone in a learning path.
+    Each milestone gets a `task_details` dict with `status='PENDING'` so managers
+    only need to review and approve them.
+    This function mutates `learning_path.milestones` in-place and saves the path.
+    """
+    try:
+        from apps.analytics.services.llm_learning_path_generator import get_learning_path_generator
+        generator = get_learning_path_generator()
+    except Exception as e:
+        logger.error(f"_auto_generate_tasks_for_path: Could not load LLM generator: {e}")
+        return
+
+    milestones = learning_path.milestones
+    changed = False
+
+    for milestone in milestones:
+        # Skip milestones that already have a task or are already completed
+        if milestone.get('task_details') or milestone.get('status') == 'COMPLETED':
+            continue
+
+        skill = milestone.get('skill', '')
+        if not skill:
+            continue
+
+        try:
+            task_data = generator.generate_milestone_task(
+                skill=skill,
+                intern_name=intern_name,
+                goal_text=goal_text,
+                basics_only=basics_only,
+            )
+
+            # Do not overwrite on LLM error; fall through gracefully
+            if 'error' not in task_data:
+                milestone['task_details'] = {
+                    'title': task_data.get('task_title', f'Explore {skill}'),
+                    'description': task_data.get('task_description', f'Practice {skill} with a hands-on exercise.'),
+                    'starter_script': task_data.get('starter_script', '# Start your implementation here'),
+                    'estimated_hours': task_data.get('estimated_hours', milestone.get('estimated_hours', 2)),
+                    'status': 'PENDING',
+                }
+                changed = True
+                logger.info(f"_auto_generate_tasks_for_path: task generated for skill='{skill}'")
+            else:
+                # Use a minimal fallback so the manager can still see the milestone
+                milestone['task_details'] = {
+                    'title': f'Explore {skill}',
+                    'description': f'Research and implement a basic project using {skill}.',
+                    'starter_script': '# Start your implementation here',
+                    'estimated_hours': milestone.get('estimated_hours', 2),
+                    'status': 'PENDING',
+                }
+                changed = True
+                logger.warning(f"_auto_generate_tasks_for_path: LLM error for '{skill}', used fallback task")
+        except Exception as e:
+            logger.error(f"_auto_generate_tasks_for_path: error for skill='{skill}': {e}")
+            # Still create a fallback task so every milestone has something for the manager
+            milestone['task_details'] = {
+                'title': f'Explore {skill}',
+                'description': f'Research and implement a basic project using {skill}.',
+                'starter_script': '# Start your implementation here',
+                'estimated_hours': milestone.get('estimated_hours', 2),
+                'status': 'PENDING',
+            }
+            changed = True
+
+    if changed:
+        learning_path.save(update_fields=['milestones'])
+        logger.info(f"_auto_generate_tasks_for_path: saved tasks for path id={learning_path.id}")
+
+
+def save_milestone_task(intern_id: int, milestone_index: int, task_data: dict) -> bool:
+    """
+    Save AI-generated task/script to the milestone.
+    """
+    from apps.analytics.models import LearningPath
+    try:
+        # Get the most recently updated custom path for this intern
+        path = LearningPath.objects.filter(intern_id=intern_id, job_role=None).latest('updated_at')
+    except LearningPath.DoesNotExist:
+        # Fallback to the latest path of any type
+        path = LearningPath.objects.filter(intern_id=intern_id).latest('updated_at')
+    except Exception:
+        return False
+
+    if 0 <= milestone_index < len(path.milestones):
+        milestone = path.milestones[milestone_index]
+        milestone['task_details'] = {
+            'title': task_data.get('task_title'),
+            'description': task_data.get('task_description'),
+            'starter_script': task_data.get('starter_script'),
+            'status': 'PENDING'
+        }
+        path.save()
+        return True
+    return False
+
+
+def approve_milestone_task(intern_id: int, milestone_index: int) -> dict:
+    """
+    Approve the AI task and sync to TaskTracking.
+    """
+    from apps.analytics.models import LearningPath, TaskTracking
+    try:
+        path = LearningPath.objects.filter(intern_id=intern_id).order_by('-updated_at').first()
+        if not path or milestone_index >= len(path.milestones):
+            return {'error': 'Path or milestone not found.'}
+            
+        milestone = path.milestones[milestone_index]
+        details = milestone.get('task_details')
+        if not details:
+            return {'error': 'No task details to approve.'}
+
+        if details.get('status') == 'APPROVED':
+            return {'message': 'Task already approved.'}
+
+        # 1. Update status
+        details['status'] = 'APPROVED'
+        
+        # 2. Update milestone description/title to be more specific
+        milestone['title'] = details['title']
+        milestone['description'] = details['description']
+        
+        # 3. Create TaskTracking record
+        task_id = f"LP-{intern_id}-{milestone_index}-{uuid.uuid4().hex[:6]}"
+        task = TaskTracking.objects.create(
+            intern_id=intern_id,
+            task_id=task_id,
+            title=details['title'],
+            description=f"{details['description']}\n\nStarter Script:\n```\n{details['starter_script']}\n```",
+            status='ASSIGNED',
+            priority='MEDIUM',
+            due_date=timezone.now() + timezone.timedelta(days=3),
+            estimated_hours=milestone.get('estimated_hours', 2.0)
+        )
+        
+        path.save()
+        return {
+            'message': 'Task approved and assigned.',
+            'task_id': task.task_id,
+            'milestone': milestone
+        }
+    except Exception as e:
+        logger.error(f"approve_milestone_task error: {e}")
+        return {'error': str(e)}
+
+
 def generate_and_save_path(intern_id: int, target_role: str) -> dict:
     """
-    Generate a new learning path and persist it to the DB.
+    Generate a new learning path, persist it to the DB, and auto-generate
+    LLM-powered tasks for every milestone so the manager only needs to review.
     Returns serializable path data.
     """
     from apps.analytics.models import LearningPath, JobRole
+    from apps.accounts.models import User
 
     milestones = find_optimal_path(intern_id, target_role)
 
@@ -406,15 +645,29 @@ def generate_and_save_path(intern_id: int, target_role: str) -> dict:
         defaults=path_defaults,
     )
 
+    # Auto-generate tasks for every milestone so manager can directly review
+    try:
+        intern = User.objects.get(id=intern_id)
+        intern_name = intern.full_name or intern.email
+    except Exception:
+        intern_name = f'Intern #{intern_id}'
+
+    goal_text = f'Become a {target_role}'
+    _auto_generate_tasks_for_path(learning_path, intern_name=intern_name, goal_text=goal_text)
+
+    # Refresh milestones from DB (tasks may have been embedded)
+    learning_path.refresh_from_db()
+
     return {
         'path_id': learning_path.id,
         'intern_id': intern_id,
         'target_role': target_role,
-        'milestones': milestones,
-        'total_milestones': len(milestones),
+        'milestones': learning_path.milestones,
+        'total_milestones': len(learning_path.milestones),
         'current_position': learning_path.current_position,
         'completion_percentage': learning_path.completion_percentage,
         'created': created,
+        'tasks_auto_generated': True,
     }
 
 

@@ -4,9 +4,17 @@ from apps.accounts.models import User
 from apps.accounts.serializers import UserSerializer
 
 class ProjectModuleSerializer(serializers.ModelSerializer):
+    project = serializers.PrimaryKeyRelatedField(read_only=True)
+    project_id = serializers.PrimaryKeyRelatedField(
+        queryset=Project.objects.all(), 
+        source='project', 
+        write_only=True,
+        required=False
+    )
+    
     class Meta:
         model = ProjectModule
-        fields = '__all__'
+        fields = ['id', 'project', 'project_id', 'name', 'description', 'order', 'created_at', 'updated_at']
 
 class ProjectSerializer(serializers.ModelSerializer):
     mentor = UserSerializer(read_only=True)

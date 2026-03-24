@@ -451,6 +451,7 @@ class TaskTrackingView(APIView):
             estimated_hours=task_data.get('estimated_hours', 0.0),
             project_assignment_id=task_data.get('project_assignment_id'),
             project_module_id=task_data.get('project_module_id'),
+            skills_required=task_data.get('skills_required', []),
         )
 
         return Response({
@@ -1769,8 +1770,21 @@ class LearningPathView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            from apps.analytics.services.learning_path_optimizer import generate_and_save_path
-            result = generate_and_save_path(intern_id, target_role)
+            from apps.analytics.services.learning_path_optimizer import generate_and_save_path, generate_custom_skill_path
+            
+            # Check if this is a custom skill-based path
+            path_type = request.data.get('type', 'role')
+            if path_type == 'skill':
+                skills = request.data.get('skills', [])
+                title = request.data.get('title', 'Custom Skill Path')
+                basics_only = request.data.get('basics_only', False)
+                if not skills:
+                    return Response({'error': 'skills list is required for skill-type paths.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                result = generate_custom_skill_path(intern_id, skills, title, basics_only=basics_only)
+            else:
+                result = generate_and_save_path(intern_id, target_role)
+                
             return Response(result, status=status.HTTP_201_CREATED)
         except Exception as e:
             logger.error(f"LearningPathView.post error: {e}")
@@ -1929,9 +1943,13 @@ class PerformanceEvaluationView(APIView):
             if not is_valid:
                 return err
         
+        all_time = request.data.get('all_time', False)
+        if isinstance(all_time, str):
+            all_time = all_time.lower() == 'true'
+            
         try:
             from apps.analytics.services.performance_evaluator import evaluate_intern_performance
-            result = evaluate_intern_performance(intern.id, target_role)
+            result = evaluate_intern_performance(intern.id, target_role, all_time=all_time)
             return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(f"PerformanceEvaluationView error: {e}")
@@ -1964,9 +1982,11 @@ class PerformanceStatusView(APIView):
             if not is_valid:
                 return err
         
+        all_time = request.query_params.get('all_time', 'false').lower() == 'true'
+        
         try:
             from apps.analytics.services.performance_evaluator import get_performance_status
-            result = get_performance_status(intern_id)
+            result = get_performance_status(intern_id, all_time=all_time)
             return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(f"PerformanceStatusView error: {e}")
@@ -1998,9 +2018,11 @@ class PerformanceSuggestionsView(APIView):
             if not is_valid:
                 return err
         
+        all_time = request.query_params.get('all_time', 'false').lower() == 'true'
+        
         try:
             from apps.analytics.services.performance_evaluator import get_improvement_suggestions
-            result = get_improvement_suggestions(intern_id)
+            result = get_improvement_suggestions(intern_id, all_time=all_time)
             return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(f"PerformanceSuggestionsView error: {e}")
@@ -2034,10 +2056,11 @@ class PerformanceDashboardView(APIView):
                 return err
         
         target_role = request.query_params.get('target_role')
+        all_time = request.query_params.get('all_time', 'false').lower() == 'true'
         
         try:
             from apps.analytics.services.performance_evaluator import evaluate_intern_performance
-            result = evaluate_intern_performance(intern_id, target_role)
+            result = evaluate_intern_performance(intern_id, target_role, all_time=all_time)
             return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(f"PerformanceDashboardView error: {e}")
@@ -2231,3 +2254,171 @@ class LLMTaskReviewView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
+class LLMLearningPathSuggestionView(APIView):
+    """
+    POST /api/analytics/llm/suggest-path/
+    
+    Suggest a set of skills and a rationale for an intern's learning path
+    based on their goal and current skill profile.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        
+        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+            return Response(
+                {'error': 'Only managers and admins can request path suggestions.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        intern_id = request.data.get('intern_id')
+        goal = request.data.get('goal', 'Improve general technical skills')
+        
+        if not intern_id:
+            return Response({'error': 'intern_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            intern = User.objects.get(id=intern_id, role=User.Role.INTERN)
+            
+            # Get current skills
+            from apps.analytics.models import SkillProfile
+            intern_skills = list(SkillProfile.objects.filter(
+                intern_id=intern_id
+            ).values_list('skill_name', flat=True))
+            
+            # Get available skills from optimizer graph
+            from apps.analytics.services.learning_path_optimizer import PREREQUISITE_GRAPH
+            available_skills = list(PREREQUISITE_GRAPH.keys())
+            
+            # Generate suggestions
+            basics_only = request.data.get('basics_only', False)
+            from apps.analytics.services.llm_learning_path_generator import get_learning_path_generator
+            generator = get_learning_path_generator()
+            
+            result = generator.suggest_skills_from_goal(
+                intern_name=intern.full_name or intern.email,
+                intern_skills=intern_skills,
+                goal_text=goal,
+                available_skills=available_skills,
+                basics_only=basics_only
+            )
+            
+            return Response(result, status=status.HTTP_200_OK)
+            
+        except User.DoesNotExist:
+            return Response({'error': 'Intern not found.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"LLMLearningPathSuggestionView error: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class SkillListView(APIView):
+    """
+    GET /api/analytics/skills/
+    
+    Returns a list of all available skills in the system (from prerequisite graph).
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        try:
+            from apps.analytics.services.learning_path_optimizer import PREREQUISITE_GRAPH
+            skills = sorted(list(PREREQUISITE_GRAPH.keys()))
+            return Response({'skills': skills}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class LLMMilestoneTaskView(APIView):
+    """
+    POST /api/analytics/learning-path/generate-milestone-task/
+    
+    Generates an AI-powered practical task and script for a specific milestone.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+            return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        intern_id = request.data.get('intern_id')
+        milestone_index = request.data.get('milestone_index')
+        skill = request.data.get('skill')
+        goal = request.data.get('goal', 'Technical mastery')
+        basics_only = request.data.get('basics_only', False)
+
+        if intern_id is None or milestone_index is None or not skill:
+            return Response({'error': 'intern_id, milestone_index, and skill are required.'}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            intern = User.objects.get(id=intern_id)
+            from apps.analytics.services.llm_learning_path_generator import get_learning_path_generator
+            generator = get_learning_path_generator()
+            
+            task_data = generator.generate_milestone_task(
+                skill=skill,
+                intern_name=intern.full_name or intern.email,
+                goal_text=goal,
+                basics_only=basics_only
+            )
+            
+            if 'error' in task_data:
+                return Response(task_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+            # Save to path
+            from apps.analytics.services.learning_path_optimizer import save_milestone_task
+            saved = save_milestone_task(intern_id, int(milestone_index), task_data)
+            
+            return Response({
+                'task': task_data,
+                'saved': saved
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"LLMMilestoneTaskView error: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ReviewMilestoneTaskView(APIView):
+    """
+    POST /api/analytics/learning-path/review-milestone-task/
+    
+    Manager approves or rejects/edits the generated milestone task.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+            return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        intern_id = request.data.get('intern_id')
+        milestone_index = request.data.get('milestone_index')
+        action = request.data.get('action') # 'APPROVE', 'REJECT'
+
+        if intern_id is None or milestone_index is None or not action:
+            return Response({'error': 'intern_id, milestone_index, and action are required.'}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from apps.analytics.services.learning_path_optimizer import approve_milestone_task
+            if action == 'APPROVE':
+                result = approve_milestone_task(intern_id, int(milestone_index))
+                return Response(result, status=status.HTTP_200_OK)
+            else:
+                # REJECT logic: clear task_details
+                from apps.analytics.models import LearningPath
+                path = LearningPath.objects.filter(intern_id=intern_id).order_by('-updated_at').first()
+                if path and 0 <= int(milestone_index) < len(path.milestones):
+                    path.milestones[int(milestone_index)]['task_details'] = None
+                    path.save()
+                    return Response({'message': 'Task rejected and cleared.'}, status=status.HTTP_200_OK)
+                return Response({'error': 'Milestone not found.'}, status=status.HTTP_404_NOT_FOUND)
+                
+        except Exception as e:
+            logger.error(f"ReviewMilestoneTaskView error: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

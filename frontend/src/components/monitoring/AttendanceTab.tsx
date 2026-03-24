@@ -105,9 +105,36 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
         return variants[status] || 'info';
     };
 
-    const getStatCardClass = (status: string) => {
+    const getStatCardClass = (status: string | null) => {
         const isActive = statusFilter === status;
-        return `relative rounded-2xl border backdrop-blur-xl bg-[var(--card-bg)] border-[var(--border-color)] p-5 text-center cursor-pointer transition-all hover:scale-105 ${isActive ? 'border-purple-500/50 bg-purple-500/5 shadow-lg' : ''}`;
+        const colorMap: Record<string, string> = {
+            'ALL': 'from-purple-500/10 to-pink-500/10 border-purple-500/20',
+            'PRESENT': 'from-emerald-500/10 to-teal-500/10 border-emerald-500/20',
+            'ABSENT': 'from-red-500/10 to-rose-500/10 border-red-500/20',
+            'LATE': 'from-amber-500/10 to-orange-500/10 border-amber-500/20',
+            'WORK_FROM_HOME': 'from-indigo-500/10 to-violet-500/10 border-indigo-500/20',
+        };
+        const activeColorMap: Record<string, string> = {
+            'ALL': 'border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.2)] bg-purple-500/10',
+            'PRESENT': 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.2)] bg-emerald-500/10',
+            'ABSENT': 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)] bg-red-500/10',
+            'LATE': 'border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)] bg-amber-500/10',
+            'WORK_FROM_HOME': 'border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)] bg-indigo-500/10',
+        };
+
+        const baseColor = colorMap[status || 'ALL'];
+        const activeColor = activeColorMap[status || 'ALL'];
+
+        return `relative rounded-3xl border backdrop-blur-xl bg-[var(--card-bg)] p-6 text-center cursor-pointer transition-all duration-300 hover:scale-105 group overflow-hidden ${isActive ? activeColor : `border-[var(--border-color)] hover:${baseColor}`}`;
+    };
+
+    const formatDate = (dateString: string) => {
+        try {
+            const date = new Date(dateString);
+            return date.toISOString().split('T')[0];
+        } catch (e) {
+            return dateString;
+        }
     };
 
     return (
@@ -126,156 +153,181 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
                 </Button>
             </div>
 
-            {/* Month/Year Filter */}
-            <div className="flex flex-wrap items-center gap-4 mb-4">
-                <div className="flex items-center gap-2">
-                    <label className="text-sm text-[var(--text-dim)]">Month:</label>
-                    <select
-                        value={monthFilter === 'all' ? 'all' : monthFilter}
-                        onChange={(e) => setMonthFilter(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
-                        className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-[var(--text-main)] text-sm focus:outline-none focus:border-purple-500 hover:bg-purple-500/5 transition-colors"
-                    >
-                        <option value="all">All Months</option>
-                        <option value={1}>January</option>
-                        <option value={2}>February</option>
-                        <option value={3}>March</option>
-                        <option value={4}>April</option>
-                        <option value={5}>May</option>
-                        <option value={6}>June</option>
-                        <option value={7}>July</option>
-                        <option value={8}>August</option>
-                        <option value={9}>September</option>
-                        <option value={10}>October</option>
-                        <option value={11}>November</option>
-                        <option value={12}>December</option>
-                    </select>
-                </div>
-                <div className="flex items-center gap-2">
-                    <label className="text-sm text-[var(--text-dim)]">Year:</label>
-                    <select
-                        value={yearFilter === 'all' ? 'all' : yearFilter}
-                        onChange={(e) => setYearFilter(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
-                        className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-[var(--text-main)] text-sm focus:outline-none focus:border-purple-500 hover:bg-purple-500/5 transition-colors"
-                    >
-                        <option value="all">All Years</option>
-                        <option value={2024}>2024</option>
-                        <option value={2025}>2025</option>
-                        <option value={2026}>2026</option>
-                        <option value={2027}>2027</option>
-                        <option value={2028}>2028</option>
-                    </select>
+            {/* Filters Redesign */}
+            <div className="flex flex-wrap items-center gap-6 p-1">
+                <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Time Window</span>
+                    <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] p-1 rounded-2xl">
+                        <select
+                            value={monthFilter === 'all' ? 'all' : monthFilter}
+                            onChange={(e) => setMonthFilter(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+                            className="bg-transparent border-none text-[var(--text-main)] text-xs font-bold px-3 py-1.5 focus:outline-none cursor-pointer"
+                        >
+                            <option value="all">All Months</option>
+                            <option value={1}>January</option>
+                            <option value={2}>February</option>
+                            <option value={3}>March</option>
+                            <option value={4}>April</option>
+                            <option value={5}>May</option>
+                            <option value={6}>June</option>
+                            <option value={7}>July</option>
+                            <option value={8}>August</option>
+                            <option value={9}>September</option>
+                            <option value={10}>October</option>
+                            <option value={11}>November</option>
+                            <option value={12}>December</option>
+                        </select>
+                        <div className="w-px bg-white/5 my-1" />
+                        <select
+                            value={yearFilter === 'all' ? 'all' : yearFilter}
+                            onChange={(e) => setYearFilter(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+                            className="bg-transparent border-none text-[var(--text-main)] text-xs font-bold px-3 py-1.5 focus:outline-none cursor-pointer"
+                        >
+                            <option value="all">All Years</option>
+                            <option value={2024}>2024</option>
+                            <option value={2025}>2025</option>
+                            <option value={2026}>2026</option>
+                            <option value={2027}>2027</option>
+                            <option value={2028}>2028</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
             {/* Attendance Stats */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <button
-                    onClick={() => setStatusFilter(statusFilter === null ? null : null)}
-                    className={getStatCardClass('ALL')}
+                    onClick={() => setStatusFilter(null)}
+                    className={getStatCardClass(null)}
                 >
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-500/5 pointer-events-none rounded-2xl"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="relative">
-                        <p className="text-2xl font-bold text-[var(--text-main)]">{monthYearFiltered.length}</p>
-                        <p className="text-sm text-[var(--text-dim)]">Total</p>
+                        <p className="text-3xl font-black text-[var(--text-main)] tracking-tighter italic">{monthYearFiltered.length}</p>
+                        <p className="text-[10px] font-black text-[var(--text-dim)] uppercase tracking-widest mt-1">Total Logs</p>
                     </div>
                 </button>
                 <button
                     onClick={() => setStatusFilter(statusFilter === 'PRESENT' ? null : 'PRESENT')}
                     className={getStatCardClass('PRESENT')}
                 >
-                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-teal-5/5 pointer-events-none rounded-2xl"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="relative">
-                        <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{monthYearFiltered.filter(a => a.status === 'PRESENT').length}</p>
-                        <p className="text-sm text-[var(--text-dim)]">Present</p>
+                        <p className="text-3xl font-black text-emerald-500 tracking-tighter italic">{monthYearFiltered.filter(a => a.status === 'PRESENT').length}</p>
+                        <p className="text-[10px] font-black text-[var(--text-dim)] uppercase tracking-widest mt-1">Present</p>
                     </div>
                 </button>
                 <button
                     onClick={() => setStatusFilter(statusFilter === 'ABSENT' ? null : 'ABSENT')}
                     className={getStatCardClass('ABSENT')}
                 >
-                    <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 via-transparent to-rose-500/5 pointer-events-none rounded-2xl"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="relative">
-                        <p className="text-2xl font-bold text-red-600 dark:text-red-400">{monthYearFiltered.filter(a => a.status === 'ABSENT').length}</p>
-                        <p className="text-sm text-[var(--text-dim)]">Absent</p>
+                        <p className="text-3xl font-black text-red-500 tracking-tighter italic">{monthYearFiltered.filter(a => a.status === 'ABSENT').length}</p>
+                        <p className="text-[10px] font-black text-[var(--text-dim)] uppercase tracking-widest mt-1">Absent</p>
                     </div>
                 </button>
                 <button
                     onClick={() => setStatusFilter(statusFilter === 'LATE' ? null : 'LATE')}
                     className={getStatCardClass('LATE')}
                 >
-                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-orange-500/5 pointer-events-none rounded-2xl"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="relative">
-                        <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{monthYearFiltered.filter(a => a.status === 'LATE').length}</p>
-                        <p className="text-sm text-[var(--text-dim)]">Late</p>
+                        <p className="text-3xl font-black text-amber-500 tracking-tighter italic">{monthYearFiltered.filter(a => a.status === 'LATE').length}</p>
+                        <p className="text-[10px] font-black text-[var(--text-dim)] uppercase tracking-widest mt-1">Late</p>
                     </div>
                 </button>
                 <button
                     onClick={() => setStatusFilter(statusFilter === 'WORK_FROM_HOME' ? null : 'WORK_FROM_HOME')}
                     className={getStatCardClass('WORK_FROM_HOME')}
                 >
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-violet-500/5 pointer-events-none rounded-2xl"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="relative">
-                        <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{monthYearFiltered.filter(a => a.status === 'WORK_FROM_HOME').length}</p>
-                        <p className="text-sm text-[var(--text-dim)]">WFH</p>
+                        <p className="text-3xl font-black text-indigo-500 tracking-tighter italic">{monthYearFiltered.filter(a => a.status === 'WORK_FROM_HOME').length}</p>
+                        <p className="text-[10px] font-black text-[var(--text-dim)] uppercase tracking-widest mt-1">Remote</p>
                     </div>
                 </button>
             </div>
 
-            {/* Attendance Table */}
-            <div className="relative rounded-2xl border backdrop-blur-xl bg-[var(--card-bg)] border-[var(--border-color)] overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-[var(--bg-muted)] border-b border-[var(--border-color)]">
-                            <tr>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--text-dim)] uppercase tracking-wider">Date</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--text-dim)] uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--text-dim)] uppercase tracking-wider">Check In</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--text-dim)] uppercase tracking-wider">Check Out</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--text-dim)] uppercase tracking-wider">Hours</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--border-color)]">
-                             {paginatedAttendance.map((record) => (
-                                <tr key={record.id} className="hover:bg-purple-500/[0.02] transition-colors">
-                                    <td className="px-6 py-4 text-sm font-medium text-[var(--text-main)]">{record.date}</td>
-                                    <td className="px-6 py-4">
-                                        <Badge variant={getStatusBadge(record.status)}>
-                                            {record.status}
-                                        </Badge>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-[var(--text-dim)]">{record.check_in_time || '-'}</td>
-                                    <td className="px-6 py-4 text-sm text-[var(--text-dim)]">{record.check_out_time || '-'}</td>
-                                    <td className="px-6 py-4 text-sm font-medium text-[var(--text-main)]">{record.working_hours}h</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            {/* Attendance List Redesign */}
+            <div className="space-y-4">
+                <div className="flex items-center justify-between px-6 mb-2">
+                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Chronological Log</h3>
+                    <div className="text-[10px] font-bold text-slate-500 bg-white/5 px-3 py-1 rounded-full">{filteredAttendance.length} Records Found</div>
                 </div>
-                {filteredAttendance.length > 0 && totalPages > 1 && (
-                    <div className="flex items-center justify-between px-6 py-4 bg-[var(--bg-muted)] border-t border-[var(--border-color)]">
-                        <div className="text-sm text-[var(--text-dim)]">
-                            Showing <span className="text-[var(--text-main)] font-medium">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="text-[var(--text-main)] font-medium">{Math.min(currentPage * ITEMS_PER_PAGE, filteredAttendance.length)}</span> of <span className="text-[var(--text-main)] font-medium">{filteredAttendance.length}</span> results
+
+                <div className="space-y-3">
+                    {paginatedAttendance.length > 0 ? (
+                        paginatedAttendance.map((record) => (
+                            <div key={record.id} className="bg-[var(--card-bg)] hover:bg-white/[0.02] border border-[var(--border-color)] hover:border-emerald-500/20 rounded-2xl p-4 flex items-center justify-between gap-4 transition-all group">
+                                {/* Date Column */}
+                                <div className="w-48 shrink-0 flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-slate-800/50 flex items-center justify-center text-slate-400 group-hover:text-emerald-400 group-hover:bg-emerald-400/10 transition-colors">
+                                        <Calendar size={18} />
+                                    </div>
+                                    <span className="text-sm font-black text-[var(--text-main)] font-mono tracking-tighter">{formatDate(record.date)}</span>
+                                </div>
+
+                                {/* Status Column */}
+                                <div className="w-40 shrink-0 flex justify-center">
+                                    <Badge variant={getStatusBadge(record.status)} size="lg" className="px-5 py-1.5 rounded-full uppercase italic font-black tracking-widest text-[10px] min-w-[120px] text-center shadow-sm">
+                                        {record.status.replace(/_/g, ' ')}
+                                    </Badge>
+                                </div>
+
+                                {/* Time Columns */}
+                                <div className="w-36 shrink-0 flex flex-col items-center">
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Check In</span>
+                                    <span className="text-sm font-bold text-[var(--text-main)] font-mono">{record.check_in_time || '--- ---'}</span>
+                                </div>
+                                
+                                <div className="w-36 shrink-0 flex flex-col items-center">
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Check Out</span>
+                                    <span className="text-sm font-bold text-[var(--text-main)] font-mono">{record.check_out_time || '--- ---'}</span>
+                                </div>
+
+                                {/* Payload Column */}
+                                <div className="w-40 shrink-0 flex flex-col items-center border-l border-white/5 pl-4">
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Total Payload</span>
+                                    <span className="text-sm font-black text-emerald-400 font-mono tracking-tighter">{record.working_hours}h</span>
+                                </div>
+
+                                {/* Quick Actions */}
+                                <div className="w-32 shrink-0 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button size="sm" variant="secondary" className="rounded-xl bg-white/5 border-none text-[10px] uppercase font-black tracking-widest px-6">Details</Button>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="bg-[var(--card-bg)] border border-dashed border-[var(--border-color)] rounded-3xl p-20 text-center">
+                            <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-600">
+                                <Calendar size={32} />
+                            </div>
+                            <h3 className="text-lg font-black text-[var(--text-main)] uppercase italic tracking-tighter">No Records Found</h3>
+                            <p className="text-[var(--text-dim)] mt-2 italic">Try adjusting your filters to find existing logs.</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                size="sm"
-                                variant="secondary"
+                    )}
+                </div>
+
+                {filteredAttendance.length > 0 && totalPages > 1 && (
+                    <div className="flex items-center justify-between px-6 py-8">
+                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                            Page <span className="text-white">{currentPage}</span> <span className="mx-2">/</span> {totalPages}
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed text-slate-500' : 'bg-white/5 hover:bg-emerald-500/10 text-white hover:text-emerald-400'}`}
                             >
                                 Previous
-                            </Button>
-                            <span className="text-sm text-[var(--text-dim)] px-2">
-                                Page {currentPage} of {totalPages}
-                            </span>
-                            <Button
-                                size="sm"
-                                variant="secondary"
+                            </button>
+                            <button
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                 disabled={currentPage === totalPages}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed text-slate-500' : 'bg-white/5 hover:bg-emerald-500/10 text-white hover:text-emerald-400'}`}
                             >
                                 Next
-                            </Button>
+                            </button>
                         </div>
                     </div>
                 )}

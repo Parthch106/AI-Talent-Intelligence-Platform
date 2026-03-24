@@ -34,6 +34,11 @@ from .views import (
     # LLM Task Generator
     LLMTaskSuggestionView,
     LLMTaskReviewView,
+    # Custom Skill Paths
+    SkillListView,
+    LLMLearningPathSuggestionView,
+    LLMMilestoneTaskView,
+    ReviewMilestoneTaskView,
 )
 from .views_talent_intelligence import (
     AnalyzeInternView,
@@ -135,4 +140,8 @@ urlpatterns = [
     # ============================================================================
     path('llm/generate-tasks/', LLMTaskSuggestionView.as_view(), name='llm-generate-tasks'),
     path('llm/review-task/', LLMTaskReviewView.as_view(), name='llm-review-task'),
+    path('llm/suggest-path/', LLMLearningPathSuggestionView.as_view(), name='llm-suggest-path'),
+    path('skills/', SkillListView.as_view(), name='skill-list'),
+    path('learning-path/generate-milestone-task/', LLMMilestoneTaskView.as_view(), name='llm-generate-milestone-task'),
+    path('learning-path/review-milestone-task/', ReviewMilestoneTaskView.as_view(), name='review-milestone-task'),
 ]

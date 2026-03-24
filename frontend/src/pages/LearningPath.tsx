@@ -3,7 +3,7 @@ import {
     BookOpen, Brain, ChevronRight, CheckCircle2, Circle,
     Clock, TrendingUp, Zap, Target, AlertCircle, RefreshCw,
     Star, Activity, Layers, Play, Award, BarChart3, Cpu, X,
-    ChevronDown, ChevronUp, ClipboardList
+    ChevronDown, ChevronUp, ClipboardList, Sparkles, Rocket, Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
@@ -39,6 +39,12 @@ interface Milestone {
     current_mastery: number;
     mastery_target: number;
     status: 'COMPLETED' | 'IN_PROGRESS' | 'UPCOMING';
+    task_details?: {
+        title: string;
+        description: string;
+        starter_script: string;
+        status: 'PENDING' | 'APPROVED';
+    };
 }
 
 interface PathProgress {
@@ -402,6 +408,16 @@ const LearningPath: React.FC = () => {
     const [loadingGenerate, setLoadingGenerate] = useState(false);
     const [activeStatModal, setActiveStatModal] = useState<string | null>(null);
     const [activeMilestoneModal, setActiveMilestoneModal] = useState<Milestone | null>(null);
+    
+    // Custom Path States
+    const [availableSkills, setAvailableSkills] = useState<string[]>([]);
+    const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+    const [customPathTitle, setCustomPathTitle] = useState('');
+    const [aiGoal, setAiGoal] = useState('');
+    const [isSuggesting, setIsSuggesting] = useState(false);
+    const [aiRationale, setAiRationale] = useState('');
+    const [basicsOnly, setBasicsOnly] = useState(false);
+
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loadingTasks, setLoadingTasks] = useState(false);
     const [activeTaskModal, setActiveTaskModal] = useState<Task | null>(null);
@@ -413,6 +429,15 @@ const LearningPath: React.FC = () => {
     const [activeInternId, setActiveInternId] = useState<number | null>(null);
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
+
+    // Filter states
+    const [statusFilter, setStatusFilter] = useState<string>('ALL');
+    const [projectFilter, setProjectFilter] = useState<string>('ALL');
+    const [searchQuery, setSearchQuery] = useState<string>('');
+
+    const [isGeneratingTask, setIsGeneratingTask] = useState(false);
+    const [activeMilestoneIndex, setActiveMilestoneIndex] = useState<number | null>(null);
+    const [isReviewingTask, setIsReviewingTask] = useState(false);
 
     const isManagerOrAdmin = user?.role === 'MANAGER' || user?.role === 'ADMIN';
     const effectiveInternId = activeInternId || (user?.role === 'INTERN' ? user.id : null);
@@ -498,18 +523,38 @@ const LearningPath: React.FC = () => {
         }
     }, []);
 
-    const generatePath = async () => {
+    const fetchAvailableSkills = useCallback(async () => {
+        try {
+            const response = await api.get('/analytics/skills/');
+            setAvailableSkills(response.data.skills);
+        } catch (err) {
+            console.error("Error fetching skills:", err);
+        }
+    }, []);
+
+    const generatePath = async (type: 'role' | 'skill' = 'role') => {
         if (!effectiveInternId) { setError('Select an intern first'); return; }
-        if (!targetRole.trim()) { 
+        
+        if (type === 'role' && !targetRole.trim()) { 
             setError(jobRoles.length > 0 ? 'Select a target role from the dropdown' : 'Enter a target role (e.g., BACKEND_DEVELOPER)'); 
             return; 
         }
+
+        if (type === 'skill' && selectedSkills.length === 0) {
+            setError('Please select at least one skill.');
+            return;
+        }
+
         setLoadingGenerate(true);
         setError('');
         try {
-            const res = await api.post(`/analytics/learning-path/${effectiveInternId}/`, { target_role: targetRole });
+            const payload = type === 'role' 
+                ? { target_role: targetRole }
+                : { type: 'skill', skills: selectedSkills, title: customPathTitle || 'Custom Skill Path', basics_only: basicsOnly };
+
+            const res = await api.post(`/analytics/learning-path/${effectiveInternId}/`, payload);
             if (res.status === 200 || res.status === 201) {
-                setSuccessMsg('Learning path generated!');
+                setSuccessMsg(type === 'role' ? 'Learning path generated!' : 'Custom skill path generated!');
                 setTimeout(() => setSuccessMsg(''), 3000);
                 loadPath(effectiveInternId);
                 if (isManagerOrAdmin) fetchRecommendation(effectiveInternId);
@@ -518,6 +563,100 @@ const LearningPath: React.FC = () => {
             setError(err.response?.data?.error || 'Failed to generate path');
         } finally {
             setLoadingGenerate(false);
+        }
+    };
+
+    const handleSuggestSkills = async () => {
+        if (!aiGoal) {
+            setError("Please enter a goal for the AI to analyze.");
+            return;
+        }
+        if (!effectiveInternId) { setError('Select an intern first'); return; }
+
+        setIsSuggesting(true);
+        setAiRationale('');
+        setError('');
+        try {
+            const response = await api.post('/analytics/llm/suggest-path/', {
+                intern_id: effectiveInternId,
+                goal: aiGoal,
+                basics_only: basicsOnly
+            });
+            
+            if (response.data.suggested_skills) {
+                setSelectedSkills(response.data.suggested_skills);
+                setAiRationale(response.data.rationale);
+                setCustomPathTitle(`${aiGoal} Focus`);
+                setSuccessMsg('AI suggestions received!');
+                setTimeout(() => setSuccessMsg(''), 3000);
+            }
+        } catch (err: any) {
+            console.error("Error fetching AI suggestions:", err);
+            setError(err.response?.data?.error || "Failed to get AI suggestions.");
+        } finally {
+            setIsSuggesting(false);
+        }
+    };
+
+    const handleGenerateMilestoneTask = async (skill: string, index: number) => {
+        if (!effectiveInternId) return;
+        setIsGeneratingTask(true);
+        setActiveMilestoneIndex(index);
+        setError('');
+        try {
+            const res = await api.post('/analytics/learning-path/generate-milestone-task/', {
+                intern_id: effectiveInternId,
+                milestone_index: index,
+                skill: skill,
+                goal: aiGoal || targetRole,
+                basics_only: basicsOnly
+            });
+            if (res.data.task) {
+                setSuccessMsg(`AI Task generated for ${skill}!`);
+                setTimeout(() => setSuccessMsg(''), 3000);
+                
+                // Refresh path AND active modal to show new details immediately
+                const pathRes = await api.get(`/analytics/learning-path/${effectiveInternId}/`);
+                setPath(pathRes.data);
+                
+                // Update the active modal state with the fresh milestone data
+                const updatedMilestone = pathRes.data.milestones[index];
+                if (updatedMilestone) {
+                    setActiveMilestoneModal(updatedMilestone);
+                }
+            }
+        } catch (err: any) {
+            setError(err.response?.data?.error || 'Failed to generate AI task');
+        } finally {
+            setIsGeneratingTask(false);
+        }
+    };
+
+    const handleReviewMilestoneTask = async (index: number, action: 'APPROVE' | 'REJECT') => {
+        if (!effectiveInternId) return;
+        setIsReviewingTask(true);
+        setError('');
+        try {
+            const res = await api.post('/analytics/learning-path/review-milestone-task/', {
+                intern_id: effectiveInternId,
+                milestone_index: index,
+                action: action
+            });
+            setSuccessMsg(res.data.message || `Task ${action === 'APPROVE' ? 'Approved' : 'Rejected'}`);
+            setTimeout(() => setSuccessMsg(''), 3000);
+
+            // Refresh path AND active modal
+            const pathRes = await api.get(`/analytics/learning-path/${effectiveInternId}/`);
+            setPath(pathRes.data);
+
+            const updatedMilestone = pathRes.data.milestones[index];
+            if (updatedMilestone) {
+                setActiveMilestoneModal(updatedMilestone);
+            }
+        } catch (err: any) {
+            setError(err.response?.data?.error || 'Failed to review task');
+        } finally {
+            setIsReviewingTask(false);
         }
     };
 
@@ -540,10 +679,11 @@ const LearningPath: React.FC = () => {
             loadPath(effectiveInternId);
             loadOptimalDiff(effectiveInternId);
             loadTasks(effectiveInternId);
+            fetchAvailableSkills();
             setTaskPage(1);
             if (isManagerOrAdmin) fetchRecommendation(effectiveInternId);
         }
-    }, [effectiveInternId, loadPath, loadOptimalDiff, loadTasks, fetchRecommendation, isManagerOrAdmin]);
+    }, [effectiveInternId, loadPath, loadOptimalDiff, loadTasks, fetchRecommendation, fetchAvailableSkills, isManagerOrAdmin]);
 
     const tasksCompleted = tasks.filter(t => t.status === 'COMPLETED').length;
     const tasksSubmitted = tasks.filter(t => t.status === 'SUBMITTED').length;
@@ -568,16 +708,8 @@ const LearningPath: React.FC = () => {
                                 <ClipboardList size={24} className="text-white" />
                             </div>
                             <div>
-                                <h1 className="text-3xl font-extrabold tracking-tight text-[var(--text-main)] sm:text-4xl">
-                                    AI Learning <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-400">Path</span>
-                                </h1>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-violet-500/10 text-violet-300 border border-violet-500/20 backdrop-blur-md">
-                                        <Brain size={12} className="text-violet-400" />
-                                        RL-Powered Insights
-                                    </span>
-                                    <p className="text-[var(--text-dim)] text-sm font-medium ml-1">Personalized growth trajectory</p>
-                                </div>
+                                <h1 className="text-2xl font-black text-[var(--text-main)] italic tracking-tighter uppercase">AIMs Adaptive Roadmap</h1>
+                                <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-[0.2em]">Personalized Learning & Skill Mastery</p>
                             </div>
                         </div>
                     </div>
@@ -636,14 +768,14 @@ const LearningPath: React.FC = () => {
                         <div className="p-6 pt-0 border-t border-[var(--border-color)] animate-slideDown">
                             <div className="space-y-8 mt-6">
                                 {/* Generate Path Form */}
-                                <div className="relative rounded-3xl bg-[var(--bg-muted)] border border-[var(--border-color)] p-6 backdrop-blur-md overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full blur-3xl" />
+                                <div className="bg-violet-600/10 border border-violet-500/20 rounded-2xl p-6 relative overflow-hidden group hover:border-violet-500/40 transition-all duration-500">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                     <div className="relative z-10">
                                         <div className="flex items-center gap-3 mb-5">
                                             <div className="w-8 h-8 rounded-lg bg-violet-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
                                                 <Target size={16} className="text-white" />
                                             </div>
-                                            <h2 className="text-base font-bold text-[var(--text-main)]">Generate Custom Growth Path</h2>
+                                            <h2 className="text-base font-bold text-[var(--text-main)]">AIMs Intelligence: Generate Custom Path</h2>
                                         </div>
                                         <div className="flex flex-col md:flex-row gap-4">
                                             {jobRoles.length > 0 ? (
@@ -669,7 +801,7 @@ const LearningPath: React.FC = () => {
                                                 />
                                             )}
                                             <button
-                                                onClick={generatePath}
+                                                onClick={() => generatePath('role')}
                                                 disabled={loadingGenerate}
                                                 className="flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-violet-600 to-indigo-700 hover:from-violet-500 hover:to-indigo-600 text-white text-sm font-black rounded-2xl transition-all duration-300 shadow-xl shadow-violet-500/20 disabled:opacity-50 active:scale-95"
                                             >
@@ -683,6 +815,115 @@ const LearningPath: React.FC = () => {
                                         <div className="mt-4 flex items-center gap-2">
                                             <div className="px-2 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-[10px] font-bold text-violet-400 uppercase tracking-widest">A* SEARCH ENABLED</div>
                                             <p className="text-[11px] text-[var(--text-muted)] font-medium">Optimal skill sequence calculation based on global prerequisite graphs.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Custom Skill Selection Section */}
+                                <div className="relative rounded-3xl bg-[var(--bg-muted)] border border-[var(--border-color)] p-6 backdrop-blur-md overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl" />
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-3 mb-6">
+                                            <div className="p-3 bg-purple-500/20 rounded-xl">
+                                                <Target className="w-6 h-6 text-purple-400" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-bold font-heading text-[var(--text-main)]">Focus on Specific Skills</h3>
+                                                <p className="text-[var(--text-dim)] text-sm">Select languages or frameworks for a custom path</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-6">
+                                            {/* AI Suggestion Input */}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="text-sm font-medium text-[var(--text-dim)] block">AI-Powered Suggestions</label>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Focus on Basics</span>
+                                                        <button 
+                                                            onClick={() => setBasicsOnly(!basicsOnly)}
+                                                            className={`w-10 h-5 rounded-full relative transition-all duration-300 ${basicsOnly ? 'bg-violet-500' : 'bg-slate-700'}`}
+                                                        >
+                                                            <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${basicsOnly ? 'left-6' : 'left-1'}`} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <div className="relative flex-1">
+                                                        <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
+                                                        <input
+                                                            type="text"
+                                                            value={aiGoal}
+                                                            onChange={(e) => setAiGoal(e.target.value)}
+                                                            placeholder="e.g., Become a Backend Expert, Master React..."
+                                                            className="w-full bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl py-2 pl-10 pr-4 text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all placeholder:text-[var(--text-muted)]"
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        onClick={handleSuggestSkills}
+                                                        disabled={isSuggesting || !aiGoal}
+                                                        className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-purple-500/20"
+                                                    >
+                                                        {isSuggesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+                                                        {isSuggesting ? 'Thinking...' : 'Suggest'}
+                                                    </button>
+                                                </div>
+                                                {aiRationale && (
+                                                    <div className="p-3 bg-purple-900/20 border border-purple-500/30 rounded-lg text-xs text-purple-200 animate-in fade-in slide-in-from-top-1">
+                                                        <div className="flex gap-2">
+                                                            <Brain className="w-4 h-4 flex-shrink-0" />
+                                                            <p>{aiRationale}</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Manual Skill Selector */}
+                                            <div className="space-y-3">
+                                                <label className="text-sm font-medium text-[var(--text-dim)] block">Select Focus Skills</label>
+                                                <div className="flex flex-wrap gap-2 p-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl min-h-[100px]">
+                                                    {availableSkills.map((skill) => (
+                                                        <button
+                                                          key={skill}
+                                                          onClick={() => {
+                                                            if (selectedSkills.includes(skill)) {
+                                                              setSelectedSkills(selectedSkills.filter(s => s !== skill));
+                                                            } else {
+                                                              setSelectedSkills([...selectedSkills, skill]);
+                                                            }
+                                                          }}
+                                                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+                                                            selectedSkills.includes(skill)
+                                                              ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-500/20'
+                                                              : 'bg-[var(--bg-color)] text-[var(--text-dim)] border border-[var(--border-color)] hover:bg-[var(--bg-muted)]/80'
+                                                          }`}
+                                                        >
+                                                            {skill}
+                                                            {selectedSkills.includes(skill) && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <label className="text-sm font-medium text-[var(--text-dim)] block">Path Title (Optional)</label>
+                                                <input
+                                                    type="text"
+                                                    value={customPathTitle}
+                                                    onChange={(e) => setCustomPathTitle(e.target.value)}
+                                                    placeholder="e.g., Python Backend Mastery"
+                                                    className="w-full bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl py-2 px-4 text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                                />
+                                            </div>
+
+                                            <button
+                                                onClick={() => generatePath('skill')}
+                                                disabled={loadingGenerate || selectedSkills.length === 0}
+                                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-xl font-bold font-heading flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20"
+                                            >
+                                                {loadingGenerate ? <Loader2 className="w-5 h-5 animate-spin" /> : <Rocket className="w-5 h-5" />}
+                                                {loadingGenerate ? 'GENERATING...' : 'GENERATE CUSTOM PATH'}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -719,9 +960,17 @@ const LearningPath: React.FC = () => {
                                                         `}>
                                                             {m.status === 'COMPLETED' ? <CheckCircle2 size={16} /> : <Circle size={14} />}
                                                         </div>
-                                                        <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
-                                                            Lvl {m.difficulty}
-                                                        </span>
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                                                                Lvl {m.difficulty}
+                                                            </span>
+                                                            {m.task_details && (
+                                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 ${m.task_details.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400 animate-pulse'}`}>
+                                                                    <Sparkles size={8} />
+                                                                    {m.task_details.status === 'APPROVED' ? 'Assigned' : 'Review Ready'}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <h4 className="font-bold text-[var(--text-main)] text-sm group-hover/milestone:text-violet-600 dark:group-hover/milestone:text-violet-300 transition-colors line-clamp-1">{m.title}</h4>
                                                     <div className="mt-3">
@@ -782,9 +1031,62 @@ const LearningPath: React.FC = () => {
                                 <ClipboardList size={18} className="text-violet-400" />
                                 <h2 className="font-semibold text-[var(--text-main)]">Task Flow Timeline</h2>
                             </div>
-                            <span className="text-xs text-[var(--text-dim)]">
-                                Assigned Work
-                            </span>
+                            <div className="flex items-center gap-3">
+                                <span className="text-xs text-[var(--text-dim)] hidden sm:block">
+                                    Assigned Work
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Filter Bar */}
+                        <div className="mb-6 bg-[var(--bg-muted)]/50 border border-[var(--border-color)] rounded-2xl p-3 backdrop-blur-md flex flex-wrap items-center gap-3">
+                            {/* Search */}
+                            <div className="relative flex-1 min-w-[200px]">
+                                <Activity className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={14} />
+                                <input
+                                    type="text"
+                                    placeholder="Search tasks..."
+                                    value={searchQuery}
+                                    onChange={(e) => { setSearchQuery(e.target.value); setTaskPage(1); }}
+                                    className="w-full pl-9 pr-4 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-violet-500/40 transition-all"
+                                />
+                            </div>
+
+                            {/* Status Filter */}
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => { setStatusFilter(e.target.value); setTaskPage(1); }}
+                                className="px-4 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-xs font-bold uppercase tracking-wider text-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-violet-500/40 cursor-pointer appearance-none"
+                            >
+                                <option value="ALL">All Status</option>
+                                <option value="ASSIGNED">Assigned</option>
+                                <option value="IN_PROGRESS">In Progress</option>
+                                <option value="SUBMITTED">Submitted</option>
+                                <option value="COMPLETED">Completed</option>
+                            </select>
+
+                            {/* Project Filter */}
+                            <select
+                                value={projectFilter}
+                                onChange={(e) => { setProjectFilter(e.target.value); setTaskPage(1); }}
+                                className="px-4 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-xs font-bold uppercase tracking-wider text-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-violet-500/40 cursor-pointer appearance-none"
+                            >
+                                <option value="ALL">All Projects</option>
+                                {[...new Set(tasks.map(t => t.project?.name).filter(Boolean))].map(p => (
+                                    <option key={p} value={p || ''}>{p}</option>
+                                ))}
+                            </select>
+
+                            {/* Clear Filters */}
+                            {(statusFilter !== 'ALL' || projectFilter !== 'ALL' || searchQuery !== '') && (
+                                <button
+                                    onClick={() => { setStatusFilter('ALL'); setProjectFilter('ALL'); setSearchQuery(''); setTaskPage(1); }}
+                                    className="p-2 rounded-xl hover:bg-red-500/10 text-red-400 transition-all active:scale-90"
+                                    title="Clear Filters"
+                                >
+                                    <X size={16} />
+                                </button>
+                            )}
                         </div>
 
                         {loadingTasks ? (
@@ -801,57 +1103,79 @@ const LearningPath: React.FC = () => {
                                 {/* Vertical background line */}
                                 <div className="absolute left-6 top-6 bottom-6 w-px bg-gradient-to-b from-violet-500/50 via-slate-700/30 to-transparent" />
                                 
-                                <div className="space-y-2">
-                                    {/* Start node - only on the last page */}
-                                    {taskPage === Math.ceil(tasks.length / TASKS_PER_PAGE) && (
-                                        <div className="flex items-start gap-6 pb-4">
-                                            <div className="w-12 h-12 rounded-2xl dark:bg-slate-900 dark:border-slate-800 bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 shadow-lg relative z-10">
-                                                <div className="w-2 h-2 rounded-full dark:bg-slate-600 bg-slate-400" />
-                                            </div>
-                                            <div className="py-3">
-                                                <p className="text-sm font-bold text-[var(--text-muted)] tracking-tight uppercase">
-                                                    Onboarding Reached
-                                                </p>
-                                                <p className="text-xs text-[var(--text-muted)] mt-1">Foundation established</p>
-                                            </div>
-                                        </div>
-                                    )}
+                                    {(() => {
+                                        const filteredTasks = tasks.filter(task => {
+                                            const matchesStatus = statusFilter === 'ALL' || task.status === statusFilter;
+                                            const matchesProject = projectFilter === 'ALL' || task.project?.name === projectFilter;
+                                            const matchesSearch = searchQuery === '' || 
+                                                task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                                task.description.toLowerCase().includes(searchQuery.toLowerCase());
+                                            return matchesStatus && matchesProject && matchesSearch;
+                                        });
+                                        const totalPages = Math.ceil(filteredTasks.length / TASKS_PER_PAGE);
+                                        
+                                        return (
+                                            <>
+                                                <div className="space-y-2">
+                                                    {filteredTasks
+                                                        .sort((a, b) => new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime())
+                                                        .slice((taskPage - 1) * TASKS_PER_PAGE, taskPage * TASKS_PER_PAGE)
+                                                        .map(task => (
+                                                            <TaskCard
+                                                                key={task.id}
+                                                                task={task}
+                                                                onClick={() => setActiveTaskModal(task)}
+                                                            />
+                                                        ))
+                                                    }
 
-                                    {tasks
-                                        .sort((a, b) => new Date(a.assigned_at).getTime() - new Date(b.assigned_at).getTime())
-                                        .slice((taskPage - 1) * TASKS_PER_PAGE, taskPage * TASKS_PER_PAGE)
-                                        .map(task => (
-                                            <TaskCard
-                                                key={task.id}
-                                                task={task}
-                                                onClick={() => setActiveTaskModal(task)}
-                                            />
-                                        ))
-                                    }
-                                </div>
+                                                    {/* Start node - only on the last page */}
+                                                    {taskPage === totalPages && filteredTasks.length > 0 && (
+                                                        <div className="flex items-start gap-6 pt-4">
+                                                            <div className="w-12 h-12 rounded-2xl dark:bg-slate-900 dark:border-slate-800 bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 shadow-lg relative z-10">
+                                                                <div className="w-2 h-2 rounded-full dark:bg-slate-600 bg-slate-400" />
+                                                            </div>
+                                                            <div className="py-3">
+                                                                <p className="text-sm font-bold text-[var(--text-muted)] tracking-tight uppercase">
+                                                                    Onboarding Reached
+                                                                </p>
+                                                                <p className="text-xs text-[var(--text-muted)] mt-1">Foundation established</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
 
-                                {/* Pagination Controls */}
-                                {tasks.length > TASKS_PER_PAGE && (
-                                    <div className="flex items-center justify-center gap-4 mt-8 pt-4 border-t border-[var(--border-color)]">
-                                        <button
-                                            onClick={() => setTaskPage(p => Math.max(1, p - 1))}
-                                            disabled={taskPage === 1}
-                                            className="px-4 py-2 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] text-[var(--text-dim)] text-xs font-bold uppercase tracking-widest hover:bg-[var(--bg-muted)]/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                                        >
-                                            Previous
-                                        </button>
-                                        <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">
-                                            Page {taskPage} of {Math.ceil(tasks.length / TASKS_PER_PAGE)}
-                                        </span>
-                                        <button
-                                            onClick={() => setTaskPage(p => Math.min(Math.ceil(tasks.length / TASKS_PER_PAGE), p + 1))}
-                                            disabled={taskPage === Math.ceil(tasks.length / TASKS_PER_PAGE)}
-                                            className="px-4 py-2 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] text-[var(--text-dim)] text-xs font-bold uppercase tracking-widest hover:bg-[var(--bg-muted)]/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                                        >
-                                            Next
-                                        </button>
-                                    </div>
-                                )}
+                                                {filteredTasks.length > TASKS_PER_PAGE && (
+                                                    <div className="flex items-center justify-center gap-4 mt-8 pt-4 border-t border-[var(--border-color)]">
+                                                        <button
+                                                            onClick={() => setTaskPage(p => Math.max(1, p - 1))}
+                                                            disabled={taskPage === 1}
+                                                            className="px-4 py-2 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] text-[var(--text-dim)] text-xs font-bold uppercase tracking-widest hover:bg-[var(--bg-muted)]/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                                        >
+                                                            Previous
+                                                        </button>
+                                                        <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                                                            Page {taskPage} of {totalPages}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => setTaskPage(p => Math.min(totalPages, p + 1))}
+                                                            disabled={taskPage === totalPages}
+                                                            className="px-4 py-2 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] text-[var(--text-dim)] text-xs font-bold uppercase tracking-widest hover:bg-[var(--bg-muted)]/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                                        >
+                                                            Next
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                
+                                                {filteredTasks.length === 0 && (
+                                                    <div className="flex flex-col items-center justify-center py-12 text-[var(--text-dim)]">
+                                                        <X size={32} className="mb-2 opacity-20" />
+                                                        <p className="text-sm font-medium">No tasks match your filters</p>
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-16 rounded-2xl dark:bg-slate-800/30 dark:border-slate-700/30 border-dashed bg-white/50 border border-slate-200/30 border-dashed">
@@ -1289,7 +1613,7 @@ const LearningPath: React.FC = () => {
                                         <span className="flex items-center gap-1"><Clock size={14} /> {activeMilestoneModal.estimated_hours} hours required</span>
                                         <span>•</span>
                                         <span className={`${activeMilestoneModal.status === 'COMPLETED' ? 'text-emerald-400' : activeMilestoneModal.status === 'IN_PROGRESS' ? 'text-violet-400 animate-pulse' : 'text-slate-500'}`}>
-                                            {activeMilestoneModal.status.replace('_', ' ')}
+                                            {activeMilestoneModal.status}
                                         </span>
                                     </div>
                                 </div>
@@ -1300,14 +1624,14 @@ const LearningPath: React.FC = () => {
                         </div>
                         
                         {/* Body */}
-                        <div className="p-6 overflow-y-auto space-y-6">
+                        <div className="p-6 overflow-y-auto space-y-6 custom-scrollbar">
                             
-                            {/* Description */}
+                            {/* Outcome */}
                             <div>
-                                <h3 className="text-sm font-semibold dark:text-slate-100 text-slate-800 mb-2">Milestone Description</h3>
-                                <p className="text-sm dark:text-slate-300 text-slate-700 leading-relaxed p-4 dark:bg-slate-800/30 rounded-xl dark:border border-slate-700/30 bg-white/50 border border-slate-200/30">
-                                    {activeMilestoneModal.description}
-                                </p>
+                                <h3 className="text-sm font-semibold dark:text-slate-400 text-slate-600 mb-2">Outcome</h3>
+                                <div className="dark:bg-slate-800/30 p-4 rounded-xl dark:border border-slate-700/50 bg-slate-100/50 border border-slate-200/50">
+                                    <p className="dark:text-slate-300 text-slate-700 text-sm whitespace-pre-wrap">{activeMilestoneModal.description}</p>
+                                </div>
                             </div>
 
                             {/* Mastery Target vs Current */}
@@ -1330,10 +1654,86 @@ const LearningPath: React.FC = () => {
                                             style={{ width: `${Math.min(100, Math.round(activeMilestoneModal.current_mastery * 100))}%` }}
                                         />
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-3 flex items-center gap-1">
-                                        <Target size={12} /> Target mastery required to pass this milestone is {(activeMilestoneModal.mastery_target * 100).toFixed(0)}%.
-                                    </p>
                                 </div>
+                            </div>
+
+                            {/* AI Generated Task & Script Section */}
+                            <div className="pt-4 border-t border-[var(--border-color)]">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-base font-bold text-[var(--text-main)] flex items-center gap-2">
+                                        <Sparkles size={18} className="text-purple-400" />
+                                        Hands-on Project Task
+                                    </h3>
+                                </div>
+
+                                {activeMilestoneModal.task_details ? (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                                        {(isManagerOrAdmin || activeMilestoneModal.task_details.status === 'APPROVED') ? (
+                                            <>
+                                                <div className="p-4 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl">
+                                                    <h4 className="font-bold text-sm text-[var(--text-main)] mb-2">{activeMilestoneModal.task_details.title}</h4>
+                                                    <p className="text-xs text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap">{activeMilestoneModal.task_details.description}</p>
+                                                </div>
+                                                
+                                                <div>
+                                                    <h4 className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-2">Starter Script</h4>
+                                                    <div className="relative group">
+                                                        <pre className="p-4 bg-slate-950 rounded-xl text-xs text-indigo-300 font-mono overflow-x-auto border border-slate-800">
+                                                            <code>{activeMilestoneModal.task_details.starter_script}</code>
+                                                        </pre>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="p-6 text-center bg-violet-500/5 border border-dashed border-violet-500/20 rounded-xl">
+                                                <div className="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center mx-auto mb-3">
+                                                    <Clock size={20} className="text-violet-400 animate-pulse" />
+                                                </div>
+                                                <p className="text-xs text-violet-300 font-bold uppercase tracking-widest mb-1">Awaiting Review</p>
+                                                <p className="text-[11px] text-[var(--text-muted)]">Your mentor is currently reviewing the practical task for this milestone.</p>
+                                            </div>
+                                        )}
+
+                                        {isManagerOrAdmin && activeMilestoneModal.task_details.status === 'PENDING' && (
+                                            <div className="flex gap-2 pt-2">
+                                                <button
+                                                    onClick={() => handleReviewMilestoneTask(path?.milestones.findIndex(m => m.skill === activeMilestoneModal.skill) ?? -1, 'APPROVE')}
+                                                    disabled={isReviewingTask}
+                                                    className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+                                                >
+                                                    {isReviewingTask ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                                                    {isReviewingTask ? 'Assigning...' : 'Approve & Assign to Intern'}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleReviewMilestoneTask(path?.milestones.findIndex(m => m.skill === activeMilestoneModal.skill) ?? -1, 'REJECT')}
+                                                    disabled={isReviewingTask}
+                                                    className="px-4 py-2.5 bg-slate-700 hover:bg-red-600/80 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                                                    title="Reject & regenerate a fresh AI task for this milestone"
+                                                >
+                                                    Reject & Regenerate
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="p-6 text-center bg-amber-500/5 border border-dashed border-amber-500/20 rounded-xl">
+                                        <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-3">
+                                            <Loader2 size={20} className="text-amber-400 animate-spin" />
+                                        </div>
+                                        <p className="text-xs text-amber-300 font-bold uppercase tracking-widest mb-1">Task Generating…</p>
+                                        <p className="text-[11px] text-[var(--text-muted)] mb-3">The AI is building a hands-on task for this milestone. Refresh the page in a moment.</p>
+                                        {isManagerOrAdmin && (
+                                            <button
+                                                onClick={() => handleGenerateMilestoneTask(activeMilestoneModal.skill, path?.milestones.findIndex(m => m.skill === activeMilestoneModal.skill) ?? -1)}
+                                                disabled={isGeneratingTask}
+                                                className="px-4 py-2 bg-purple-600/80 hover:bg-purple-500 text-white rounded-lg text-xs font-bold flex items-center gap-2 transition-all disabled:opacity-50 mx-auto"
+                                            >
+                                                {isGeneratingTask ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+                                                Manually Generate
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Dependencies Graph / Prereqs */}

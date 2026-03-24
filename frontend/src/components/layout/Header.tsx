@@ -166,9 +166,9 @@ const Header: React.FC = () => {
                         </div>
                         <div>
                             <h2 className="text-xl font-heading font-black tracking-tighter text-white uppercase italic">
-                                Welcome, <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">{user?.full_name?.split(' ')[0] || 'User'}</span>
+                                Welcome to <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">AIMs</span>
                             </h2>
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mt-0.5">Systems Operational</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mt-0.5">Advanced Intern Management System</p>
                         </div>
                     </div>
                     <div className={`px-4 py-1.5 rounded-full text-[9px] font-black border uppercase tracking-[0.2em] shadow-lg ${getRoleBadgeStyle()}`}>

@@ -107,6 +107,13 @@ class TaskTracking(models.Model):
         related_name='tasks'
     )
     
+    # Skills developed by this task (copied from TaskTemplate when task is created)
+    skills_required = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of skill names developed by this task"
+    )
+    
     class Meta:
         ordering = ['-assigned_at']
     

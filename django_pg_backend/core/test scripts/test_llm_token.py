@@ -3,7 +3,13 @@ import os
 import sys
 
 # Setup Django path - settings.py is in core/core/
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'core'))
+import sys
+import os
+from pathlib import Path
+
+# Add project root to path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # Setup Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')

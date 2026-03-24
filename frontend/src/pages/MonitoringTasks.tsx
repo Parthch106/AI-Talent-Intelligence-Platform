@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { TasksTab } from '../components/monitoring';
-import { Card, ContributionHeatmap } from '../components/common';
+import { Card, ContributionHeatmap, Modal, Button } from '../components/common';
 import { ChevronDown } from 'lucide-react';
 
 // Types (matching MonitoringDashboard)
@@ -43,6 +43,12 @@ const MonitoringTasksPage: React.FC = () => {
     const [loading, setLoading] = useState<boolean>(false);
     const [heatmapLoading, setHeatmapLoading] = useState<boolean>(false);
     const [showInternDropdown, setShowInternDropdown] = useState(false);
+    const [activeModal, setActiveModal] = useState<string | null>(null);
+    const [projects, setProjects] = useState<any[]>([]);
+    const [modules, setModules] = useState<any[]>([]);
+    const [taskForm, setTaskForm] = useState({
+        title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] as string[],
+    });
 
     // Fetch interns when page loads (for managers/admins)
     useEffect(() => {
@@ -74,6 +80,66 @@ const MonitoringTasksPage: React.FC = () => {
             } catch (err) {
                 console.error('[fetchInterns] Error:', err);
             }
+        }
+    };
+
+    const fetchProjects = async (): Promise<void> => {
+        try {
+            const response = await axios.get('/projects/assignments/');
+            setProjects(response.data.results || response.data || []);
+        } catch (err) {
+            console.error('Error fetching projects:', err);
+        }
+    };
+
+    const fetchModules = async (projectId: string): Promise<void> => {
+        if (!projectId) {
+            setModules([]);
+            return;
+        }
+        try {
+            const response = await axios.get(`/projects/modules/?project_id=${projectId}`);
+            setModules(response.data || []);
+        } catch (err) {
+            console.error('Error fetching modules:', err);
+        }
+    };
+
+    const openModal = (modalType: string): void => {
+        if (modalType === 'task') {
+            fetchProjects();
+        }
+        setActiveModal(modalType);
+    };
+
+    const closeModal = (): void => {
+        setActiveModal(null);
+    };
+
+    const handleCreateTask = async (e: React.FormEvent): Promise<void> => {
+        e.preventDefault();
+        try {
+            const taskPayload: any = {
+                title: taskForm.title,
+                description: taskForm.description,
+                priority: taskForm.priority,
+                due_date: taskForm.due_date,
+                estimated_hours: taskForm.estimated_hours,
+                intern_id: selectedIntern,
+                skills_required: taskForm.skills_required
+            };
+            if (taskForm.project_assignment_id) {
+                taskPayload.project_assignment_id = parseInt(taskForm.project_assignment_id);
+            }
+            if (taskForm.project_module_id) {
+                taskPayload.project_module_id = parseInt(taskForm.project_module_id);
+            }
+            await axios.post('/analytics/tasks/create/', taskPayload);
+            closeModal();
+            setTaskForm({ title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] });
+            fetchData();
+        } catch (err) {
+            console.error('Error creating task:', err);
         }
     };
 
@@ -238,7 +304,7 @@ const MonitoringTasksPage: React.FC = () => {
                         </Card>
                         <TasksTab
                             tasks={tasks}
-                            onAddTask={() => {}}
+                            onAddTask={() => openModal('task')}
                             canCreate={user?.role === 'ADMIN' || user?.role === 'MANAGER'}
                             onStatusChange={handleTaskStatusChange}
                             onRefresh={fetchData}
@@ -251,6 +317,118 @@ const MonitoringTasksPage: React.FC = () => {
                     </>
                 )}
             </div>
+
+            {/* Task Creation Modal */}
+            <Modal
+                isOpen={activeModal === 'task'}
+                onClose={closeModal}
+                title="Assign New Task"
+                gradient="violet"
+            >
+                <form onSubmit={handleCreateTask} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Title</label>
+                        <input
+                            type="text"
+                            required
+                            placeholder="Enter task title"
+                            value={taskForm.title}
+                            onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description</label>
+                        <textarea
+                            placeholder="Enter task description"
+                            value={taskForm.description}
+                            onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
+                            rows={3}
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Priority</label>
+                            <select
+                                value={taskForm.priority}
+                                onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                            >
+                                <option value="LOW">Low</option>
+                                <option value="MEDIUM">Medium</option>
+                                <option value="HIGH">High</option>
+                                <option value="CRITICAL">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Project (Optional)</label>
+                        <select
+                            value={taskForm.project_assignment_id}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                const selectedProj = projects.find((p: any) => p.id === val);
+                                const projectId = selectedProj?.project?.id;
+                                setTaskForm({ ...taskForm, project_assignment_id: val, project_module_id: '' });
+                                fetchModules(projectId);
+                            }}
+                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                        >
+                            <option value="">No Project</option>
+                            {projects.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                    {p.project?.name || p.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Module {taskForm.project_assignment_id ? '' : '(Select a project first)'}</label>
+                        <select
+                            value={taskForm.project_module_id}
+                            onChange={(e) => setTaskForm({ ...taskForm, project_module_id: e.target.value })}
+                            disabled={!taskForm.project_assignment_id}
+                            className={`w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all ${!taskForm.project_assignment_id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            <option value="">{taskForm.project_assignment_id ? 'Select Module' : 'No project selected'}</option>
+                            {modules.map((m) => (
+                                <option key={m.id} value={m.id}>
+                                    {m.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Skills Developed (comma-separated)</label>
+                        <input
+                            type="text"
+                            placeholder="e.g., Python, Django, React"
+                            value={taskForm.skills_required.join(', ')}
+                            onChange={(e) => setTaskForm({ ...taskForm, skills_required: e.target.value.split(',').map(s => s.trim()).filter(s => s) })}
+                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Due Date</label>
+                        <input
+                            type="date"
+                            required
+                            value={taskForm.due_date}
+                            onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
+                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                        />
+                    </div>
+                    <div className="flex gap-3 pt-4">
+                        <Button type="button" onClick={closeModal} variant="outline" fullWidth>
+                            Cancel
+                        </Button>
+                        <Button type="submit" gradient="purple" fullWidth>
+                            Create Task
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 };

@@ -152,7 +152,7 @@ const PerformanceAnalytics: React.FC = () => {
         
         try {
             // Fetch core data first (essential)
-            const perfRes = await api.get(`/analytics/performance/dashboard/${selectedInternId}/`);
+            const perfRes = await api.get(`/analytics/performance/dashboard/${selectedInternId}/?all_time=true`);
             setPerformanceData(perfRes.data);
             
             // Fetch learning path with skills (non-essential)

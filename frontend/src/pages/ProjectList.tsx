@@ -60,7 +60,10 @@ const ProjectList: React.FC = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
+    const [showDetailModal, setShowDetailModal] = useState(false);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+    const [projectModules, setProjectModules] = useState<any[]>([]);
+    const [newModule, setNewModule] = useState({ name: '', description: '' });
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -230,6 +233,46 @@ const ProjectList: React.FC = () => {
         setShowAssignModal(true);
     };
 
+    const fetchProjectModules = async (projectId: number) => {
+        try {
+            const response = await api.get(`/projects/projects/${projectId}/modules/`);
+            setProjectModules(response.data);
+        } catch (err) {
+            setProjectModules([]);
+        }
+    };
+
+    const handleOpenDetailModal = (project: Project) => {
+        setSelectedProject(project);
+        setShowDetailModal(true);
+        fetchProjectModules(project.id);
+    };
+
+    const handleAddModule = async () => {
+        if (!selectedProject || !newModule.name) return;
+        setSubmitting(true);
+        try {
+            // Use the modules endpoint directly with project_id
+            await api.post('/projects/modules/', {
+                ...newModule,
+                project_id: selectedProject.id
+            });
+            setNewModule({ name: '', description: '' });
+            fetchProjectModules(selectedProject.id);
+        } catch (err: any) {
+            console.error('Add module error:', err.response?.data);
+            const errorData = err.response?.data;
+            if (typeof errorData === 'object' && errorData !== null) {
+                const errorMessages = Object.entries(errorData).map(([key, value]) => `${key}: ${value}`).join(', ');
+                setError(errorMessages);
+            } else {
+                setError(err.response?.data?.detail || 'Failed to add module');
+            }
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'COMPLETED': return <Badge variant="success" withDot>Completed</Badge>;
@@ -305,7 +348,8 @@ const ProjectList: React.FC = () => {
                     : "space-y-4"
                 }>
                     {projects.map((project) => (
-                        <Card key={project.id} hover className="group">
+                        <div key={project.id} onClick={() => handleOpenDetailModal(project)} className="cursor-pointer">
+                        <Card hover className="group">
                             {/* Header */}
                             <div className="flex items-start justify-between mb-4">
                                 <div className="flex items-center gap-3">
@@ -406,6 +450,7 @@ const ProjectList: React.FC = () => {
                                 )}
                             </div>
                         </Card>
+                        </div>
                     ))}
                 </div>
             )}
@@ -772,6 +817,222 @@ const ProjectList: React.FC = () => {
                                 </Button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Project Detail Modal */}
+            {showDetailModal && selectedProject && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDetailModal(false)}></div>
+                    <div className="relative bg-[var(--bg-color)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl shadow-purple-500/10 w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scale-in">
+                        {/* Modal Header */}
+                        <div className="sticky top-0 bg-[var(--bg-color)] backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] z-10">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/10">
+                                    <FolderKanban size={18} className="text-purple-600 dark:text-purple-400" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-[var(--text-main)]">{selectedProject.name}</h2>
+                                    <p className="text-xs text-[var(--text-dim)]">Project Details</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowDetailModal(false)}
+                                className="p-2 hover:bg-[var(--bg-muted)] rounded-xl transition-colors group"
+                            >
+                                <X size={20} className="text-[var(--text-dim)] group-hover:text-[var(--text-main)] transition-colors" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            {/* Project Info */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 bg-[var(--bg-muted)] rounded-xl">
+                                    <p className="text-xs text-[var(--text-dim)] mb-1">Status</p>
+                                    {getStatusBadge(selectedProject.status)}
+                                </div>
+                                <div className="p-4 bg-[var(--bg-muted)] rounded-xl">
+                                    <p className="text-xs text-[var(--text-dim)] mb-1">Mentor</p>
+                                    <p className="text-sm font-medium text-[var(--text-main)]">{selectedProject.mentor?.full_name || 'Unassigned'}</p>
+                                </div>
+                                <div className="p-4 bg-[var(--bg-muted)] rounded-xl">
+                                    <p className="text-xs text-[var(--text-dim)] mb-1">Start Date</p>
+                                    <p className="text-sm font-medium text-[var(--text-main)]">{selectedProject.start_date ? new Date(selectedProject.start_date).toLocaleDateString() : 'Not set'}</p>
+                                </div>
+                                <div className="p-4 bg-[var(--bg-muted)] rounded-xl">
+                                    <p className="text-xs text-[var(--text-dim)] mb-1">End Date</p>
+                                    <p className="text-sm font-medium text-[var(--text-main)]">{selectedProject.end_date ? new Date(selectedProject.end_date).toLocaleDateString() : 'Not set'}</p>
+                                </div>
+                            </div>
+
+                            {/* Description */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-[var(--text-main)] mb-2">Description</h3>
+                                <p className="text-sm text-[var(--text-dim)] bg-[var(--bg-muted)] p-4 rounded-xl">
+                                    {selectedProject.description || 'No description provided'}
+                                </p>
+                            </div>
+
+                            {/* Tech Stack */}
+                            {selectedProject.tech_stack && selectedProject.tech_stack.length > 0 && (
+                                <div>
+                                    <h3 className="text-sm font-semibold text-[var(--text-main)] mb-2">Tech Stack</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedProject.tech_stack.map((tech, index) => (
+                                            <span key={index} className="px-3 py-1.5 text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-300 rounded-lg border border-purple-500/20">
+                                                {tech}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Assigned Interns */}
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-sm font-semibold text-[var(--text-main)]">Assigned Interns ({selectedProject.assignments?.length || 0})</h3>
+                                    {showAddButton && (
+                                        <button
+                                            onClick={() => {
+                                                setShowDetailModal(false);
+                                                openAssignModal(selectedProject);
+                                            }}
+                                            className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
+                                        >
+                                            <UserPlus size={12} />
+                                            Add Intern
+                                        </button>
+                                    )}
+                                </div>
+                                {selectedProject.assignments && selectedProject.assignments.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {selectedProject.assignments.map((assignment) => (
+                                            <div key={assignment.id} className="flex items-center justify-between p-3 bg-[var(--bg-muted)] rounded-xl">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 bg-indigo-500/20 rounded-full flex items-center justify-center">
+                                                        <span className="text-xs font-medium text-indigo-600 dark:text-indigo-300">
+                                                            {assignment.intern?.full_name?.charAt(0) || '?'}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-[var(--text-main)]">{assignment.intern?.full_name || 'Unknown'}</p>
+                                                        <p className="text-xs text-[var(--text-dim)]">{assignment.role || 'No role'}</p>
+                                                    </div>
+                                                </div>
+                                                <Badge variant={assignment.status === 'ACTIVE' ? 'success' : 'warning'}>
+                                                    {assignment.status}
+                                                </Badge>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-[var(--text-muted)] p-4 bg-[var(--bg-muted)] rounded-xl text-center">No interns assigned</p>
+                                )}
+                            </div>
+
+                            {/* Modules */}
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-sm font-semibold text-[var(--text-main)]">Modules ({projectModules.length})</h3>
+                                    {showAddButton && (
+                                        <button
+                                            onClick={() => {
+                                                document.getElementById('module-name-input')?.focus();
+                                            }}
+                                            className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
+                                        >
+                                            <Plus size={12} />
+                                            Add Module
+                                        </button>
+                                    )}
+                                </div>
+                                
+                                {/* Add Module Form */}
+                                {showAddButton && (
+                                    <div className="mb-4 p-4 bg-[var(--bg-muted)] rounded-xl border border-[var(--border-color)]">
+                                        <p className="text-xs text-[var(--text-dim)] mb-3">Add New Module</p>
+                                        <div className="space-y-3">
+                                            <input
+                                                id="module-name-input"
+                                                type="text"
+                                                value={newModule.name}
+                                                onChange={e => setNewModule(prev => ({ ...prev, name: e.target.value }))}
+                                                placeholder="Module name"
+                                                className="w-full px-3 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)]"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={newModule.description}
+                                                onChange={e => setNewModule(prev => ({ ...prev, description: e.target.value }))}
+                                                placeholder="Module description (optional)"
+                                                className="w-full px-3 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)]"
+                                            />
+                                            <Button
+                                                onClick={handleAddModule}
+                                                gradient="purple"
+                                                size="sm"
+                                                loading={submitting}
+                                                disabled={!newModule.name}
+                                            >
+                                                Add Module
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {projectModules.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {projectModules.map((module: any) => (
+                                            <div key={module.id} className="p-3 bg-[var(--bg-muted)] rounded-xl">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-sm font-medium text-[var(--text-main)]">{module.name}</p>
+                                                        <p className="text-xs text-[var(--text-dim)] mt-1">{module.description || 'No description'}</p>
+                                                    </div>
+                                                    <span className="text-xs text-[var(--text-muted)]">Order: {module.order || 0}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-[var(--text-muted)] p-4 bg-[var(--bg-muted)] rounded-xl text-center">No modules created yet</p>
+                                )}
+                            </div>
+
+                            {/* Repository */}
+                            {selectedProject.repository_url && (
+                                <div>
+                                    <h3 className="text-sm font-semibold text-[var(--text-main)] mb-2">Repository</h3>
+                                    <a
+                                        href={selectedProject.repository_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors p-3 bg-[var(--bg-muted)] rounded-xl"
+                                    >
+                                        <ExternalLink size={16} />
+                                        {selectedProject.repository_url}
+                                    </a>
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            {showAddButton && (
+                                <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
+                                    <Button
+                                        variant="ghost"
+                                        onClick={() => {
+                                            setShowDetailModal(false);
+                                            openEditModal(selectedProject);
+                                        }}
+                                        fullWidth
+                                        icon={<Edit size={16} />}
+                                    >
+                                        Edit Project
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

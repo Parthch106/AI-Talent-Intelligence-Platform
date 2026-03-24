@@ -15,16 +15,25 @@ import os
 from datetime import timedelta
 from dotenv import load_dotenv
 
-# Load .env from the same directory as settings.py
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load .env from multiple possible locations (settings dir, project root)
+env_paths = [
+    os.path.join(os.path.dirname(__file__), '.env'),
+    os.path.join(BASE_DIR, '.env'),
+    os.path.join(BASE_DIR.parent, '.env'),
+]
+for env_path in env_paths:
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
 
 # Unset system-level GITHUB_TOKEN to avoid conflicts with AI_TALENT_GITHUB_TOKEN
 if 'GITHUB_TOKEN' in os.environ:
     del os.environ['GITHUB_TOKEN']
-# Note: AI_TALENT_GITHUB_TOKEN is loaded from .env and should NOT be deleted
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# GitHub Models Token for LLM Parsing
+AI_TALENT_GITHUB_TOKEN = os.getenv('AI_TALENT_GITHUB_TOKEN')
 
 
 # Quick-start development settings - unsuitable for production
@@ -150,10 +159,10 @@ AUTH_USER_MODEL = "accounts.User"
 # =============================================================================
 # Website Branding Settings
 # =============================================================================
-SITE_NAME = "Talent Intelligence Platform"
-SITE_HEADER = "AI Talent Intelligence"
-SITE_TITLE = "Talent Intelligence Platform"
-INDEX_TITLE = "Welcome to AI Talent Intelligence Platform"
+SITE_NAME = "AIMs"
+SITE_HEADER = "AIMs Talent Intelligence"
+SITE_TITLE = "AIMs - Advanced Intern Management System"
+INDEX_TITLE = "Welcome to AIMs - Advanced Intern Management System"
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/

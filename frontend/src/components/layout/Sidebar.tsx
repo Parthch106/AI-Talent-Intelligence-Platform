@@ -72,12 +72,12 @@ const Sidebar: React.FC = () => {
                     <div className="relative">
                         <div className="absolute -inset-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
                         <div className="relative w-12 h-12 bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-                            <Sparkles size={24} className="text-white" />
+                            <Target size={24} className="text-white" />
                         </div>
                     </div>
                     <div>
                         <h1 className="text-xl font-heading font-black tracking-tighter bg-gradient-to-r from-[var(--text-main)] via-purple-400 to-[var(--text-main)] bg-clip-text text-transparent uppercase italic">
-                            AI Pipeline
+                            AIMs
                         </h1>
                         <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-500 mt-0.5">Talent Intelligence</p>
                     </div>

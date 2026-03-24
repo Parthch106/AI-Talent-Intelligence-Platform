@@ -28,6 +28,48 @@ class ProjectViewSet(viewsets.ModelViewSet):
             serializer.save(mentor=self.request.user)
         else:
             serializer.save()
+    
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def modules(self, request, pk=None):
+        """
+        Get all modules for a specific project.
+        """
+        try:
+            project = self.get_object()
+            modules = ProjectModule.objects.filter(project=project)
+            serializer = ProjectModuleSerializer(modules, many=True)
+            return Response(serializer.data)
+        except Project.DoesNotExist:
+            return Response(
+                {'error': 'Project not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def add_module(self, request, pk=None):
+        """
+        Add a new module to a specific project.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"add_module called with pk={pk}, data={request.data}")
+        
+        try:
+            project = self.get_object()
+        except Project.DoesNotExist:
+            return Response(
+                {'error': 'Project not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        logger.info(f"Project found: {project.name}")
+        serializer = ProjectModuleSerializer(data=request.data)
+        logger.info(f"Serializer errors: {serializer.errors}")
+        
+        if serializer.is_valid():
+            serializer.save(project=project)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ProjectAssignmentViewSet(viewsets.ModelViewSet):
     queryset = ProjectAssignment.objects.all()

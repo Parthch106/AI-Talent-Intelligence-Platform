@@ -111,27 +111,31 @@ class PerformanceEvaluator:
         self.intern_id = intern_id
         self.intern = User.objects.get(id=intern_id)
     
-    def get_performance_metrics(self, days: int = 30) -> PerformanceMetrics:
+    def get_performance_metrics(self, days: int = 30, all_time: bool = False) -> PerformanceMetrics:
         """
-        Calculate performance metrics from intern's recent activity.
+        Calculate performance metrics from intern's activity.
         
         Args:
-            days: Number of days to look back for metrics calculation
+            days: Number of days to look back (ignored if all_time is True)
+            all_time: If True, include all tasks regardless of date
             
         Returns:
             PerformanceMetrics object with all derived metrics
         """
         now = timezone.now()
-        start_date = now - timedelta(days=days)
         
-        # Get completed tasks in the period
-        tasks = TaskTracking.objects.filter(
-            intern=self.intern,
-            assigned_at__gte=start_date
-        )
+        # Get tasks
+        if all_time:
+            tasks = TaskTracking.objects.filter(intern=self.intern)
+        else:
+            start_date = now - timedelta(days=days)
+            tasks = TaskTracking.objects.filter(
+                intern=self.intern,
+                assigned_at__gte=start_date
+            )
         
         total_tasks = tasks.count()
-        if total_tasks < 5:
+        if not all_time and total_tasks < 5:
             # Fallback for demo systems or low-activity periods: if few tasks recently, look back further
             all_tasks = TaskTracking.objects.filter(intern=self.intern)
             if all_tasks.exists():
@@ -161,6 +165,7 @@ class PerformanceEvaluator:
         # Quality Score: Average of quality ratings
         completed_tasks = tasks.filter(status='COMPLETED')
         completion_count = completed_tasks.count()
+        # Explicitly use completion_count to avoid Re-counting if expensive
         quality_avg = completed_tasks.aggregate(Avg('quality_rating'))['quality_rating__avg']
         quality_score = (quality_avg / 5.0) if quality_avg else 0.0
         
@@ -196,10 +201,13 @@ class PerformanceEvaluator:
                 growth_velocity = min(all_completed / 20.0, 0.8)
         
         # Engagement: Based on attendance and task submission patterns
-        attendance = AttendanceRecord.objects.filter(
-            intern=self.intern,
-            date__gte=start_date.date()
-        )
+        if all_time:
+            attendance = AttendanceRecord.objects.filter(intern=self.intern)
+        else:
+            attendance = AttendanceRecord.objects.filter(
+                intern=self.intern,
+                date__gte=start_date.date()
+            )
         
         # Fallback for demo data: if no attendance in window, use overall attendance
         if attendance.count() == 0:
@@ -493,7 +501,7 @@ class PerformanceEvaluator:
                 'message': 'Learning path service unavailable.'
             }
     
-    def evaluate(self, target_role: Optional[str] = None) -> Dict[str, Any]:
+    def evaluate(self, target_role: Optional[str] = None, all_time: bool = False) -> Dict[str, Any]:
         """
         Main evaluation method that produces all three outputs:
         1. Performance Status
@@ -502,12 +510,13 @@ class PerformanceEvaluator:
         
         Args:
             target_role: Optional target job role for learning path
+            all_time: If True, include all tasks regardless of date
             
         Returns:
             Comprehensive evaluation result dictionary
         """
         # 1. Get performance metrics
-        metrics = self.get_performance_metrics()
+        metrics = self.get_performance_metrics(all_time=all_time)
         
         # 2. Calculate performance score
         performance_score = self.calculate_performance_score(metrics)
@@ -599,22 +608,24 @@ class PerformanceEvaluator:
 
 
 def evaluate_intern_performance(intern_id: int, 
-                                target_role: Optional[str] = None) -> Dict[str, Any]:
+                                target_role: Optional[str] = None,
+                                all_time: bool = False) -> Dict[str, Any]:
     """
     Convenience function to evaluate intern performance.
     
     Args:
         intern_id: ID of the intern to evaluate
         target_role: Optional target job role for learning path
+        all_time: If True, evaluate based on all tasks
         
     Returns:
         Comprehensive evaluation result
     """
     evaluator = PerformanceEvaluator(intern_id)
-    return evaluator.evaluate(target_role)
+    return evaluator.evaluate(target_role, all_time=all_time)
 
 
-def get_performance_status(intern_id: int) -> Dict[str, Any]:
+def get_performance_status(intern_id: int, all_time: bool = False) -> Dict[str, Any]:
     """
     Quick performance status check.
     
@@ -622,7 +633,7 @@ def get_performance_status(intern_id: int) -> Dict[str, Any]:
         Status and score only
     """
     evaluator = PerformanceEvaluator(intern_id)
-    metrics = evaluator.get_performance_metrics()
+    metrics = evaluator.get_performance_metrics(all_time=all_time)
     score = evaluator.calculate_performance_score(metrics)
     status = evaluator.classify_performance(score)
     
@@ -634,7 +645,7 @@ def get_performance_status(intern_id: int) -> Dict[str, Any]:
     }
 
 
-def get_improvement_suggestions(intern_id: int) -> Dict[str, Any]:
+def get_improvement_suggestions(intern_id: int, all_time: bool = False) -> Dict[str, Any]:
     """
     Get improvement suggestions for an intern.
     
@@ -642,7 +653,7 @@ def get_improvement_suggestions(intern_id: int) -> Dict[str, Any]:
         Diagnosis and recommendations
     """
     evaluator = PerformanceEvaluator(intern_id)
-    metrics = evaluator.get_performance_metrics()
+    metrics = evaluator.get_performance_metrics(all_time=all_time)
     diagnosis = evaluator.diagnose_performance(metrics)
     suggestions = evaluator.generate_suggestions(diagnosis, metrics)
     

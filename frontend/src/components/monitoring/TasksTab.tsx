@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-    Plus, Target, Clock, Award, ChevronDown, CheckCircle, 
+    Plus, Target, Clock, Award, CheckCircle, 
     AlertTriangle, PlayCircle, Star, Code, Bug, LayoutGrid, 
     List, Sparkles, Wand2, Loader2, MessageSquare, 
-    Calendar, Filter, Search, MoreHorizontal, ArrowRight,
-    Layers
+    Calendar, Filter, Search, ArrowRight,
+    Layers, Trash2
 } from 'lucide-react';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
@@ -140,25 +140,29 @@ const TasksTab: React.FC<TasksTabProps> = ({
             {
                 value: 'IN_PROGRESS',
                 label: 'In Progress',
-                icon: <PlayCircle size={14} className="text-blue-500 dark:text-blue-400" />,
+                icon: PlayCircle,
+                iconColor: 'text-blue-500 dark:text-blue-400',
                 disabled: task.status === 'IN_PROGRESS'
             },
             {
                 value: 'SUBMITTED',
                 label: 'Submitted',
-                icon: <CheckCircle size={14} className="text-yellow-600 dark:text-yellow-400" />,
+                icon: CheckCircle,
+                iconColor: 'text-yellow-600 dark:text-yellow-400',
                 disabled: task.status === 'SUBMITTED'
             },
             {
                 value: 'COMPLETED',
                 label: 'Completed',
-                icon: <CheckCircle size={14} className="text-emerald-400" />,
+                icon: CheckCircle,
+                iconColor: 'text-emerald-400',
                 disabled: task.status === 'COMPLETED'
             },
             {
                 value: 'BLOCKED',
                 label: 'Blocked',
-                icon: <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />,
+                icon: AlertTriangle,
+                iconColor: 'text-red-500 dark:text-red-400',
                 disabled: task.status === 'BLOCKED'
             },
         ];
@@ -218,6 +222,18 @@ const TasksTab: React.FC<TasksTabProps> = ({
         if (onStatusChange) onStatusChange(taskId, newStatus);
     };
 
+    const handleDeleteTask = async (taskId: number) => {
+        if (!window.confirm('Are you sure you want to delete this task? This action cannot be undone.')) return;
+        try {
+            await axios.delete(`/analytics/tasks/${taskId}/`);
+            toast.success('Task deleted successfully');
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            console.error('Error deleting task:', error);
+            toast.error('Failed to delete task');
+        }
+    };
+
     const getStatCardClass = (status: string, color: string) => {
         const isActive = statusFilter === status;
         const isAll = status === 'ALL' && statusFilter === null;
@@ -243,34 +259,30 @@ const TasksTab: React.FC<TasksTabProps> = ({
                 <div className="space-y-2">
                     <span className="text-[9px] font-black font-mono text-[var(--text-muted)] tracking-widest">{task.task_id}</span>
                     <div className="flex gap-2">
-                        <Badge variant={getStatusBadge(task.status)} size="sm">{task.status.replace('_', ' ')}</Badge>
                         <Badge variant={getPriorityBadge(task.priority)} size="sm">{task.priority}</Badge>
+                        {canCreate && (
+                            <button 
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="p-2 text-red-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                title="Delete Task"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        )}
                     </div>
                 </div>
-                <div className="relative">
-                    <button 
-                        onClick={() => setActiveDropdown(activeDropdown === task.id ? null : task.id)}
-                        className="p-3 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)] hover:bg-purple-500/10 transition-colors text-[var(--text-dim)]"
-                    >
-                        <ChevronDown size={14} className={`transition-transform duration-300 ${activeDropdown === task.id ? 'rotate-180' : ''}`} />
-                    </button>
-                    {activeDropdown === task.id && (
-                        <div className="absolute right-0 top-full mt-3 w-56 bg-[var(--bg-muted)] backdrop-blur-2xl border border-[var(--border-color)] rounded-2xl shadow-2xl z-50 overflow-hidden animate-scale-in">
-                            <div className="py-2">
-                                <p className="px-4 py-2 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest border-b border-[var(--border-color)] mb-1">Update Status</p>
-                                {getAvailableStatuses(task).map((opt) => (
-                                    <button 
-                                        key={opt.value}
-                                        onClick={() => handleStatusChange(task.id, opt.value)}
-                                        className="w-full flex items-center justify-between px-5 py-3 text-xs font-bold text-[var(--text-dim)] hover:bg-purple-500/10 hover:text-[var(--text-main)] transition-colors"
-                                    >
-                                        <span className="flex items-center gap-3">{opt.icon} {opt.label}</span>
-                                        <ArrowRight size={12} className="opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                {/* Direct Status Picker */}
+                <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] p-1 rounded-xl glass-effect">
+                    {getAvailableStatuses(task).map((opt) => (
+                        <button
+                            key={opt.value}
+                            onClick={() => handleStatusChange(task.id, opt.value)}
+                            title={opt.label}
+                            className={`p-1.5 rounded-lg transition-all ${task.status === opt.value ? 'bg-purple-500/20 text-purple-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)] hover:bg-white/5'}`}
+                        >
+                            {<opt.icon size={14} className={opt.iconColor} />}
+                        </button>
+                    ))}
                 </div>
             </div>
             <h3 className="text-xl font-black text-[var(--text-main)] leading-tight mb-4 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors capitalize">{task.title}</h3>
@@ -288,12 +300,12 @@ const TasksTab: React.FC<TasksTabProps> = ({
                 </div>
                 <div className="flex gap-2">
                     {task.quality_rating && <Badge variant="warning" size="sm">★{task.quality_rating}</Badge>}
-                    {task.status === 'COMPLETED' && (
+                    {(task.status === 'COMPLETED' || task.status === 'SUBMITTED') && (
                         <button 
                             onClick={() => openEvaluationModal(task)}
-                            className="px-4 py-1.5 rounded-lg bg-[var(--bg-muted)] border border-[var(--border-color)] text-[10px] font-black uppercase tracking-widest text-[var(--text-dim)] hover:bg-purple-500/10 hover:text-[var(--text-main)] transition-colors"
+                            className="px-4 py-1.5 rounded-lg border border-purple-400 bg-purple-600 !text-white shadow-[0_0_15px_rgba(147,51,234,0.4)] transition-all font-black uppercase tracking-widest text-[10px] hover:bg-purple-500 hover:scale-105 active:scale-95"
                         >
-                            Evaluate
+                            {task.status === 'SUBMITTED' ? 'Evaluate Now' : 'Evaluate'}
                         </button>
                     )}
                 </div>
@@ -301,31 +313,77 @@ const TasksTab: React.FC<TasksTabProps> = ({
         </div>
     );
 
+    const formatDate = (dateString: string) => {
+        try {
+            const date = new Date(dateString);
+            return date.toISOString().split('T')[0];
+        } catch (e) {
+            return dateString;
+        }
+    };
+
     const TaskListItem = ({ task }: { task: Task }) => (
-        <div className="bg-[var(--card-bg)] hover:bg-purple-500/[0.03] border border-[var(--border-color)] hover:border-purple-500/20 rounded-2xl p-5 flex items-center gap-6 transition-all group">
-            <div className="w-16 shrink-0 text-[10px] font-mono text-[var(--text-muted)] tracking-tighter">{task.task_id}</div>
+        <div className="bg-[var(--card-bg)] hover:bg-purple-500/[0.03] border border-[var(--border-color)] hover:border-purple-500/20 rounded-2xl p-4 flex items-center gap-4 transition-all group">
+            {/* ID Column */}
+            <div className="w-20 shrink-0 text-[10px] font-mono text-[var(--text-muted)] tracking-tighter truncate">{task.task_id}</div>
+            
+            {/* Title & Project Column */}
             <div className="flex-1 min-w-0">
                 <h4 className="text-sm font-black text-[var(--text-main)] truncate capitalize group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{task.title}</h4>
-                <div className="flex items-center gap-4 mt-1">
+                <div className="flex items-center gap-4 mt-0.5">
                     <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest">{task.project?.name || 'General'}</span>
                     {task.module && <span className="text-[10px] text-blue-500/50 font-black tracking-widest uppercase italic">{task.module.name}</span>}
                 </div>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
-                <Badge variant={getStatusBadge(task.status)} size="sm">{task.status.replace('_', ' ')}</Badge>
+
+            {/* Status Picker Column */}
+            <div className="w-40 shrink-0 flex justify-center">
+                <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] p-1 rounded-xl">
+                    {getAvailableStatuses(task).map((opt) => (
+                        <button
+                            key={opt.value}
+                            onClick={() => handleStatusChange(task.id, opt.value)}
+                            title={opt.label}
+                            className={`p-1.5 rounded-lg transition-all ${task.status === opt.value ? 'bg-purple-500/20 text-purple-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)] hover:bg-white/5'}`}
+                        >
+                            {<opt.icon size={14} className={opt.iconColor} />}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Priority Column */}
+            <div className="w-24 shrink-0 flex justify-center">
                 <Badge variant={getPriorityBadge(task.priority)} size="sm">{task.priority}</Badge>
             </div>
-            <div className="w-28 shrink-0 flex items-center gap-2 text-[10px] font-bold text-[var(--text-dim)]">
-                <Calendar size={12} /> {task.due_date}
+
+            {/* Date Column */}
+            <div className="w-32 shrink-0 flex items-center justify-center gap-2 text-[10px] font-bold text-[var(--text-dim)] font-mono">
+                <Calendar size={12} className="shrink-0" /> {formatDate(task.due_date)}
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-                <button 
-                    onClick={() => setActiveDropdown(activeDropdown === task.id ? null : task.id)}
-                    className="p-2 rounded-xl bg-[var(--bg-muted)] hover:bg-purple-500/10 transition-colors text-[var(--text-dim)]"
-                >
-                    <MoreHorizontal size={16} />
-                </button>
-                {task.status === 'COMPLETED' && <Button size="sm" onClick={() => openEvaluationModal(task)}>Evaluate</Button>}
+
+            {/* Actions Column (Fixed Width for consistent alignment) */}
+            <div className="w-44 shrink-0 flex items-center justify-end gap-3">
+                <div className="w-32 flex justify-end">
+                    {(task.status === 'COMPLETED' || task.status === 'SUBMITTED') && (
+                        <Button 
+                            size="sm" 
+                            onClick={() => openEvaluationModal(task)}
+                            className="bg-purple-600 !text-white hover:bg-purple-500 border-none shadow-[0_0_12px_rgba(147,51,234,0.3)] whitespace-nowrap"
+                        >
+                            {task.status === 'SUBMITTED' ? 'Evaluate Now' : 'Evaluate'}
+                        </Button>
+                    )}
+                </div>
+                {canCreate && (
+                    <button 
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="p-2 text-red-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all shrink-0"
+                        title="Delete Task"
+                    >
+                        <Trash2 size={20} />
+                    </button>
+                )}
             </div>
         </div>
     );
