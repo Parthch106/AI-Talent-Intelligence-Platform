@@ -49,13 +49,6 @@ interface TaskItem {
     assigned_at: string;
 }
 
-interface RLRecommendation {
-    action: string;
-    difficulty: number;
-    reasoning: string;
-    q_values: number[];
-}
-
 interface ActivityItem {
     type: string;
     title: string;
@@ -73,7 +66,6 @@ const PerformanceAnalytics: React.FC = () => {
     const [skillProfiles, setSkillProfiles] = useState<SkillProfile[]>([]);
     const [learningPath, setLearningPath] = useState<LearningPath | null>(null);
     const [taskHistory, setTaskHistory] = useState<TaskItem[]>([]);
-    const [rlRecommendation, setRlRecommendation] = useState<RLRecommendation | null>(null);
     const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
 
     useEffect(() => {
@@ -192,14 +184,6 @@ const PerformanceAnalytics: React.FC = () => {
             } catch (e) {
                 console.warn('Tasks unavailable', e);
                 setTaskHistory([]);
-            }
-            
-            // Try RL recommendation (optional)
-            try {
-                const rlRes = await api.post('/analytics/rl/assign-task/', { intern_id: selectedInternId });
-                setRlRecommendation(rlRes.data);
-            } catch (e) {
-                console.warn('RL recommendation unavailable');
             }
             
             clearTimeout(timeoutId);
@@ -700,40 +684,6 @@ const PerformanceAnalytics: React.FC = () => {
                                 <p className="text-[var(--text-dim)] text-sm">No recommendations</p>
                             )}
                         </div>
-                    </Card>
-
-                    <Card className="p-5">
-                        <h3 className="text-lg font-semibold text-[var(--text-main)] mb-4 flex items-center gap-2">
-                            <Brain className="text-green-400" />
-                            RL Recommended Task
-                        </h3>
-                        {rlRecommendation ? (
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <Badge variant="info">{rlRecommendation.action}</Badge>
-                                    <span className="text-xs text-[var(--text-dim)]">Difficulty: {rlRecommendation.difficulty}/5</span>
-                                </div>
-                                <p className="text-sm text-[var(--text-dim)]">{rlRecommendation.reasoning}</p>
-                                {rlRecommendation.q_values && rlRecommendation.q_values.length > 0 && (
-                                    <div className="mt-2 pt-2 border-t border-[var(--border-color)]">
-                                        <p className="text-xs text-[var(--text-dim)] mb-1">Q-Values (action probabilities)</p>
-                                        <div className="flex gap-1">
-                                            {rlRecommendation.q_values.slice(0, 5).map((q, idx) => (
-                                                <div key={idx} className="flex-1 bg-[var(--bg-muted)] rounded px-2 py-1 text-center">
-                                                    <p className="text-xs text-[var(--text-dim)]">{q.toFixed(2)}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="text-center py-4">
-                                <Brain className="mx-auto h-8 w-8 text-slate-600 mb-2" />
-                                <p className="text-[var(--text-dim)] text-sm">No RL recommendation available</p>
-                                <p className="text-[var(--text-muted)] text-xs mt-1">Complete more tasks to get personalized recommendations</p>
-                            </div>
-                        )}
                     </Card>
 
                     <Card className="p-5">

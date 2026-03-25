@@ -260,6 +260,11 @@ const TasksTab: React.FC<TasksTabProps> = ({
                     <span className="text-[9px] font-black font-mono text-[var(--text-muted)] tracking-widest">{task.task_id}</span>
                     <div className="flex gap-2">
                         <Badge variant={getPriorityBadge(task.priority)} size="sm">{task.priority}</Badge>
+                        {task.status === 'COMPLETED' && (
+                            <Badge variant={task.quality_rating ? 'success' : 'warning'} size="sm" className="font-black uppercase tracking-widest text-[8px]">
+                                {task.quality_rating ? 'Evaluated' : 'Not Evaluated'}
+                            </Badge>
+                        )}
                         {canCreate && (
                             <button 
                                 onClick={() => handleDeleteTask(task.id)}
@@ -333,6 +338,11 @@ const TasksTab: React.FC<TasksTabProps> = ({
                 <div className="flex items-center gap-4 mt-0.5">
                     <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest">{task.project?.name || 'General'}</span>
                     {task.module && <span className="text-[10px] text-blue-500/50 font-black tracking-widest uppercase italic">{task.module.name}</span>}
+                    {task.status === 'COMPLETED' && (
+                        <Badge variant={task.quality_rating ? 'success' : 'warning'} size="sm" className="font-black uppercase tracking-widest text-[8px] scale-90 origin-left">
+                            {task.quality_rating ? 'Evaluated' : 'Not Evaluated'}
+                        </Badge>
+                    )}
                 </div>
             </div>
 
@@ -398,7 +408,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
                 </div>
                 {canCreate && (
                     <div className="flex flex-wrap gap-4 w-full sm:w-auto">
-                        <button onClick={() => navigate(`/monitoring/ai-tasks/${internId || ''}`)} className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl dark:shadow-purple-950/20 shadow-purple-500/10">
+                        <button onClick={() => navigate(`/monitoring/ai-tasks/${internId || ''}?project=${projectFilter || ''}`)} className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl dark:shadow-purple-950/20 shadow-purple-500/10">
                             <Sparkles size={18} /> AI Generator
                         </button>
                         <button onClick={onAddTask} className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-4 bg-[var(--text-main)] text-[var(--bg-color)] rounded-2xl font-black text-xs uppercase tracking-widest hover:opacity-90 active:scale-[0.98] transition-all">
@@ -501,40 +511,121 @@ const TasksTab: React.FC<TasksTabProps> = ({
             )}
 
             {/* Evaluation Modal */}
-            <Modal isOpen={showEvaluationModal} onClose={() => setShowEvaluationModal(false)} title="Task Evaluation" size="md">
-                <div className="space-y-8 p-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)]">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-1">Quality Rating</p>
+            <Modal isOpen={showEvaluationModal} onClose={() => setShowEvaluationModal(false)} title="Evaluate Task Performance" gradient="violet" size="2xl">
+                <div className="space-y-6 p-2">
+                    {/* Performance Metrics Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        {/* Quality Rating */}
+                        <div className="p-4 rounded-2xl bg-[var(--card-bg)] border border-[var(--border-color)] hover:border-amber-500/30 transition-all flex flex-col justify-center">
+                            <label className="text-xs font-black uppercase tracking-widest text-[var(--text-dim)] mb-3 flex items-center gap-2">
+                                <Star size={16} className="text-amber-500" /> Quality Rating
+                            </label>
+                            <div className="flex justify-between items-center bg-[var(--bg-muted)] rounded-xl p-1.5 border border-[var(--border-color)]">
+                                {[1,2,3,4,5].map(s => (
+                                    <button 
+                                        key={s} 
+                                        onClick={() => setEvaluation({...evaluation, quality_rating: s})}
+                                        className={`p-1.5 rounded-lg transition-all hover:scale-110 ${s <= evaluation.quality_rating ? 'bg-amber-500/20 text-amber-500' : 'text-[var(--text-muted)] hover:bg-[var(--bg-color)] hover:text-[var(--text-main)]'}`}
+                                    >
+                                        <Star size={20} fill={s <= evaluation.quality_rating ? 'currentColor' : 'none'} strokeWidth={s <= evaluation.quality_rating ? 0 : 2} />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Code Review Score */}
+                        <div className="p-5 rounded-2xl bg-[var(--card-bg)] border border-[var(--border-color)] hover:border-blue-500/30 transition-all flex flex-col justify-center">
+                            <label className="text-xs font-black uppercase tracking-widest text-[var(--text-dim)] mb-3 flex items-center gap-2">
+                                <Code size={16} className="text-blue-500" /> Code Score
+                            </label>
+                            <div className="flex items-center gap-3">
+                                <input 
+                                    type="number" 
+                                    min="0" max="100" 
+                                    value={evaluation.code_review_score} 
+                                    onChange={(e) => setEvaluation({...evaluation, code_review_score: parseInt(e.target.value) || 0})}
+                                    className="w-20 px-3 py-2 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] font-mono text-center font-bold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                />
+                                <span className="text-sm font-bold text-[var(--text-dim)]">%</span>
+                            </div>
+                            <input 
+                                type="range" min="0" max="100" 
+                                value={evaluation.code_review_score} 
+                                onChange={(e) => setEvaluation({...evaluation, code_review_score: parseInt(e.target.value)})} 
+                                className="w-full h-1.5 mt-4 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-blue-500" 
+                            />
+                        </div>
+
+                        {/* Bug Count */}
+                        <div className="p-5 rounded-2xl bg-[var(--card-bg)] border border-[var(--border-color)] hover:border-red-500/30 transition-all flex flex-col justify-center">
+                            <label className="text-xs font-black uppercase tracking-widest text-[var(--text-dim)] mb-3 flex items-center gap-2">
+                                <Bug size={16} className="text-red-500" /> Issues Found
+                            </label>
                             <div className="flex items-center gap-2">
-                                {[1,2,3,4,5].map(s => <Star key={s} size={20} fill={s <= evaluation.quality_rating ? 'currentColor' : 'none'} className={`cursor-pointer transition-all ${s <= evaluation.quality_rating ? 'text-amber-500' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)]'}`} onClick={() => setEvaluation({...evaluation, quality_rating: s})} />)}
-                            </div>
-                        </div>
-                        <div className="p-4 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)]">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-1">Code Review Score</p>
-                            <div className="flex items-center gap-3 text-[var(--text-main)] font-mono text-xs">
-                                <input type="range" min="0" max="100" value={evaluation.code_review_score} onChange={(e) => setEvaluation({...evaluation, code_review_score: parseInt(e.target.value)})} className="flex-1 h-1 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-purple-500" />
-                                {evaluation.code_review_score}%
+                                <button 
+                                    onClick={() => setEvaluation({...evaluation, bug_count: Math.max(0, evaluation.bug_count - 1)})}
+                                    className="w-10 h-10 flex items-center justify-center bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/30 transition-all font-bold text-lg"
+                                >
+                                    -
+                                </button>
+                                <input 
+                                    type="number" 
+                                    min="0" 
+                                    value={evaluation.bug_count} 
+                                    onChange={(e) => setEvaluation({...evaluation, bug_count: parseInt(e.target.value) || 0})}
+                                    className="flex-1 w-full px-3 py-2 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] font-mono text-center font-bold focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                />
+                                <button 
+                                    onClick={() => setEvaluation({...evaluation, bug_count: evaluation.bug_count + 1})}
+                                    className="w-10 h-10 flex items-center justify-center bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/30 transition-all font-bold text-lg"
+                                >
+                                    +
+                                </button>
                             </div>
                         </div>
                     </div>
-                    <div className="space-y-3">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-1">Feedback</label>
-                        <textarea value={evaluation.mentor_feedback} onChange={(e) => setEvaluation({...evaluation, mentor_feedback: e.target.value})} rows={4} className="w-full bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-2xl px-5 py-4 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/30 resize-none placeholder-[var(--text-muted)]" placeholder="Enter feedback..." />
+
+                    {/* Feedback Area */}
+                    <div className="p-5 rounded-2xl bg-[var(--card-bg)] border border-[var(--border-color)] transition-all flex flex-col focus-within:border-purple-500/50 focus-within:shadow-[0_0_20px_rgba(168,85,247,0.1)]">
+                        <label className="text-xs font-black uppercase tracking-widest text-[var(--text-dim)] mb-3 flex items-center gap-2">
+                            <MessageSquare size={16} className="text-purple-500" /> Mentor Feedback
+                        </label>
+                        <textarea 
+                            value={evaluation.mentor_feedback} 
+                            onChange={(e) => setEvaluation({...evaluation, mentor_feedback: e.target.value})} 
+                            rows={4} 
+                            className="w-full bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] focus:outline-none focus:ring-1 focus:ring-purple-500/50 focus:border-purple-500/50 resize-none placeholder-[var(--text-muted)] transition-all" 
+                            placeholder="Provide constructive feedback on what the intern did well and areas for improvement..." 
+                        />
                     </div>
-                    <div className="flex items-center justify-between p-4 rounded-2xl bg-red-500/5 border border-red-500/10">
-                        <div className="flex items-center gap-3">
-                            <AlertTriangle size={18} className="text-red-500" />
-                            <div>
-                                <p className="text-xs font-black text-[var(--text-main)] uppercase tracking-tighter">Mark for Rework</p>
-                                <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">Flag for mandatory revision</p>
+
+                    {/* Rework Toggle */}
+                    <button 
+                        onClick={() => setEvaluation({...evaluation, rework_required: !evaluation.rework_required})}
+                        className={`w-full flex items-center justify-between p-5 rounded-2xl border transition-all duration-300 ${evaluation.rework_required ? 'bg-red-500/10 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.15)]' : 'bg-[var(--card-bg)] border-[var(--border-color)] hover:bg-[var(--bg-muted)]'}`}
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className={`p-2.5 rounded-xl ${evaluation.rework_required ? 'bg-red-500/20 text-red-500' : 'bg-[var(--bg-color)] border border-[var(--border-color)] text-[var(--text-muted)]'}`}>
+                                <AlertTriangle size={20} />
+                            </div>
+                            <div className="text-left">
+                                <p className={`text-sm font-black uppercase tracking-widest ${evaluation.rework_required ? 'text-red-500' : 'text-[var(--text-main)]'}`}>Mark for Rework</p>
+                                <p className="text-xs text-[var(--text-dim)] mt-0.5">Flag this task for mandatory revision</p>
                             </div>
                         </div>
-                        <input type="checkbox" checked={evaluation.rework_required} onChange={(e) => setEvaluation({...evaluation, rework_required: e.target.checked})} className="w-5 h-5 rounded border-white/10 bg-white/5 checked:bg-red-500 cursor-pointer" />
-                    </div>
-                    <div className="flex gap-4 pt-4">
-                        <Button fullWidth variant="outline" onClick={() => setShowEvaluationModal(false)}>CANCEL</Button>
-                        <Button fullWidth gradient="purple" onClick={submitEvaluation} disabled={savingEvaluation}>{savingEvaluation ? <Loader2 className="animate-spin" /> : 'SAVE EVALUATION'}</Button>
+                        <div className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${evaluation.rework_required ? 'bg-red-500' : 'bg-[var(--bg-muted)] border border-[var(--border-color)]'}`}>
+                            <div className={`w-4 h-4 rounded-full bg-white transition-transform duration-300 ${evaluation.rework_required ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </div>
+                    </button>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-4 pt-4 border-t border-[var(--border-color)]">
+                        <Button fullWidth variant="outline" type="button" onClick={() => setShowEvaluationModal(false)} className="py-3.5">
+                            Cancel
+                        </Button>
+                        <Button fullWidth gradient="purple" onClick={submitEvaluation} disabled={savingEvaluation} className="py-3.5 text-xs tracking-widest font-black shadow-[0_0_20px_rgba(168,85,247,0.4)]">
+                            {savingEvaluation ? <Loader2 className="animate-spin mx-auto" size={18} /> : 'SAVE EVALUATION'}
+                        </Button>
                     </div>
                 </div>
             </Modal>

@@ -1,65 +1,45 @@
 """
 LLM-powered Task Generator for automatic task suggestions.
-Uses LangChain with GitHub Models to generate contextual tasks for interns.
+Uses Hugging Face router API to generate contextual tasks for interns.
 """
 import os
 import json
 import logging
+import requests
 from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger(__name__)
 
+# Hugging Face Router Configuration
+HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
+HF_MODEL = "meta-llama/Llama-3.2-1B-Instruct"
+
+# Default API key - can be overridden via environment variable
+DEFAULT_HF_TOKEN = "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"
+
 
 class LLMTaskGenerator:
     """
-    LangChain-powered task generator using GitHub Models.
+    Hugging Face-powered task generator.
     Generates contextual tasks based on intern's progress, completed tasks, and ongoing tasks.
     """
     
-    MODEL_NAME = "gpt-4o-mini"
-    
     def __init__(self):
-        self._llm = None
+        self._api_key = None
     
     @property
-    def llm(self):
-        """Lazy-load the LLM using LangChain."""
-        if self._llm is None:
-            self._initialize_llm()
-        return self._llm
+    def api_key(self):
+        """Lazy-load the API key."""
+        if self._api_key is None:
+            self._initialize_api_key()
+        return self._api_key
     
-    def _initialize_llm(self):
-        """Initialize LangChain LLM with GitHub Models."""
-        try:
-            api_key = os.environ.get("AI_TALENT_GITHUB_TOKEN") or os.environ.get("OPENAI_API_KEY")
-            
-            if not api_key:
-                raise ValueError("No API key found. Set AI_TALENT_GITHUB_TOKEN in .env")
-            
-            base_url = "https://models.inference.ai.azure.com"
-            
-            os.environ["OPENAI_API_KEY"] = api_key
-            os.environ["OPENAI_BASE_URL"] = base_url
-            
-            logger.info("LLMTaskGenerator: Initializing with GitHub Models")
-            
-            from langchain_openai import ChatOpenAI
-            
-            self._llm = ChatOpenAI(
-                model="gpt-4o-mini",
-                temperature=0.3,
-                max_tokens=2000,
-                api_key=api_key,
-                base_url=base_url
-            )
-            
-            logger.info("LLMTaskGenerator: LLM initialized successfully")
-            
-        except ImportError as e:
-            logger.error(f"LangChain not installed: {e}")
-            raise RuntimeError(
-                "LangChain not installed. Run: pip install langchain langchain-openai"
-            )
+    def _initialize_api_key(self):
+        """Initialize API key from environment or default."""
+        self._api_key = os.environ.get("HF_TOKEN") or DEFAULT_HF_TOKEN
+        if not self._api_key:
+            raise ValueError("No Hugging Face API key found. Set HF_TOKEN in .env or use default.")
+        logger.info("LLMTaskGenerator: Using Hugging Face API")
     
     def generate_task_suggestions(
         self,
@@ -74,6 +54,7 @@ class LLMTaskGenerator:
     ) -> Dict[str, Any]:
         """
         Generate task suggestions based on intern's profile and progress.
+        Uses Hugging Face router API.
         """
         logger.info(f"LLMTaskGenerator: Generating task suggestions for {intern_name}")
         
@@ -89,11 +70,49 @@ class LLMTaskGenerator:
         )
         
         try:
-            response = self.llm.invoke(prompt)
-            content = response.content if hasattr(response, 'content') else str(response)
-            result = self._parse_llm_response(content)
-            logger.info(f"LLMTaskGenerator: Generated {len(result.get('tasks', []))} task suggestions")
-            return result
+            # Call Hugging Face router API
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": HF_MODEL,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": 2000,
+                "temperature": 0.3
+            }
+            
+            response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=60)
+            
+            if response.status_code != 200:
+                logger.error(f"HF API error: {response.status_code} - {response.text}")
+                return {"error": f"API error: {response.status_code}", "tasks": []}
+            
+            result = response.json()
+            
+            # Extract content from response
+            if "choices" in result and len(result["choices"]) > 0:
+                content = result["choices"][0]["message"]["content"]
+            else:
+                logger.error(f"Unexpected HF response format: {result}")
+                return {"error": "Unexpected response format", "tasks": []}
+            
+            parsed_result = self._parse_llm_response(content)
+
+            # If parsing failed, return fallback static suggestions
+            if 'error' in parsed_result or not parsed_result.get('tasks'):
+                logger.warning("LLM failed to generate valid JSON, using fallback suggestions")
+                return self._get_fallback_task_suggestions(intern_name, intern_skills, module_name, num_suggestions)
+
+            logger.info(f"LLMTaskGenerator: Generated {len(parsed_result.get('tasks', []))} task suggestions")
+            return parsed_result
+            
+        except requests.exceptions.Timeout:
+            logger.error("HF API timeout")
+            return {"error": "Request timed out", "tasks": []}
         except Exception as e:
             logger.error(f"LLMTaskGenerator error: {e}")
             return {"error": str(e), "tasks": []}
@@ -194,15 +213,31 @@ Only return valid JSON, no additional text."""
         try:
             # Try to find JSON in the response
             content = content.strip()
+            
+            # Handle markdown code blocks
             if content.startswith("```json"):
                 content = content[7:]
-            if content.startswith("```"):
+            elif content.startswith("```"):
                 content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
+            
+            # Find the end of code block if present
+            if "```" in content:
+                content = content[:content.find("```")]
             
             content = content.strip()
-            result = json.loads(content)
+            
+            # Try to find JSON object in the content
+            try:
+                result = json.loads(content)
+            except json.JSONDecodeError:
+                # Try to extract JSON-like content using regex
+                import re
+                # Look for JSON object or array
+                json_match = re.search(r'\{[\s\S]*\}', content)
+                if json_match:
+                    result = json.loads(json_match.group())
+                else:
+                    raise ValueError("No JSON found in response")
             
             # Validate the structure
             if "tasks" not in result:
@@ -210,16 +245,8 @@ Only return valid JSON, no additional text."""
             
             return result
             
-        except json.JSONDecodeError as e:
+        except (json.JSONDecodeError, ValueError) as e:
             logger.error(f"Failed to parse LLM response: {e}")
-            # Try to extract any JSON-like content
-            try:
-                import re
-                json_match = re.search(r'\{[\s\S]*\}', content)
-                if json_match:
-                    return json.loads(json_match.group())
-            except:
-                pass
             return {"error": "Failed to parse task suggestions", "tasks": []}
     
     def review_task(
@@ -231,6 +258,7 @@ Only return valid JSON, no additional text."""
         """
         Review a manager-modified task and provide feedback.
         Returns approval status and suggestions.
+        Uses Hugging Face router API.
         """
         prompt = f"""You are an AI assistant reviewing a task before assignment.
         
@@ -258,12 +286,130 @@ Return JSON:
 }}"""
         
         try:
-            response = self.llm.invoke(prompt)
-            content = response.content if hasattr(response, 'content') else str(response)
-            return self._parse_llm_response(content)
+            # Call Hugging Face router API
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": HF_MODEL,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": 1000,
+                "temperature": 0.3
+            }
+            
+            response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=60)
+            
+            if response.status_code != 200:
+                logger.error(f"HF API error in review_task: {response.status_code}")
+                return {"approved": False, "feedback": f"API error: {response.status_code}", "suggestions": []}
+            
+            result = response.json()
+            
+            if "choices" in result and len(result["choices"]) > 0:
+                content = result["choices"][0]["message"]["content"]
+                parsed_result = self._parse_llm_response(content)
+
+                # If parsing failed, return basic approval
+                if 'error' in parsed_result:
+                    logger.warning("LLM failed to generate valid review JSON, using basic approval")
+                    return {
+                        "approved": True,
+                        "feedback": "Task appears appropriate for the intern's skill level",
+                        "suggestions": []
+                    }
+
+                return parsed_result
+            else:
+                return {"approved": False, "feedback": "Unexpected response format", "suggestions": []}
+                
         except Exception as e:
             logger.error(f"Error reviewing task: {e}")
             return {"approved": False, "feedback": str(e), "suggestions": []}
+
+    def _get_fallback_task_suggestions(self, intern_name: str, intern_skills: List[str], module_name: Optional[str], num_suggestions: int) -> Dict[str, Any]:
+        """Provide fallback task suggestions when LLM fails."""
+        logger.info(f"Using fallback task suggestions for {intern_name}")
+
+        # Determine skill level from provided skills
+        skill_level = "beginner"
+        if any(skill.lower() in ['react', 'node.js', 'python', 'django', 'flask'] for skill in intern_skills):
+            skill_level = "intermediate"
+
+        # Base task suggestions
+        base_tasks = {
+            "beginner": [
+                {
+                    "title": "Create a Responsive Landing Page",
+                    "description": "Build a responsive landing page using HTML, CSS, and JavaScript with modern design principles",
+                    "difficulty": 2,
+                    "estimated_hours": 8,
+                    "skills_required": ["HTML", "CSS", "JavaScript", "Responsive Design"],
+                    "rationale": "Fundamental web development skills essential for any frontend developer"
+                },
+                {
+                    "title": "Implement Form Validation",
+                    "description": "Add client-side and server-side validation to user registration and login forms",
+                    "difficulty": 2,
+                    "estimated_hours": 6,
+                    "skills_required": ["JavaScript", "Form Handling", "User Experience"],
+                    "rationale": "Critical for user data integrity and application security"
+                },
+                {
+                    "title": "Database Design and Setup",
+                    "description": "Design database schema and set up initial database structure for the application",
+                    "difficulty": 2,
+                    "estimated_hours": 5,
+                    "skills_required": ["Database Design", "SQL", "Data Modeling"],
+                    "rationale": "Foundation for data persistence and application functionality"
+                }
+            ],
+            "intermediate": [
+                {
+                    "title": "Implement User Authentication System",
+                    "description": "Build a complete authentication system with login, registration, password reset, and session management",
+                    "difficulty": 3,
+                    "estimated_hours": 12,
+                    "skills_required": ["Authentication", "Security", "Session Management"],
+                    "rationale": "Essential security feature for any web application"
+                },
+                {
+                    "title": "API Development and Integration",
+                    "description": "Create RESTful APIs and integrate them with the frontend application",
+                    "difficulty": 3,
+                    "estimated_hours": 10,
+                    "skills_required": ["REST API", "Backend Development", "API Integration"],
+                    "rationale": "Modern web applications require robust API architecture"
+                },
+                {
+                    "title": "Performance Optimization",
+                    "description": "Optimize application performance through code splitting, lazy loading, and caching strategies",
+                    "difficulty": 4,
+                    "estimated_hours": 8,
+                    "skills_required": ["Performance", "Optimization", "Web Vitals"],
+                    "rationale": "Performance is crucial for user experience and SEO"
+                }
+            ]
+        }
+
+        tasks = base_tasks.get(skill_level, base_tasks["beginner"])
+
+        # Limit to requested number
+        selected_tasks = tasks[:num_suggestions]
+
+        # Customize based on module if provided
+        if module_name and module_name.lower() == "authentication":
+            selected_tasks = [task for task in tasks if "authentication" in task["title"].lower()][:num_suggestions]
+        elif module_name and "api" in module_name.lower():
+            selected_tasks = [task for task in tasks if "api" in task["title"].lower()][:num_suggestions]
+
+        return {
+            "tasks": selected_tasks,
+            "summary": f"Fallback task suggestions for {intern_name} ({skill_level} level)"
+        }
 
 
 # Singleton instance

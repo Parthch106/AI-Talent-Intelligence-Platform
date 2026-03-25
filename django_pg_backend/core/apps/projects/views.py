@@ -6,12 +6,13 @@ from rest_framework import status
 from django.db.models import Q
 from .models import Project, ProjectAssignment, ProjectModule
 from .serializers import ProjectSerializer, ProjectAssignmentSerializer, ProjectModuleSerializer
+from .services.llm_project_generator import get_project_generator
 
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         user = self.request.user
         if user.role == 'INTERN':
@@ -28,7 +29,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             serializer.save(mentor=self.request.user)
         else:
             serializer.save()
-    
+
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def modules(self, request, pk=None):
         """
@@ -44,7 +45,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {'error': 'Project not found.'},
                 status=status.HTTP_404_NOT_FOUND
             )
-    
+
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def add_module(self, request, pk=None):
         """
@@ -53,7 +54,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         import logging
         logger = logging.getLogger(__name__)
         logger.info(f"add_module called with pk={pk}, data={request.data}")
-        
+
         try:
             project = self.get_object()
         except Project.DoesNotExist:
@@ -61,15 +62,69 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {'error': 'Project not found.'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
         logger.info(f"Project found: {project.name}")
         serializer = ProjectModuleSerializer(data=request.data)
         logger.info(f"Serializer errors: {serializer.errors}")
-        
+
         if serializer.is_valid():
             serializer.save(project=project)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def suggest_projects(self, request):
+        """
+        Generate AI-powered project suggestions based on department and experience level.
+
+        Request body:
+        {
+            "department": "Web Development",
+            "experience_level": "BEGINNER",
+            "num_suggestions": 3
+        }
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"suggest_projects called with data={request.data}")
+
+        department = request.data.get('department')
+        experience_level = request.data.get('experience_level', 'BEGINNER')
+        num_suggestions = request.data.get('num_suggestions', 3)
+        description = request.data.get('description', '')
+        skills = request.data.get('skills', '')
+
+        if not department:
+            return Response(
+                {'error': 'Department is required for project suggestions.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            project_generator = get_project_generator()
+            result = project_generator.generate_project_suggestions(
+                department=department,
+                experience_level=experience_level,
+                num_suggestions=num_suggestions,
+                include_modules=True,
+                description=description,
+                skills=skills
+            )
+
+            if 'error' in result:
+                return Response(
+                    {'error': result['error']},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error generating project suggestions: {e}")
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class ProjectAssignmentViewSet(viewsets.ModelViewSet):
     queryset = ProjectAssignment.objects.all()
@@ -79,12 +134,12 @@ class ProjectAssignmentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.role == "INTERN":
-             return ProjectAssignment.objects.filter(intern=user)
+              return ProjectAssignment.objects.filter(intern=user)
         elif user.role == "MANAGER":
-             # Assignments in their projects
-             return ProjectAssignment.objects.filter(project__mentor=user)
+              # Assignments in their projects
+              return ProjectAssignment.objects.filter(project__mentor=user)
         return ProjectAssignment.objects.all()
-    
+
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def approve(self, request, pk=None):
         """
@@ -92,13 +147,13 @@ class ProjectAssignmentViewSet(viewsets.ModelViewSet):
         Only managers and admins can approve projects.
         """
         user = request.user
-        
+
         if user.role not in ['MANAGER', 'ADMIN']:
             return Response(
                 {'error': 'Permission denied. Only managers can approve projects.'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
+
         try:
             project_assignment = self.get_object()
         except ProjectAssignment.DoesNotExist:
@@ -106,17 +161,17 @@ class ProjectAssignmentViewSet(viewsets.ModelViewSet):
                 {'error': 'Project assignment not found.'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
         if project_assignment.status != 'PENDING_APPROVAL':
             return Response(
                 {'error': f'Project is not pending approval. Current status: {project_assignment.status}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         # Approve the project
         project_assignment.status = 'COMPLETED'
         project_assignment.save()
-        
+
         # Send notification to intern
         from apps.notifications.models import Notification
         Notification.objects.create(
@@ -125,12 +180,12 @@ class ProjectAssignmentViewSet(viewsets.ModelViewSet):
             title='Project Approved',
             message=f'Your project "{project_assignment.project.name}" has been approved by the manager.',
         )
-        
+
         return Response({
             'message': 'Project approved successfully',
             'status': 'COMPLETED'
         })
-    
+
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def reject(self, request, pk=None):
         """
@@ -138,13 +193,13 @@ class ProjectAssignmentViewSet(viewsets.ModelViewSet):
         Only managers and admins can reject projects.
         """
         user = request.user
-        
+
         if user.role not in ['MANAGER', 'ADMIN']:
             return Response(
                 {'error': 'Permission denied. Only managers can reject projects.'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
+
         try:
             project_assignment = self.get_object()
         except ProjectAssignment.DoesNotExist:
@@ -152,32 +207,32 @@ class ProjectAssignmentViewSet(viewsets.ModelViewSet):
                 {'error': 'Project assignment not found.'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
         if project_assignment.status != 'PENDING_APPROVAL':
             return Response(
                 {'error': f'Project is not pending approval. Current status: {project_assignment.status}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         rejection_reason = request.data.get('reason', '')
-        
+
         # Reject the project - set back to ACTIVE
         project_assignment.status = 'ACTIVE'
         project_assignment.save()
-        
+
         # Send notification to intern
         from apps.notifications.models import Notification
         message = f'Your project "{project_assignment.project.name}" has been sent back for revisions.'
         if rejection_reason:
             message += f' Reason: {rejection_reason}'
-        
+
         Notification.objects.create(
             user=project_assignment.intern,
             notification_type='PROJECT_REJECTED',
             title='Project Sent Back',
             message=message,
         )
-        
+
         return Response({
             'message': 'Project sent back for revisions',
             'status': 'ACTIVE'
@@ -191,11 +246,11 @@ class ProjectModuleViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         project_id = self.request.query_params.get('project_id')
-        
+
         qs = ProjectModule.objects.all()
         if project_id:
             qs = qs.filter(project_id=project_id)
-            
+
         if user.role == 'INTERN':
             # Modules for projects they are assigned to
             return qs.filter(project__assignments__intern=user)

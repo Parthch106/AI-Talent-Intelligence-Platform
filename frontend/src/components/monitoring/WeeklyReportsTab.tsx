@@ -1,8 +1,9 @@
 import React from 'react';
-import { Plus, FileText, CheckCircle, Clock, AlertTriangle, ChevronRight, Download } from 'lucide-react';
+import { Plus, FileText, CheckCircle, Clock, AlertTriangle, ChevronRight, Download, BarChart2 } from 'lucide-react';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
+import Modal from '../common/Modal';
 
 interface WeeklyReport {
     id: number;
@@ -22,6 +23,11 @@ interface WeeklyReport {
     submitted_at?: string;
     status_mismatch?: boolean;
     mismatch_details?: string[];
+    actual_tasks?: {
+        completed: number;
+        in_progress: number;
+        blocked: number;
+    };
 }
 
 interface WeeklyReportsTabProps {
@@ -32,6 +38,7 @@ interface WeeklyReportsTabProps {
 const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitReport }) => {
     // Ensure reports is always an array
     const reportsArray = Array.isArray(reports) ? reports : [];
+    const [selectedReport, setSelectedReport] = React.useState<WeeklyReport | null>(null);
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -51,7 +58,7 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
 
             <div className="space-y-4">
                 {reportsArray.map((report) => (
-                    <Card key={report.id} hover padding="lg" className="animate-slide-up">
+                    <Card key={report.id} hover padding="lg" className="animate-slide-up cursor-pointer" onClick={() => setSelectedReport(report)}>
                         <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
@@ -168,6 +175,122 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                     </div>
                 )}
             </div>
+
+            {/* Report Details & Mismatch Modal */}
+            <Modal
+                isOpen={!!selectedReport}
+                onClose={() => setSelectedReport(null)}
+                title={`Report Details: ${selectedReport?.week_start_date} to ${selectedReport?.week_end_date}`}
+                gradient="violet"
+                size="lg"
+            >
+                {selectedReport && (
+                    <div className="space-y-6">
+                        {/* Status Mismatch Alert */}
+                        {selectedReport.status_mismatch && (
+                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                                <div className="flex items-start gap-3">
+                                    <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={20} />
+                                    <div>
+                                        <p className="font-bold text-red-500 uppercase tracking-tight">Status Mismatch Detected</p>
+                                        <p className="text-sm text-red-400 mt-1">There is a discrepancy between the tasks reported in the PDF and the system records for this week.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Side-by-Side Comparison */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl p-4">
+                                <h4 className="text-[10px] font-black text-[var(--text-dim)] uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <FileText size={14} /> Reported in PDF
+                                </h4>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center bg-[var(--bg-muted)] px-3 py-2 rounded-lg">
+                                        <span className="text-sm text-[var(--text-dim)]">Completed</span>
+                                        <span className="font-bold text-emerald-500">{selectedReport.tasks_completed}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center bg-[var(--bg-muted)] px-3 py-2 rounded-lg">
+                                        <span className="text-sm text-[var(--text-dim)]">In Progress</span>
+                                        <span className="font-bold text-blue-500">{selectedReport.tasks_in_progress}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center bg-[var(--bg-muted)] px-3 py-2 rounded-lg">
+                                        <span className="text-sm text-[var(--text-dim)]">Blocked</span>
+                                        <span className="font-bold text-red-500">{selectedReport.tasks_blocked}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4">
+                                <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <BarChart2 size={14} /> System Records
+                                </h4>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center bg-emerald-500/10 px-3 py-2 rounded-lg border border-emerald-500/20">
+                                        <span className="text-sm text-emerald-400/80">Completed</span>
+                                        <span className="font-bold text-emerald-400">{selectedReport.actual_tasks?.completed ?? 0}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center bg-blue-500/10 px-3 py-2 rounded-lg border border-blue-500/20">
+                                        <span className="text-sm text-blue-400/80">In Progress</span>
+                                        <span className="font-bold text-blue-400">{selectedReport.actual_tasks?.in_progress ?? 0}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20">
+                                        <span className="text-sm text-red-400/80">Blocked</span>
+                                        <span className="font-bold text-red-400">{selectedReport.actual_tasks?.blocked ?? 0}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Report Content */}
+                        <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
+                            <h4 className="font-bold text-[var(--text-main)] border-b border-[var(--border-color)] pb-2">Report Content</h4>
+                            
+                            {selectedReport.accomplishments && (
+                                <div>
+                                    <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1 font-bold">Accomplishments</p>
+                                    <p className="text-sm text-[var(--text-dim)] leading-relaxed bg-[var(--bg-muted)] p-3 rounded-lg">{selectedReport.accomplishments}</p>
+                                </div>
+                            )}
+                            {selectedReport.challenges && (
+                                <div>
+                                    <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1 font-bold">Challenges</p>
+                                    <p className="text-sm text-[var(--text-dim)] leading-relaxed bg-[var(--bg-muted)] p-3 rounded-lg">{selectedReport.challenges}</p>
+                                </div>
+                            )}
+                            {selectedReport.learnings && (
+                                <div>
+                                    <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1 font-bold">Learnings</p>
+                                    <p className="text-sm text-[var(--text-dim)] leading-relaxed bg-[var(--bg-muted)] p-3 rounded-lg">{selectedReport.learnings}</p>
+                                </div>
+                            )}
+                            {selectedReport.next_week_goals && (
+                                <div>
+                                    <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1 font-bold">Next Week Goals</p>
+                                    <p className="text-sm text-[var(--text-dim)] leading-relaxed bg-[var(--bg-muted)] p-3 rounded-lg">{selectedReport.next_week_goals}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                            {selectedReport.pdf_url && (
+                                <a
+                                    href={selectedReport.pdf_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex w-full items-center justify-center gap-2 px-6 py-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-xl transition-colors border border-purple-500/20 font-bold"
+                                >
+                                    <Download size={18} />
+                                    Download Original PDF
+                                </a>
+                            )}
+                            <Button type="button" onClick={() => setSelectedReport(null)} variant="outline" fullWidth>
+                                Close View
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 };

@@ -324,30 +324,21 @@ const MonitoringTasksPage: React.FC = () => {
                 onClose={closeModal}
                 title="Assign New Task"
                 gradient="violet"
+                size="xl"
             >
-                <form onSubmit={handleCreateTask} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Title</label>
-                        <input
-                            type="text"
-                            required
-                            placeholder="Enter task title"
-                            value={taskForm.title}
-                            onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description</label>
-                        <textarea
-                            placeholder="Enter task description"
-                            value={taskForm.description}
-                            onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
-                            rows={3}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
+                <form onSubmit={handleCreateTask} className="space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Title</label>
+                            <input
+                                type="text"
+                                required
+                                placeholder="Enter task title"
+                                value={taskForm.title}
+                                onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                            />
+                        </div>
                         <div>
                             <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Priority</label>
                             <select
@@ -362,63 +353,90 @@ const MonitoringTasksPage: React.FC = () => {
                             </select>
                         </div>
                     </div>
+
                     <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Project (Optional)</label>
-                        <select
-                            value={taskForm.project_assignment_id}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                const selectedProj = projects.find((p: any) => p.id === val);
-                                const projectId = selectedProj?.project?.id;
-                                setTaskForm({ ...taskForm, project_assignment_id: val, project_module_id: '' });
-                                fetchModules(projectId);
-                            }}
-                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                        >
-                            <option value="">No Project</option>
-                            {projects.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                    {p.project?.name || p.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Module {taskForm.project_assignment_id ? '' : '(Select a project first)'}</label>
-                        <select
-                            value={taskForm.project_module_id}
-                            onChange={(e) => setTaskForm({ ...taskForm, project_module_id: e.target.value })}
-                            disabled={!taskForm.project_assignment_id}
-                            className={`w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all ${!taskForm.project_assignment_id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            <option value="">{taskForm.project_assignment_id ? 'Select Module' : 'No project selected'}</option>
-                            {modules.map((m) => (
-                                <option key={m.id} value={m.id}>
-                                    {m.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Skills Developed (comma-separated)</label>
-                        <input
-                            type="text"
-                            placeholder="e.g., Python, Django, React"
-                            value={taskForm.skills_required.join(', ')}
-                            onChange={(e) => setTaskForm({ ...taskForm, skills_required: e.target.value.split(',').map(s => s.trim()).filter(s => s) })}
-                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description</label>
+                        <textarea
+                            placeholder="Enter task description"
+                            value={taskForm.description}
+                            onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
+                            rows={2}
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Due Date</label>
-                        <input
-                            type="date"
-                            required
-                            value={taskForm.due_date}
-                            onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
-                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                        />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Project (Optional)</label>
+                            <select
+                                value={taskForm.project_assignment_id}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    const selectedProj = projects.find((p: any) => p.id === val);
+                                    const projectId = selectedProj?.project?.id;
+                                    setTaskForm({ ...taskForm, project_assignment_id: val, project_module_id: '' });
+                                    fetchModules(projectId);
+                                }}
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                            >
+                                <option value="">
+                                    {selectedIntern ? 'Select Project (Intern\'s Projects Only)' : 'No Project'}
+                                </option>
+                                {projects
+                                    .filter((p: any) => {
+                                        // If no intern selected, show all projects
+                                        if (!selectedIntern) return true;
+                                        // Only show projects assigned to the selected intern
+                                        return p.intern?.id === selectedIntern || p.intern === selectedIntern;
+                                    })
+                                    .map((p: any) => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.project?.name || p.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Module {taskForm.project_assignment_id ? '' : '(Select a project first)'}</label>
+                            <select
+                                value={taskForm.project_module_id}
+                                onChange={(e) => setTaskForm({ ...taskForm, project_module_id: e.target.value })}
+                                disabled={!taskForm.project_assignment_id}
+                                className={`w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all ${!taskForm.project_assignment_id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <option value="">{taskForm.project_assignment_id ? 'Select Module' : 'No project selected'}</option>
+                                {modules.map((m) => (
+                                    <option key={m.id} value={m.id}>
+                                        {m.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Skills Developed (comma-separated)</label>
+                            <input
+                                type="text"
+                                placeholder="e.g., Python, Django, React"
+                                value={taskForm.skills_required.join(', ')}
+                                onChange={(e) => setTaskForm({ ...taskForm, skills_required: e.target.value.split(',').map(s => s.trim()).filter(s => s) })}
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Due Date</label>
+                            <input
+                                type="date"
+                                required
+                                value={taskForm.due_date}
+                                onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                            />
+                        </div>
+                    </div>
+
                     <div className="flex gap-3 pt-4">
                         <Button type="button" onClick={closeModal} variant="outline" fullWidth>
                             Cancel

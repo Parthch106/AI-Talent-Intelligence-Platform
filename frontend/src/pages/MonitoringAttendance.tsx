@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { AttendanceTab } from '../components/monitoring';
-import { Card, AttendanceHeatmap } from '../components/common';
+import { Card, AttendanceHeatmap, Modal, Button } from '../components/common';
 import { ChevronDown } from 'lucide-react';
 
 // Types (matching MonitoringDashboard)
@@ -35,6 +35,38 @@ const MonitoringAttendancePage: React.FC = () => {
     const [heatmapData, setHeatmapData] = useState<Record<string, { status: string; value: number; hours: number }>>({});
     const [heatmapLoading, setHeatmapLoading] = useState<boolean>(false);
     const [showInternDropdown, setShowInternDropdown] = useState(false);
+    const [activeModal, setActiveModal] = useState<string | null>(null);
+    const [attendanceForm, setAttendanceForm] = useState({
+        date: new Date().toISOString().split('T')[0],
+        status: 'PRESENT',
+        check_in_time: '09:00',
+        check_out_time: '17:00'
+    });
+
+    const openModal = () => setActiveModal('attendance');
+    const closeModal = () => {
+        setActiveModal(null);
+        setAttendanceForm({
+            date: new Date().toISOString().split('T')[0],
+            status: 'PRESENT',
+            check_in_time: '09:00',
+            check_out_time: '17:00'
+        });
+    };
+
+    const handleMarkAttendance = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await axios.post('/analytics/attendance/mark/', {
+                intern_id: selectedIntern,
+                ...attendanceForm
+            });
+            closeModal();
+            fetchData();
+        } catch (err) {
+            console.error('Error marking attendance:', err);
+        }
+    };
 
     // Fetch interns when page loads (for managers/admins)
     useEffect(() => {
@@ -232,7 +264,7 @@ const MonitoringAttendancePage: React.FC = () => {
                         <div className="relative animate-slide-up">
                             <AttendanceTab 
                                 attendance={attendance} 
-                                onMarkAttendance={() => {}} 
+                                onMarkAttendance={openModal} 
                                 monthFilter={monthFilter}
                                 setMonthFilter={setMonthFilter}
                                 yearFilter={yearFilter}
@@ -242,6 +274,77 @@ const MonitoringAttendancePage: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Mark Attendance Modal */}
+            <Modal
+                isOpen={activeModal === 'attendance'}
+                onClose={closeModal}
+                title="Mark Attendance"
+                gradient="emerald"
+                size="xl"
+            >
+                <form onSubmit={handleMarkAttendance} className="space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Date</label>
+                            <input
+                                type="date"
+                                required
+                                value={attendanceForm.date}
+                                onChange={(e) => setAttendanceForm({ ...attendanceForm, date: e.target.value })}
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Status</label>
+                            <select
+                                value={attendanceForm.status}
+                                onChange={(e) => setAttendanceForm({ ...attendanceForm, status: e.target.value })}
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                            >
+                                <option value="PRESENT">Present</option>
+                                <option value="ABSENT">Absent</option>
+                                <option value="LATE">Late</option>
+                                <option value="WORK_FROM_HOME">Work from Home</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Check In Time</label>
+                            <input
+                                type="time"
+                                required={attendanceForm.status !== 'ABSENT'}
+                                disabled={attendanceForm.status === 'ABSENT'}
+                                value={attendanceForm.check_in_time}
+                                onChange={(e) => setAttendanceForm({ ...attendanceForm, check_in_time: e.target.value })}
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all disabled:opacity-50"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Check Out Time</label>
+                            <input
+                                type="time"
+                                required={attendanceForm.status !== 'ABSENT'}
+                                disabled={attendanceForm.status === 'ABSENT'}
+                                value={attendanceForm.check_out_time}
+                                onChange={(e) => setAttendanceForm({ ...attendanceForm, check_out_time: e.target.value })}
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all disabled:opacity-50"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <Button type="button" onClick={closeModal} variant="outline" fullWidth>
+                            Cancel
+                        </Button>
+                        <Button type="submit" gradient="emerald" fullWidth>
+                            Mark Attendance
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 };

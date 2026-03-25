@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     Brain, Sparkles, Wand2, Loader2, ChevronLeft, 
     Target, Clock, CheckCircle, Award, Code, 
@@ -26,6 +26,7 @@ interface AITaskSuggestion {
 
 const AITaskGenerator: React.FC = () => {
     const { internId: urlInternId } = useParams();
+    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { user } = useAuth();
     
@@ -109,6 +110,18 @@ const AITaskGenerator: React.FC = () => {
         };
         fetchModules();
     }, [selectedProject]);
+
+    // Set selected project from URL parameter
+    useEffect(() => {
+        const projectParam = searchParams.get('project');
+        if (projectParam && projects.length > 0) {
+            const projectId = parseInt(projectParam);
+            const projectExists = projects.find(p => p.id === projectId);
+            if (projectExists) {
+                setSelectedProject(projectId);
+            }
+        }
+    }, [searchParams, projects]);
 
     const generateTasks = async () => {
         if (!selectedIntern) {

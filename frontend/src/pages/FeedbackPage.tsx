@@ -326,6 +326,10 @@ const FeedbackPage: React.FC = () => {
 
     // Use filtered feedback
     const displayedFeedback = filteredFeedback;
+    
+    // Calculate total counts for tabs
+    const givenCount = feedback.filter(f => f.reviewer.id === user?.id).length;
+    const receivedCount = feedback.filter(f => f.recipient.id === user?.id).length;
 
     const getRecipients = () => {
         if (user?.role === 'ADMIN') {
@@ -365,7 +369,7 @@ const FeedbackPage: React.FC = () => {
                             : 'text-[var(--text-dim)] hover:text-[var(--text-main)]'
                             }`}
                     >
-                        Given ({displayedFeedback.length})
+                        Given ({givenCount})
                     </button>
                 )}
                 <button
@@ -375,7 +379,7 @@ const FeedbackPage: React.FC = () => {
                         : 'text-[var(--text-dim)] hover:text-[var(--text-main)]'
                         }`}
                 >
-                    Received ({displayedFeedback.length})
+                    Received ({receivedCount})
                 </button>
             </div>
 

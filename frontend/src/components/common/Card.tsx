@@ -3,6 +3,7 @@ import React from 'react';
 interface CardProps {
     children: React.ReactNode;
     className?: string;
+    onClick?: () => void;
     hover?: boolean;
     padding?: 'none' | 'sm' | 'md' | 'lg';
     gradient?: string;
@@ -30,6 +31,7 @@ const variantStyles = {
 const Card: React.FC<CardProps> = ({
     children,
     className = '',
+    onClick,
     hover = false,
     padding = 'md',
     gradient,
@@ -42,6 +44,7 @@ const Card: React.FC<CardProps> = ({
 }) => {
     return (
         <div
+            onClick={onClick}
             className={`
                 relative overflow-hidden rounded-3xl border transition-all duration-500
                 ${variantStyles[variant]}

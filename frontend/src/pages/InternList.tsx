@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { UserPlus, Search, Filter, X, Mail, Phone, Building, ArrowRight, Eye, Edit } from 'lucide-react';
+import { UserPlus, Search, Filter, X, Mail, Phone, Building, ArrowRight, Eye, Edit, Award, BookOpen, Calendar, Clock, Star } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
@@ -41,6 +41,39 @@ interface NewInternData {
     };
 }
 
+interface DetailedInternProfile {
+    id: number;
+    user: {
+        id: number;
+        email: string;
+        full_name: string;
+        role: string;
+        department: string;
+    };
+    university: string;
+    phone_number: string;
+    status: string;
+    skills: string[];
+    gpa?: number;
+    graduation_year?: number;
+    github_profile?: string;
+    linkedin_profile?: string;
+    projects?: Array<{
+        id: number;
+        name: string;
+        status: string;
+        role: string;
+    }>;
+    tasks?: Array<{
+        id: number;
+        title: string;
+        status: string;
+        due_date: string;
+    }>;
+    attendance_rate?: number;
+    average_rating?: number;
+}
+
 const InternList: React.FC = () => {
     const { user } = useAuth();
     const [interns, setInterns] = useState<InternProfile[]>([]);
@@ -53,6 +86,11 @@ const InternList: React.FC = () => {
     const [departments, setDepartments] = useState<string[]>([]);
     const [availableInterns, setAvailableInterns] = useState<AvailableIntern[]>([]);
     const [selectedInternId, setSelectedInternId] = useState<number | ''>('');
+    
+    // View Profile Modal State
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [selectedIntern, setSelectedIntern] = useState<DetailedInternProfile | null>(null);
+    const [profileLoading, setProfileLoading] = useState(false);
 
     const fetchAvailableInterns = async () => {
         try {
@@ -61,6 +99,88 @@ const InternList: React.FC = () => {
         } catch (err) {
             console.error('Error fetching available interns:', err);
             setAvailableInterns([]);
+        }
+    };
+
+    const viewInternProfile = async (intern: InternProfile) => {
+        setProfileLoading(true);
+        setShowProfileModal(true);
+        setSelectedIntern(null);
+        
+        try {
+            // Fetch detailed profile data
+            const profileResponse = await api.get(`/interns/profile-by-user/${intern.user.id}/`);
+            const profile = profileResponse.data;
+            
+            // Fetch projects assigned to this intern
+            let projects: any[] = [];
+            try {
+                const projectsResponse = await api.get(`/projects/intern/${intern.user.id}/`);
+                projects = projectsResponse.data || [];
+            } catch (e) {
+                console.error('Error fetching projects:', e);
+            }
+            
+            // Fetch tasks for this intern
+            let tasks: any[] = [];
+            try {
+                const tasksResponse = await api.get(`/analytics/intern-tasks/${intern.user.id}/`);
+                tasks = tasksResponse.data || [];
+            } catch (e) {
+                console.error('Error fetching tasks:', e);
+            }
+            
+            // Fetch performance stats
+            let performanceStats = { attendance_rate: 0, average_rating: 0 };
+            try {
+                const perfResponse = await api.get(`/analytics/intern/${intern.user.id}/performance-summary/`);
+                performanceStats = perfResponse.data || { attendance_rate: 0, average_rating: 0 };
+            } catch (e) {
+                console.error('Error fetching performance:', e);
+            }
+            
+            setSelectedIntern({
+                id: profile.id,
+                user: {
+                    id: intern.user.id,
+                    email: intern.user.email,
+                    full_name: intern.user.full_name,
+                    role: intern.user.role,
+                    department: profile.university || ''
+                },
+                university: profile.university || intern.university || '',
+                phone_number: profile.phone_number || intern.phone_number || '',
+                status: profile.status || intern.status || 'ACTIVE',
+                skills: profile.skills || intern.skills || [],
+                gpa: profile.gpa,
+                graduation_year: profile.graduation_year,
+                github_profile: profile.github_profile,
+                linkedin_profile: profile.linkedin_profile,
+                projects: projects,
+                tasks: tasks,
+                attendance_rate: performanceStats.attendance_rate,
+                average_rating: performanceStats.average_rating
+            });
+        } catch (err) {
+            console.error('Error fetching intern profile:', err);
+            // Fallback to basic data
+            setSelectedIntern({
+                id: intern.id,
+                user: {
+                    ...intern.user,
+                    department: intern.university || user?.department || ''
+                },
+                university: intern.university,
+                phone_number: intern.phone_number,
+                status: intern.status,
+                skills: intern.skills,
+                projects: [],
+                tasks: [],
+                attendance_rate: 0,
+                average_rating: 0
+            });
+        } finally {
+            setProfileLoading(false);
         }
     };
 
@@ -368,7 +488,10 @@ const InternList: React.FC = () => {
 
                             {/* Actions */}
                             <div className="mt-4 pt-4 border-t border-[var(--border-color)] flex items-center justify-between">
-                                <button className="text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 group/btn">
+                                <button 
+                                    onClick={() => viewInternProfile(intern)}
+                                    className="text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 group/btn"
+                                >
                                     View Profile
                                     <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
                                 </button>
@@ -600,6 +723,210 @@ const InternList: React.FC = () => {
                                 </Button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* View Profile Modal */}
+            {showProfileModal && selectedIntern && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowProfileModal(false)}></div>
+                    <div className="relative bg-[var(--card-bg)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl shadow-purple-500/20 w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-scale-in flex flex-col">
+                        {/* Modal Header */}
+                        <div className="sticky top-0 bg-[var(--card-bg)] backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] z-10 shrink-0">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                                    {getInitials(selectedIntern.user?.full_name || '')}
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-[var(--text-main)] flex items-center gap-3">
+                                        {selectedIntern.user?.full_name || 'N/A'}
+                                        {getStatusBadge(selectedIntern.status)}
+                                    </h2>
+                                    <p className="text-sm text-[var(--text-muted)] mt-1 flex items-center gap-4">
+                                        <span className="flex items-center gap-1"><Mail size={14} /> {selectedIntern.user?.email}</span>
+                                        <span className="flex items-center gap-1"><Building size={14} /> {selectedIntern.user?.department || selectedIntern.university}</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowProfileModal(false)}
+                                className="p-2 hover:bg-[var(--bg-muted)] rounded-xl transition-colors group"
+                            >
+                                <X size={20} className="text-[var(--text-muted)] group-hover:text-[var(--text-main)] transition-colors" />
+                            </button>
+                        </div>
+                        
+                        {/* Modal Content */}
+                        <div className="p-6 overflow-y-auto flex-1 bg-[var(--bg-color)]/50 space-y-8">
+                            {/* Stats Cards */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <Card className="p-4 flex flex-col items-center justify-center text-center bg-gradient-to-br from-purple-500/5 to-transparent border-purple-500/10">
+                                    <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center mb-2">
+                                        <Star className="text-purple-400" size={20} />
+                                    </div>
+                                    <div className="text-2xl font-bold text-[var(--text-main)]">
+                                        {selectedIntern.average_rating ? selectedIntern.average_rating.toFixed(1) : 'N/A'}
+                                    </div>
+                                    <div className="text-xs text-[var(--text-dim)] uppercase tracking-wider font-semibold mt-1">Avg Rating</div>
+                                </Card>
+                                <Card className="p-4 flex flex-col items-center justify-center text-center bg-gradient-to-br from-blue-500/5 to-transparent border-blue-500/10">
+                                    <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center mb-2">
+                                        <Clock className="text-blue-400" size={20} />
+                                    </div>
+                                    <div className="text-2xl font-bold text-[var(--text-main)]">
+                                        {selectedIntern.attendance_rate ? `${selectedIntern.attendance_rate}%` : 'N/A'}
+                                    </div>
+                                    <div className="text-xs text-[var(--text-dim)] uppercase tracking-wider font-semibold mt-1">Attendance</div>
+                                </Card>
+                                <Card className="p-4 flex flex-col items-center justify-center text-center bg-gradient-to-br from-pink-500/5 to-transparent border-pink-500/10">
+                                    <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center mb-2">
+                                        <Award className="text-pink-400" size={20} />
+                                    </div>
+                                    <div className="text-2xl font-bold text-[var(--text-main)]">
+                                        {selectedIntern.projects?.length || 0}
+                                    </div>
+                                    <div className="text-xs text-[var(--text-dim)] uppercase tracking-wider font-semibold mt-1">Projects</div>
+                                </Card>
+                                <Card className="p-4 flex flex-col items-center justify-center text-center bg-gradient-to-br from-indigo-500/5 to-transparent border-indigo-500/10">
+                                    <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center mb-2">
+                                        <BookOpen className="text-indigo-400" size={20} />
+                                    </div>
+                                    <div className="text-2xl font-bold text-[var(--text-main)]">
+                                        {selectedIntern.tasks?.length || 0}
+                                    </div>
+                                    <div className="text-xs text-[var(--text-dim)] uppercase tracking-wider font-semibold mt-1">Tasks</div>
+                                </Card>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* Left Column: Personal Info & Skills */}
+                                <div className="space-y-6">
+                                    <Card className="p-5">
+                                        <h3 className="text-lg font-bold text-[var(--text-main)] mb-4 flex items-center gap-2">
+                                            <UserPlus size={18} className="text-purple-400" />
+                                            Personal Details
+                                        </h3>
+                                        <div className="space-y-3">
+                                            {selectedIntern.phone_number && (
+                                                <div className="flex items-center gap-3 text-sm">
+                                                    <div className="w-8 h-8 rounded-lg bg-[var(--bg-muted)] flex items-center justify-center">
+                                                        <Phone size={14} className="text-[var(--text-muted)]" />
+                                                    </div>
+                                                    <span className="text-[var(--text-main)]">{selectedIntern.phone_number}</span>
+                                                </div>
+                                            )}
+                                            {selectedIntern.university && (
+                                                <div className="flex items-center gap-3 text-sm">
+                                                    <div className="w-8 h-8 rounded-lg bg-[var(--bg-muted)] flex items-center justify-center">
+                                                        <Building size={14} className="text-[var(--text-muted)]" />
+                                                    </div>
+                                                    <span className="text-[var(--text-main)]">{selectedIntern.university}</span>
+                                                </div>
+                                            )}
+                                            {(selectedIntern.graduation_year || selectedIntern.gpa) && (
+                                                <div className="flex items-center gap-3 text-sm">
+                                                    <div className="w-8 h-8 rounded-lg bg-[var(--bg-muted)] flex items-center justify-center">
+                                                        <Calendar size={14} className="text-[var(--text-muted)]" />
+                                                    </div>
+                                                    <span className="text-[var(--text-main)]">
+                                                        Class of {selectedIntern.graduation_year || 'N/A'} {selectedIntern.gpa && `• ${selectedIntern.gpa} GPA`}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {selectedIntern.github_profile && (
+                                                <a href={selectedIntern.github_profile} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm group/link hover:bg-purple-500/5 p-1 rounded-lg transition-colors -ml-1 flex-1 min-w-0">
+                                                    <div className="w-8 h-8 rounded-lg bg-[var(--bg-muted)] flex items-center justify-center group-hover/link:bg-purple-500/20 group-hover/link:text-purple-400 transition-colors shrink-0">
+                                                        <Search size={14} className="text-[var(--text-muted)] group-hover/link:text-purple-400 transition-colors" />
+                                                    </div>
+                                                    <span className="text-[var(--text-main)] group-hover/link:text-purple-400 transition-colors truncate">GitHub</span>
+                                                </a>
+                                            )}
+                                            {selectedIntern.linkedin_profile && (
+                                                <a href={selectedIntern.linkedin_profile} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm group/link hover:bg-blue-500/5 p-1 rounded-lg transition-colors -ml-1 flex-1 min-w-0">
+                                                    <div className="w-8 h-8 rounded-lg bg-[var(--bg-muted)] flex items-center justify-center group-hover/link:bg-blue-500/20 group-hover/link:text-blue-400 transition-colors shrink-0">
+                                                        <Search size={14} className="text-[var(--text-muted)] group-hover/link:text-blue-400 transition-colors" />
+                                                    </div>
+                                                    <span className="text-[var(--text-main)] group-hover/link:text-blue-400 transition-colors truncate">LinkedIn</span>
+                                                </a>
+                                            )}
+                                        </div>
+                                    </Card>
+
+                                    <Card className="p-5">
+                                        <h3 className="text-lg font-bold text-[var(--text-main)] mb-4 flex items-center gap-2">
+                                            <Award size={18} className="text-pink-400" />
+                                            Skills
+                                        </h3>
+                                        {selectedIntern.skills && selectedIntern.skills.length > 0 ? (
+                                            <div className="flex flex-wrap gap-2">
+                                                {selectedIntern.skills.map((skill, index) => (
+                                                    <span key={index} className="px-3 py-1.5 text-sm font-medium bg-purple-500/10 text-purple-400 rounded-xl border border-purple-500/20 shadow-sm">
+                                                        {skill}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-[var(--text-dim)] italic">No skills listed</p>
+                                        )}
+                                    </Card>
+                                </div>
+
+                                {/* Right Column: Projects & Tasks */}
+                                <div className="md:col-span-2 space-y-6">
+                                    <Card className="p-5 flex flex-col h-full max-h-[400px]">
+                                        <h3 className="text-lg font-bold text-[var(--text-main)] mb-4 flex items-center gap-2 pb-2 border-b border-[var(--border-color)]">
+                                            <BookOpen size={18} className="text-indigo-400" />
+                                            Assigned Projects
+                                        </h3>
+                                        <div className="overflow-y-auto pr-2 space-y-3 flex-1 custom-scrollbar">
+                                            {selectedIntern.projects && selectedIntern.projects.length > 0 ? (
+                                                selectedIntern.projects.map((project) => (
+                                                    <div key={project.id} className="p-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl hover:border-purple-500/30 transition-colors">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <h4 className="font-semibold text-[var(--text-main)] text-sm">{project.name}</h4>
+                                                            <Badge variant={project.status === 'ACTIVE' ? 'success' : 'default'} size="sm">{project.status}</Badge>
+                                                        </div>
+                                                        <p className="text-xs text-[var(--text-dim)] mt-1">Role: <span className="text-[var(--text-main)] font-medium">{project.role}</span></p>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-6 text-[var(--text-dim)] text-sm">
+                                                    No projects assigned yet
+                                                </div>
+                                            )}
+                                        </div>
+                                    </Card>
+                                    
+                                    <Card className="p-5 flex flex-col h-full max-h-[400px]">
+                                        <h3 className="text-lg font-bold text-[var(--text-main)] mb-4 flex items-center gap-2 pb-2 border-b border-[var(--border-color)]">
+                                            <Clock size={18} className="text-blue-400" />
+                                            Recent Tasks
+                                        </h3>
+                                        <div className="overflow-y-auto pr-2 space-y-3 flex-1 custom-scrollbar">
+                                            {selectedIntern.tasks && selectedIntern.tasks.length > 0 ? (
+                                                selectedIntern.tasks.slice(0, 5).map((task) => (
+                                                    <div key={task.id} className="p-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl hover:border-purple-500/30 transition-colors">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <h4 className="font-semibold text-[var(--text-main)] text-sm">{task.title}</h4>
+                                                            <Badge variant={
+                                                                task.status === 'COMPLETED' ? 'success' : 
+                                                                task.status === 'IN_PROGRESS' ? 'warning' : 'default'
+                                                            } size="sm">{task.status}</Badge>
+                                                        </div>
+                                                        <p className="text-xs text-[var(--text-dim)] mt-1">Due: <span className="text-[var(--text-main)] font-medium">{new Date(task.due_date).toLocaleDateString()}</span></p>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-6 text-[var(--text-dim)] text-sm">
+                                                    No tasks assigned yet
+                                                </div>
+                                            )}
+                                        </div>
+                                    </Card>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
