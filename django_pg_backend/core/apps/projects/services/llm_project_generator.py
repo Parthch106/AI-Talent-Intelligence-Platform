@@ -14,10 +14,6 @@ logger = logging.getLogger(__name__)
 HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
 HF_MODEL = "meta-llama/Llama-3.2-1B-Instruct"
 
-# Default API key - can be overridden via environment variable
-DEFAULT_HF_TOKEN = "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"
-
-
 class LLMProjectGenerator:
     """
     Hugging Face-powered project generator.
@@ -35,10 +31,11 @@ class LLMProjectGenerator:
         return self._api_key
     
     def _initialize_api_key(self):
-        """Initialize API key from environment or default."""
-        self._api_key = os.environ.get("HF_TOKEN") or DEFAULT_HF_TOKEN
+        """Initialize API key from environment."""
+        from django.conf import settings
+        self._api_key = getattr(settings, 'HF_TOKEN', os.environ.get("HF_TOKEN"))
         if not self._api_key:
-            raise ValueError("No Hugging Face API key found. Set HF_TOKEN in .env or use default.")
+            raise ValueError("No Hugging Face API key found. Set HF_TOKEN in .env")
         logger.info("LLMProjectGenerator: Using Hugging Face API")
     
     def generate_project_suggestions(
@@ -93,16 +90,17 @@ class LLMProjectGenerator:
             
             if response.status_code != 200:
                 logger.error(f"HF API error: {response.status_code} - {response.text}")
-                return {"error": f"API error: {response.status_code}", "projects": []}
+                logger.warning("LLM API failed, using fallback suggestions")
+                return self._get_fallback_suggestions(department, experience_level, description, skills)
             
             result = response.json()
             
-            # Extract content from response
             if "choices" in result and len(result["choices"]) > 0:
                 content = result["choices"][0]["message"]["content"]
             else:
                 logger.error(f"Unexpected HF response format: {result}")
-                return {"error": "Unexpected response format", "projects": []}
+                logger.warning("Unexpected response format, using fallback suggestions")
+                return self._get_fallback_suggestions(department, experience_level, description, skills)
             
             parsed_result = self._parse_llm_response(content)
 
@@ -116,10 +114,12 @@ class LLMProjectGenerator:
             
         except requests.exceptions.Timeout:
             logger.error("HF API timeout")
-            return {"error": "Request timed out", "projects": []}
+            logger.warning("LLM API timed out, using fallback suggestions")
+            return self._get_fallback_suggestions(department, experience_level, description, skills)
         except Exception as e:
             logger.error(f"LLMProjectGenerator error: {e}")
-            return {"error": str(e), "projects": []}
+            logger.warning("LLM generation failed, using fallback suggestions")
+            return self._get_fallback_suggestions(department, experience_level, description, skills)
     
     def _build_context_prompt(
         self,

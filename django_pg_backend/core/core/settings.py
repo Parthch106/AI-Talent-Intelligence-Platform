@@ -34,6 +34,7 @@ if 'GITHUB_TOKEN' in os.environ:
 
 # GitHub Models Token for LLM Parsing
 AI_TALENT_GITHUB_TOKEN = os.getenv('AI_TALENT_GITHUB_TOKEN')
+HF_TOKEN = os.getenv('HF_TOKEN')
 
 
 # Quick-start development settings - unsuitable for production

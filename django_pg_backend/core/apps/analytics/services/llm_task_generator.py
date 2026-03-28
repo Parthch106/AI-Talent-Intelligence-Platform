@@ -14,8 +14,6 @@ logger = logging.getLogger(__name__)
 HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
 HF_MODEL = "meta-llama/Llama-3.2-1B-Instruct"
 
-# Default API key - can be overridden via environment variable
-DEFAULT_HF_TOKEN = "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"
 
 
 class LLMTaskGenerator:
@@ -35,10 +33,10 @@ class LLMTaskGenerator:
         return self._api_key
     
     def _initialize_api_key(self):
-        """Initialize API key from environment or default."""
-        self._api_key = os.environ.get("HF_TOKEN") or DEFAULT_HF_TOKEN
+        """Initialize API key from environment."""
+        self._api_key = os.environ.get("HF_TOKEN")
         if not self._api_key:
-            raise ValueError("No Hugging Face API key found. Set HF_TOKEN in .env or use default.")
+            raise ValueError("No Hugging Face API key found. Set HF_TOKEN in .env")
         logger.info("LLMTaskGenerator: Using Hugging Face API")
     
     def generate_task_suggestions(
