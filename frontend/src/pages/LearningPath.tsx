@@ -6,6 +6,7 @@ import {
     ChevronDown, ChevronUp, ClipboardList, Sparkles, Rocket, Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useMonitoring } from '../context/MonitoringContext';
 import api from '../api/axios';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
@@ -366,10 +367,13 @@ function RLRecommendationCard({ recommendation, loading, onRefresh }: {
 
 const LearningPath: React.FC = () => {
     const { user } = useAuth();
+    
+    // Global State from context
+    const { selectedInternId: activeInternId, setSelectedInternId: setActiveInternId, interns } = useMonitoring();
+    
     const [path, setPath] = useState<PathProgress | null>(null);
     const [recommendation, setRecommendation] = useState<RLRecommendation | null>(null);
     const [optimalDiff, setOptimalDiff] = useState<OptimalDifficulty | null>(null);
-    const [interns, setInterns] = useState<any[]>([]);
     const [loadingPath, setLoadingPath] = useState(false);
     const [loadingRec, setLoadingRec] = useState(false);
     const [loadingGenerate, setLoadingGenerate] = useState(false);
@@ -393,7 +397,6 @@ const LearningPath: React.FC = () => {
     const [showSkillsMap, setShowSkillsMap] = useState(false);
     const [targetRole, setTargetRole] = useState('');
     const [jobRoles, setJobRoles] = useState<{id: number; role_title: string; role_description: string}[]>([]);
-    const [activeInternId, setActiveInternId] = useState<number | null>(null);
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
 
@@ -424,24 +427,7 @@ const LearningPath: React.FC = () => {
         fetchJobRoles();
     }, []);
 
-    // Fetch Interns for the Dropdown
-    useEffect(() => {
-        if (!isManagerOrAdmin) return;
-        const fetchInterns = async () => {
-            try {
-                if (user?.role === 'MANAGER') {
-                    const res = await api.get('/interns/department-interns/');
-                    setInterns(res.data);
-                } else {
-                    const res = await api.get('/interns/profiles/');
-                    setInterns(res.data.map((p: any) => p.user));
-                }
-            } catch (err) {
-                console.error("Failed to fetch interns", err);
-            }
-        };
-        fetchInterns();
-    }, [isManagerOrAdmin, user?.role]);
+    // fetchInterns is now handled by MonitoringContext
 
     const loadPath = useCallback(async (internId: number) => {
         setLoadingPath(true);
@@ -694,7 +680,7 @@ const LearningPath: React.FC = () => {
                             >
                                 <option value="">Select an Intern...</option>
                                 {interns.map(i => (
-                                    <option key={i.id} value={i.id}>{i.full_name || i.username} ({i.role})</option>
+                                    <option key={i.id} value={i.id}>{i.full_name || i.email} (Intern)</option>
                                 ))}
                             </select>
                         </div>

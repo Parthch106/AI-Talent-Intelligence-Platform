@@ -6,7 +6,7 @@ interface ModalProps {
     onClose: () => void;
     title: string;
     children: React.ReactNode;
-    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'full';
     gradient?: 'purple' | 'blue' | 'emerald' | 'amber' | 'rose' | 'violet';
 }
 
@@ -20,11 +20,13 @@ const gradientClasses = {
 };
 
 const sizeClasses = {
-    sm: 'max-w-sm',
-    md: 'max-w-md',
-    lg: 'max-w-lg',
-    xl: 'max-w-2xl',
-    '2xl': 'max-w-3xl',
+    sm: 'max-w-md',        // 28rem
+    md: 'max-w-xl',        // 36rem
+    lg: 'max-w-2xl',       // 42rem
+    xl: 'max-w-4xl',       // 56rem
+    '2xl': 'max-w-6xl',    // 72rem
+    '3xl': 'max-w-7xl',    // 80rem
+    full: 'max-w-[95vw]',
 };
 
 const Modal: React.FC<ModalProps> = ({

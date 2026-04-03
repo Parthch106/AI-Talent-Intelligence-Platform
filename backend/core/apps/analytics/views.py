@@ -955,19 +955,20 @@ class WeeklyReportView(APIView):
         intern_id = request.query_params.get('intern_id')
 
         # Determine target intern
+        target_id = user.id  # Default to own reports
         if intern_id:
-            if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
-                return Response(
-                    {'error': 'Permission denied'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
             target_id = int(intern_id)
-            # Validate manager access to intern
-            is_valid, error_response = validate_manager_access(user, target_id)
-            if not is_valid:
-                return error_response
-        else:
-            target_id = user.id
+            # Only perform strict permission checks if requesting someone else's data
+            if target_id != user.id:
+                if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+                    return Response(
+                        {'error': 'Permission denied: Cannot access other users reports'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+                # Validate manager access to intern
+                is_valid, error_response = validate_manager_access(user, target_id)
+                if not is_valid:
+                    return error_response
 
         reports = WeeklyReport.objects.filter(intern_id=target_id)
 

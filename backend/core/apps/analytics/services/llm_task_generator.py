@@ -78,35 +78,9 @@ class LLMTaskGenerator:
         )
         
         try:
-            # Call Hugging Face router API
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": HF_MODEL,
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ],
-                "max_tokens": 2000,
-                "temperature": 0.3
-            }
-            
-            response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=60)
-            
-            if response.status_code != 200:
-                logger.error(f"HF API error: {response.status_code} - {response.text}")
-                return {"error": f"API error: {response.status_code}", "tasks": []}
-            
-            result = response.json()
-            
-            # Extract content from response
-            if "choices" in result and len(result["choices"]) > 0:
-                content = result["choices"][0]["message"]["content"]
-            else:
-                logger.error(f"Unexpected HF response format: {result}")
-                return {"error": "Unexpected response format", "tasks": []}
+            content = self._invoke_llm(prompt)
+            if not content or "error" in content.lower() and len(content) < 50:
+                return {"error": content or "API error", "tasks": []}
             
             parsed_result = self._parse_llm_response(content)
 
@@ -294,7 +268,33 @@ Return JSON:
 }}"""
         
         try:
-            # Call Hugging Face router API
+            content = self._invoke_llm(prompt, max_tokens=1000)
+            if not content or ("error" in content.lower() and len(content) < 50):
+                return {"approved": False, "feedback": content or "API error", "suggestions": []}
+            
+            parsed_result = self._parse_llm_response(content)
+
+            # If parsing failed, return basic approval
+            if 'error' in parsed_result:
+                logger.warning("LLM failed to generate valid review JSON, using basic approval")
+                return {
+                    "approved": True,
+                    "feedback": "Task appears appropriate for the intern's skill level",
+                    "suggestions": []
+                }
+
+            return parsed_result
+                
+        except Exception as e:
+            logger.error(f"Error reviewing task: {e}")
+            return {"approved": False, "feedback": str(e), "suggestions": []}
+
+    def _invoke_llm(self, prompt: str, max_tokens: int = 2000, temperature: float = 0.3) -> str:
+        """
+        Generic method to call the Hugging Face router API.
+        Returns the text content of the response.
+        """
+        try:
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json"
@@ -305,38 +305,27 @@ Return JSON:
                 "messages": [
                     {"role": "user", "content": prompt}
                 ],
-                "max_tokens": 1000,
-                "temperature": 0.3
+                "max_tokens": max_tokens,
+                "temperature": temperature
             }
             
             response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=60)
             
             if response.status_code != 200:
-                logger.error(f"HF API error in review_task: {response.status_code}")
-                return {"approved": False, "feedback": f"API error: {response.status_code}", "suggestions": []}
+                logger.error(f"HF API error: {response.status_code} - {response.text}")
+                return f"Error: API returned {response.status_code}"
             
             result = response.json()
             
             if "choices" in result and len(result["choices"]) > 0:
-                content = result["choices"][0]["message"]["content"]
-                parsed_result = self._parse_llm_response(content)
-
-                # If parsing failed, return basic approval
-                if 'error' in parsed_result:
-                    logger.warning("LLM failed to generate valid review JSON, using basic approval")
-                    return {
-                        "approved": True,
-                        "feedback": "Task appears appropriate for the intern's skill level",
-                        "suggestions": []
-                    }
-
-                return parsed_result
+                return result["choices"][0]["message"]["content"]
             else:
-                return {"approved": False, "feedback": "Unexpected response format", "suggestions": []}
+                logger.error(f"Unexpected HF response format: {result}")
+                return "Error: Unexpected response format"
                 
         except Exception as e:
-            logger.error(f"Error reviewing task: {e}")
-            return {"approved": False, "feedback": str(e), "suggestions": []}
+            logger.error(f"LLM invocation error: {e}")
+            return f"Error: {str(e)}"
 
     def _get_fallback_task_suggestions(self, intern_name: str, intern_skills: List[str], module_name: Optional[str], num_suggestions: int) -> Dict[str, Any]:
         """Provide fallback task suggestions when LLM fails."""

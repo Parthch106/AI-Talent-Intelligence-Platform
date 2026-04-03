@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { useMonitoring } from '../context/MonitoringContext';
 import { TasksTab } from '../components/monitoring';
 import { useSearchParams } from 'react-router-dom';
 import { Card, ContributionHeatmap, Modal, Button } from '../components/common';
@@ -39,8 +40,10 @@ const MonitoringTasksPage: React.FC = () => {
     const urlInternId = searchParams.get('internId');
     
     // State
-    const [selectedIntern, setSelectedIntern] = useState<number | null>(null);
-    const [interns, setInterns] = useState<Intern[]>([]);
+    // Global State from context
+    const { selectedInternId: selectedIntern, setSelectedInternId: setSelectedIntern, interns, loadingInterns } = useMonitoring();
+    
+    // Local State
     const [tasks, setTasks] = useState<Task[]>([]);
     const [heatmapData, setHeatmapData] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState<boolean>(false);
@@ -59,15 +62,16 @@ const MonitoringTasksPage: React.FC = () => {
         title: '', description: '', priority: 'LOW', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] as string[],
     });
 
-    // Fetch interns and skills when page loads
+    // Fetch data when page loads (for interns) or when selectedIntern changes
     useEffect(() => {
-        if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
-            fetchInterns();
-        } else if (user?.role === 'INTERN') {
+        if (user?.role === 'INTERN') {
             fetchData();
             fetchAvailableSkills(user.id);
+        } else if (selectedIntern) {
+            fetchData();
+            fetchAvailableSkills(selectedIntern);
         }
-    }, [user?.role]);
+    }, [selectedIntern, user?.role]);
 
     const fetchAvailableSkills = async (internId?: number): Promise<void> => {
         try {
@@ -80,34 +84,12 @@ const MonitoringTasksPage: React.FC = () => {
     };
 
 
-    // Fetch data when selectedIntern changes
+    // Effect to handle URL intern ID parameter
     useEffect(() => {
-        if ((user?.role === 'ADMIN' || user?.role === 'MANAGER') && selectedIntern) {
-            fetchData();
-            fetchAvailableSkills(selectedIntern);
+        if (urlInternId && (user?.role === 'ADMIN' || user?.role === 'MANAGER')) {
+            setSelectedIntern(parseInt(urlInternId));
         }
-    }, [selectedIntern, user?.role]);
-
-    const fetchInterns = async (): Promise<void> => {
-        if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
-            try {
-                const response = await axios.get('/accounts/users/', {
-                    params: { role: 'INTERN', department: user.role === 'MANAGER' ? user.department : undefined }
-                });
-                const internList = Array.isArray(response.data) ? response.data : response.data.results || [];
-                setInterns(internList);
-                
-                // Prioritize internId from URL
-                if (urlInternId) {
-                    setSelectedIntern(parseInt(urlInternId));
-                } else if (internList.length > 0 && !selectedIntern) {
-                    setSelectedIntern(internList[0].id);
-                }
-            } catch (err) {
-                console.error('[fetchInterns] Error:', err);
-            }
-        }
-    };
+    }, [urlInternId, setSelectedIntern, user?.role]);
 
     const fetchProjects = async (): Promise<void> => {
         try {

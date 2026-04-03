@@ -24,8 +24,10 @@ Reward:
 import logging
 import random
 import math
+import hashlib
 from datetime import timedelta
 from django.utils import timezone
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
@@ -60,19 +62,25 @@ ACTION_DIFFICULTY_MAP = {
     'COLLABORATION_TASK': 2,
 }
 
-# In-memory Q-table: { intern_id: { state_key: [q0..q4] } }
-# In production replace with a persisted DQN (torch/keras) or Redis-backed table.
+# In-memory session cache for performance: { intern_id: { state_key: [q0..q4] } }
 _Q_TABLE: dict = {}
-_EPSILON: dict = {}  # per-intern exploration rate
 
+def _get_rl_state(intern_id: int):
+    """Fetch or create RLAgentState for the intern."""
+    from apps.analytics.models import RLAgentState
+    state, created = RLAgentState.objects.get_or_create(intern_id=intern_id)
+    return state
 
 def _get_epsilon(intern_id: int) -> float:
-    return _EPSILON.get(intern_id, EPSILON_START)
-
+    """Fetch the persisted epsilon for the intern."""
+    return _get_rl_state(intern_id).epsilon
 
 def _decay_epsilon(intern_id: int):
-    eps = _get_epsilon(intern_id)
-    _EPSILON[intern_id] = max(EPSILON_MIN, eps * EPSILON_DECAY)
+    """Decay and persist epsilon."""
+    state = _get_rl_state(intern_id)
+    state.epsilon = max(EPSILON_MIN, state.epsilon * EPSILON_DECAY)
+    state.total_episodes += 1
+    state.save(update_fields=['epsilon', 'total_episodes'])
 
 
 def _state_key(state_vector: list) -> str:
@@ -86,11 +94,47 @@ def _state_key(state_vector: list) -> str:
 
 
 def _ensure_q_row(intern_id: int, key: str):
+    """
+    Ensure Q-values for the given state exist in memory cache.
+    Loads from DB (QTable model) if not present.
+    """
     if intern_id not in _Q_TABLE:
         _Q_TABLE[intern_id] = {}
+        
     if key not in _Q_TABLE[intern_id]:
-        # Initial optimistic Q-values
-        _Q_TABLE[intern_id][key] = [1.0] * len(ACTIONS)
+        from apps.analytics.models import QTable
+        
+        # Try to load existing values from DB
+        db_values = QTable.objects.filter(intern_id=intern_id, state_key=key)
+        if db_values.exists():
+            # Action order: ACTIONS = ['EASY_TASK', 'MODERATE_TASK', 'HARD_TASK', 'SKILL_GAP_TASK', 'COLLABORATION_TASK']
+            q_map = {v.action: v.q_value for v in db_values}
+            _Q_TABLE[intern_id][key] = [q_map.get(a, 1.0) for a in ACTIONS]
+        else:
+            # Initial optimistic Q-values
+            values = [1.0] * len(ACTIONS)
+            _Q_TABLE[intern_id][key] = values
+            
+            # Persist initial values lazily
+            # (In production, we might wait for the first update_policy call)
+            with transaction.atomic():
+                for i, action_name in enumerate(ACTIONS):
+                    QTable.objects.get_or_create(
+                        intern_id=intern_id,
+                        state_key=key,
+                        action=action_name,
+                        defaults={'q_value': values[i]}
+                    )
+
+def _save_q_value(intern_id: int, key: str, action: str, q_value: float):
+    """Persist a single Q-value update to the DB."""
+    from apps.analytics.models import QTable
+    QTable.objects.update_or_create(
+        intern_id=intern_id,
+        state_key=key,
+        action=action,
+        defaults={'q_value': q_value}
+    )
 
 
 # ─── State Building ───────────────────────────────────────────────────────────
@@ -183,11 +227,17 @@ def select_action(intern_id: int, state: list) -> str:
         # Explore
         action_idx = random.randrange(len(ACTIONS))
     else:
-        # Exploit – pick best Q-value with random tie-breaking
+        # Exploit – pick best Q-value with deterministic tie-breaking
         q_values = _Q_TABLE[intern_id][key]
         max_q = max(q_values)
         indices = [i for i, q in enumerate(q_values) if q == max_q]
-        action_idx = random.choice(indices)
+        
+        # Use state-key hash for deterministic tie-breaking among best actions
+        if len(indices) > 1:
+            seed = int(hashlib.md5(f"{intern_id}:{key}".encode()).hexdigest(), 16)
+            action_idx = indices[seed % len(indices)]
+        else:
+            action_idx = indices[0]
 
     return ACTIONS[action_idx]
 
@@ -257,7 +307,11 @@ def update_policy(intern_id: int, state: list, action: str, reward: float, next_
 
     # Bellman equation
     new_q = current_q + ALPHA * (reward + GAMMA * max_next_q - current_q)
-    _Q_TABLE[intern_id][key][action_idx] = round(new_q, 4)
+    rounded_q = round(new_q, 4)
+    _Q_TABLE[intern_id][key][action_idx] = rounded_q
+    
+    # Persist Q-update
+    _save_q_value(intern_id, key, action, rounded_q)
 
     _decay_epsilon(intern_id)
 
@@ -290,7 +344,14 @@ def get_optimal_difficulty(intern_id: int) -> int:
     q_values = _Q_TABLE[intern_id][key]
     max_q = max(q_values)
     indices = [i for i, q in enumerate(q_values) if q == max_q]
-    best_action_idx = random.choice(indices)
+    
+    # Deterministic tie-breaking for display consistency
+    if len(indices) > 1:
+        seed = int(hashlib.md5(f"{intern_id}:{key}".encode()).hexdigest(), 16)
+        best_action_idx = indices[seed % len(indices)]
+    else:
+        best_action_idx = indices[0]
+        
     best_action = ACTIONS[best_action_idx]
     return ACTION_DIFFICULTY_MAP.get(best_action, 3)
 
@@ -306,16 +367,27 @@ def assign_task_recommendation_greedy(intern_id: int) -> dict:
     key = _state_key(state)
     _ensure_q_row(intern_id, key)
 
-    # Use greedy policy with random tie-breaking
+    # Use greedy policy with deterministic tie-breaking
     q_values = _Q_TABLE[intern_id][key]
     
-    # If all Q-values are 0 (new intern with no history), use default moderate task
-    if max(q_values) == 0:
-        best_action_idx = 1  # Default to MODERATE_TASK
+    # If all Q-values are the same (e.g. uninitialized 1.0), use deterministic tie-breaking
+    max_q = max(q_values)
+    min_q = min(q_values)
+    
+    if max_q == min_q:
+        # Default to MODERATE_TASK if uninitialized 0.0, else tie-break
+        if max_q == 0:
+            best_action_idx = 1
+        else:
+            seed = int(hashlib.md5(f"{intern_id}:{key}".encode()).hexdigest(), 16)
+            best_action_idx = seed % len(ACTIONS)
     else:
-        max_q = max(q_values)
         indices = [i for i, q in enumerate(q_values) if q == max_q]
-        best_action_idx = random.choice(indices)
+        if len(indices) > 1:
+            seed = int(hashlib.md5(f"{intern_id}:{key}".encode()).hexdigest(), 16)
+            best_action_idx = indices[seed % len(indices)]
+        else:
+            best_action_idx = indices[0]
     
     action = ACTIONS[best_action_idx]
     difficulty = ACTION_DIFFICULTY_MAP.get(action, 3)
@@ -438,16 +510,20 @@ def assign_task_recommendation(intern_id: int) -> dict:
     except Exception:
         pass
 
+    from apps.analytics.models import TaskTracking
+    key = _state_key(state)
+    _ensure_q_row(intern_id, key)
+    
     return {
         'intern_id': intern_id,
         'state_vector': state,
         'action': action,
         'recommended_difficulty': difficulty,
         'exploration_rate': round(epsilon, 3),
-        'q_values': _Q_TABLE.get(intern_id, {}).get(_state_key(state), [0] * 5),
+        'q_values': _Q_TABLE[intern_id][key],
         'recommended_templates': recommended_templates,
         'rationale': _generate_rationale(action, state),
-        'overdue_count': tasks.filter(status__in=['ASSIGNED', 'IN_PROGRESS', 'REWORK'], due_date__lt=timezone.now()).count() if 'tasks' in locals() else 0
+        'overdue_count': TaskTracking.objects.filter(intern_id=intern_id, status__in=['ASSIGNED', 'IN_PROGRESS', 'REWORK'], due_date__lt=timezone.now()).count()
     }
 
 

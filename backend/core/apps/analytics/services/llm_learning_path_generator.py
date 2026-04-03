@@ -59,8 +59,7 @@ Return your response as a JSON object:
 Only return valid JSON, no additional text."""
 
         try:
-            response = self.llm.invoke(prompt)
-            content = response.content if hasattr(response, 'content') else str(response)
+            content = self._invoke_llm(prompt)
             result = self._parse_llm_response(content)
             
             # Filter suggested skills to only include those in available_skills (case-insensitive)
@@ -118,8 +117,7 @@ Return your response as a JSON object:
 Only return valid JSON, no additional text."""
 
         try:
-            response = self.llm.invoke(prompt)
-            content = response.content if hasattr(response, 'content') else str(response)
+            content = self._invoke_llm(prompt)
             return self._parse_llm_response(content)
         except Exception as e:
             logger.error(f"LLMLearningPathGenerator.generate_milestone_task error: {e}")

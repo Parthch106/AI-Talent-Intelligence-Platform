@@ -33,9 +33,10 @@ interface WeeklyReport {
 interface WeeklyReportsTabProps {
     reports: WeeklyReport[];
     onSubmitReport: () => void;
+    showSubmit?: boolean;
 }
 
-const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitReport }) => {
+const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitReport, showSubmit = true }) => {
     // Ensure reports is always an array
     const reportsArray = Array.isArray(reports) ? reports : [];
     const [selectedReport, setSelectedReport] = React.useState<WeeklyReport | null>(null);
@@ -47,13 +48,15 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                     <h2 className="text-3xl font-bold gradient-text">Weekly Reports</h2>
                     <p className="text-[var(--text-dim)] mt-1">Track weekly progress and accomplishments</p>
                 </div>
-                <Button
-                    onClick={onSubmitReport}
-                    icon={<Plus size={18} />}
-                    gradient="indigo"
-                >
-                    Submit Report
-                </Button>
+                {showSubmit && (
+                    <Button
+                        onClick={onSubmitReport}
+                        icon={<Plus size={18} />}
+                        gradient="indigo"
+                    >
+                        Submit Report
+                    </Button>
+                )}
             </div>
 
             <div className="space-y-4">

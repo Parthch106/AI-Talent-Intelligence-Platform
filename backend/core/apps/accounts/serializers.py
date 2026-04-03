@@ -18,11 +18,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ["email", "full_name", "password", "role", "department"]
 
     def create(self, validated_data):
+        # Force role to INTERN for public registration
         user = User.objects.create_user(
             email=validated_data["email"],
             password=validated_data["password"],
             full_name=validated_data["full_name"],
-            role=validated_data.get("role", User.Role.INTERN),
+            role=User.Role.INTERN,
             department=validated_data.get("department", ""),
         )
         return user

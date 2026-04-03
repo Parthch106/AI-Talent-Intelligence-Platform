@@ -1485,3 +1485,53 @@ class RLExperienceBuffer(models.Model):
 
     def __str__(self):
         return f"{self.intern.email} | {self.action} | R={self.reward:.2f} @ {self.timestamp}"
+
+
+class QTable(models.Model):
+    """
+    Persists Q-values for the RL agent. 
+    Map of (intern, state_key, action) -> q_value.
+    """
+    intern = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='q_tables',
+        limit_choices_to={'role': 'INTERN'}
+    )
+    state_key = models.CharField(max_length=255, help_text="Discrete state representation (e.g., '1|2|3...')")
+    action = models.CharField(max_length=50, help_text="Action name (e.g., 'EASY_TASK')")
+    q_value = models.FloatField(default=1.0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['intern', 'state_key', 'action']
+        indexes = [
+            models.Index(fields=['intern', 'state_key'], name='idx_qtable_lookup'),
+        ]
+        verbose_name = "Q-Table"
+        verbose_name_plural = "Q-Tables"
+
+    def __str__(self):
+        return f"{self.intern.email} | {self.state_key} | {self.action} = {self.q_value:.4f}"
+
+
+class RLAgentState(models.Model):
+    """
+    Stores per-intern RL agent hyper-parameters and meta-state.
+    """
+    intern = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='rl_state',
+        limit_choices_to={'role': 'INTERN'}
+    )
+    epsilon = models.FloatField(default=0.8, help_text="Current exploration rate (epsilon)")
+    total_episodes = models.IntegerField(default=0, help_text="Number of tasks completed / policy updates")
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "RL Agent State"
+        verbose_name_plural = "RL Agent States"
+
+    def __str__(self):
+        return f"{self.intern.email} | ε={self.epsilon:.3f} | Episodes={self.total_episodes}"

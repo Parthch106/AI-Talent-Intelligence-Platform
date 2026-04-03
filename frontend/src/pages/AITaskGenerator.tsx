@@ -13,6 +13,7 @@ import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { useMonitoring } from '../context/MonitoringContext';
 
 interface AITaskSuggestion {
     title: string;
@@ -30,9 +31,11 @@ const AITaskGenerator: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     
+    // Global State from context
+    const { selectedInternId: contextInternId, setSelectedInternId, interns } = useMonitoring();
+    
     // States
-    const [interns, setInterns] = useState<any[]>([]);
-    const [selectedIntern, setSelectedIntern] = useState<number | null>(urlInternId ? parseInt(urlInternId) : null);
+    const [selectedIntern, setSelectedInternLocal] = useState<number | null>(urlInternId ? parseInt(urlInternId) : contextInternId);
     const [internDetails, setInternDetails] = useState<any>(null);
     
     const [projects, setProjects] = useState<{id: number; name: string}[]>([]);
@@ -51,26 +54,31 @@ const AITaskGenerator: React.FC = () => {
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [editValues, setEditValues] = useState<{title: string, description: string}>({title: '', description: ''});
 
-    // Initial Data Fetch
+    // Sync local selectedIntern with global context or URL param
     useEffect(() => {
-        const fetchInterns = async () => {
-            try {
-                const res = await axios.get('/accounts/users/', { 
-                    params: { role: 'INTERN' } 
-                });
-                const data = res.data.results || res.data;
-                setInterns(data);
-                
-                if (urlInternId) {
-                    const intern = data.find((i: any) => i.id === parseInt(urlInternId));
-                    if (intern) setInternDetails(intern);
-                }
-            } catch (err) {
-                console.error("Failed to fetch interns", err);
-            }
-        };
-        fetchInterns();
-    }, [urlInternId]);
+        if (urlInternId) {
+            setSelectedInternLocal(parseInt(urlInternId));
+        } else if (contextInternId) {
+            setSelectedInternLocal(contextInternId);
+        }
+    }, [urlInternId, contextInternId]);
+
+    // Update global context when local selection changes
+    useEffect(() => {
+        if (selectedIntern !== contextInternId) {
+            setSelectedInternId(selectedIntern);
+        }
+    }, [selectedIntern, contextInternId, setSelectedInternId]);
+
+    // Set intern details when interns list or selectedIntern changes
+    useEffect(() => {
+        if (selectedIntern && interns.length > 0) {
+            const intern = interns.find(i => i.id === selectedIntern);
+            if (intern) setInternDetails(intern);
+        }
+    }, [selectedIntern, interns]);
+
+    // fetchInterns is now handled by MonitoringContext
 
     // Fetch Intern Details & Projects when intern selected
     useEffect(() => {
@@ -261,12 +269,12 @@ const AITaskGenerator: React.FC = () => {
                                         <div className="relative">
                                             <select 
                                                 value={selectedIntern || ''}
-                                                onChange={(e) => setSelectedIntern(e.target.value ? parseInt(e.target.value) : null)}
+                                                onChange={(e) => setSelectedInternLocal(e.target.value ? parseInt(e.target.value) : null)}
                                                 className="w-full bg-[var(--bg-color)] border border-[var(--border-color)] rounded-2xl px-4 py-3.5 text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all cursor-pointer appearance-none hover:bg-[var(--card-bg)]"
                                             >
                                                 <option value="" className="bg-[var(--bg-color)] text-[var(--text-main)]">Select Candidate...</option>
                                                 {interns.map(i => (
-                                                    <option key={i.id} value={i.id} className="bg-[var(--bg-color)] text-[var(--text-main)]">{i.full_name || i.username}</option>
+                                                    <option key={i.id} value={i.id} className="bg-[var(--bg-color)] text-[var(--text-main)]">{i.full_name || i.email}</option>
                                                 ))}
                                             </select>
                                             <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />

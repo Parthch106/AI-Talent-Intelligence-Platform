@@ -5,6 +5,7 @@ import {
     ChevronRight, Sparkles, Users, Calendar, ListChecks
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useMonitoring } from '../context/MonitoringContext';
 import api from '../api/axios';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
@@ -59,8 +60,9 @@ interface ActivityItem {
 const PerformanceAnalytics: React.FC = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
-    const [selectedInternId, setSelectedInternId] = useState<number | null>(null);
-    const [interns, setInterns] = useState<Intern[]>([]);
+    
+    // Global State from context
+    const { selectedInternId, setSelectedInternId, interns } = useMonitoring();
     
     const [performanceData, setPerformanceData] = useState<any>(null);
     const [skillProfiles, setSkillProfiles] = useState<SkillProfile[]>([]);
@@ -68,15 +70,12 @@ const PerformanceAnalytics: React.FC = () => {
     const [taskHistory, setTaskHistory] = useState<TaskItem[]>([]);
     const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
 
+    // For Intern role, ensure selectedInternId is set to their own ID
     useEffect(() => {
-        if (!user) return;
-        
-        if (user.role === 'INTERN') {
+        if (user?.role === 'INTERN') {
             setSelectedInternId(user.id);
-        } else if (user.role === 'ADMIN' || user.role === 'MANAGER') {
-            fetchInterns();
         }
-    }, [user]);
+    }, [user, setSelectedInternId]);
 
     // Handle loading state when no intern selected
     useEffect(() => {
@@ -104,33 +103,7 @@ const PerformanceAnalytics: React.FC = () => {
         }
     }, [selectedInternId]);
 
-    const fetchInterns = async () => {
-        if (!user) return;
-        try {
-            let res;
-            if (user.role === 'ADMIN') {
-                // Admin gets all users with INTERN role
-                res = await api.get('/accounts/users/?role=INTERN');
-            } else if (user.role === 'MANAGER') {
-                // Manager gets interns in their department
-                res = await api.get('/interns/department-interns/');
-            }
-            
-            if (res) {
-                const internData = Array.isArray(res.data) ? res.data : res.data.results || [];
-                setInterns(internData);
-                
-                // Only set selected intern if not already set and data is available
-                if (internData.length > 0 && !selectedInternId) {
-                    setSelectedInternId(internData[0].id);
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching interns:', error);
-            // Even on error, set loading to false to prevent infinite loading
-            setLoading(false);
-        }
-    };
+    // fetchInterns is now handled by MonitoringContext
 
     const fetchAllData = async () => {
         if (!selectedInternId) return;

@@ -1,16 +1,16 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Layout } from './components/layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { MonitoringProvider } from './context/MonitoringContext';
 import ToastProvider from './components/common/ToastProvider';
 
 // Pages
 import Dashboard from './pages/Dashboard';
 import InternList from './pages/InternList';
 import ProjectList from './pages/ProjectList';
-import ManagerDashboard from './pages/ManagerDashboard';
 import FeedbackPage from './pages/FeedbackPage';
 import DocumentsPage from './pages/DocumentsPage';
 import AnalysisPage from './pages/AnalysisPage';
@@ -51,17 +51,18 @@ const App: React.FC = () => {
               <Route path="/feedback" element={<FeedbackPage />} />
               <Route path="/documents" element={<DocumentsPage />} />
               <Route path="/analysis" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><AnalysisPage /></ProtectedRoute>} />
-              <Route path="/monitoring" element={<MonitoringOverviewPage />} />
-              <Route path="/tasks" element={<MonitoringTasksPage />} />
-              <Route path="/attendance" element={<MonitoringAttendancePage />} />
-              <Route path="/reports" element={<MonitoringReportsPage />} />
+              <Route element={<MonitoringProvider><Outlet /></MonitoringProvider>}>
+                <Route path="/monitoring" element={<MonitoringOverviewPage />} />
+                <Route path="/tasks" element={<MonitoringTasksPage />} />
+                <Route path="/attendance" element={<MonitoringAttendancePage />} />
+                <Route path="/reports" element={<MonitoringReportsPage />} />
+                <Route path="/learning-path" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><LearningPath /></ProtectedRoute>} />
+                <Route path="/performance" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><PerformanceAnalytics /></ProtectedRoute>} />
+                <Route path="/monitoring/ai-tasks/:internId?" element={<AITaskGenerator />} />
+              </Route>
               <Route path="/upload-report" element={<UploadWeeklyReport />} />
               <Route path="/my-tasks" element={<InternTasks />} />
               <Route path="/my-attendance" element={<MyAttendance />} />
-              <Route path="/manager" element={<ManagerDashboard />} />
-              <Route path="/learning-path" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><LearningPath /></ProtectedRoute>} />
-              <Route path="/performance" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><PerformanceAnalytics /></ProtectedRoute>} />
-              <Route path="/monitoring/ai-tasks/:internId?" element={<AITaskGenerator />} />
             </Route>
 
             {/* Catch all */}

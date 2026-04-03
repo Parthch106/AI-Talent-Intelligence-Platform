@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { useMonitoring } from '../context/MonitoringContext';
 import { WeeklyReportsTab } from '../components/monitoring';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, CheckCircle, AlertTriangle, FileUp, Upload } from 'lucide-react';
+import { Modal, Button } from '../components/common';
 
 // Types (matching MonitoringDashboard)
 interface WeeklyReport {
@@ -34,44 +36,25 @@ const MonitoringReportsPage: React.FC = () => {
     const { user } = useAuth();
     
     // State
-    const [selectedIntern, setSelectedIntern] = useState<number | null>(null);
-    const [interns, setInterns] = useState<Intern[]>([]);
+    // Global State from context
+    const { selectedInternId: selectedIntern, setSelectedInternId: setSelectedIntern, interns, loadingInterns } = useMonitoring();
+    
+    // Local State
     const [reports, setReports] = useState<WeeklyReport[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [showInternDropdown, setShowInternDropdown] = useState(false);
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [pdfFile, setPdfFile] = useState<File | null>(null);
+    const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-    // Fetch interns when page loads (for managers/admins)
+    // Fetch data when page loads (for interns) or when selectedIntern changes
     useEffect(() => {
-        if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
-            fetchInterns();
-        } else if (user?.role === 'INTERN') {
+        if (user?.role === 'INTERN') {
             fetchData();
-        }
-    }, [user?.role]);
-
-    // Fetch data when selectedIntern changes
-    useEffect(() => {
-        if ((user?.role === 'ADMIN' || user?.role === 'MANAGER') && selectedIntern) {
+        } else if (selectedIntern) {
             fetchData();
         }
     }, [selectedIntern, user?.role]);
-
-    const fetchInterns = async (): Promise<void> => {
-        if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
-            try {
-                const response = await axios.get('/accounts/users/', {
-                    params: { role: 'INTERN', department: user.role === 'MANAGER' ? user.department : undefined }
-                });
-                const internList = Array.isArray(response.data) ? response.data : response.data.results || [];
-                setInterns(internList);
-                if (internList.length > 0 && !selectedIntern) {
-                    setSelectedIntern(internList[0].id);
-                }
-            } catch (err) {
-                console.error('[fetchInterns] Error:', err);
-            }
-        }
-    };
 
     const fetchData = async (): Promise<void> => {
         setLoading(true);
@@ -84,6 +67,47 @@ const MonitoringReportsPage: React.FC = () => {
             setReports(reports);
         } catch (err: any) {
             console.error('[fetchData] Error fetching reports:', err.message || err);
+        }
+        setLoading(false);
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.type !== 'application/pdf') {
+                setStatusMsg({ type: 'error', text: 'Please select a PDF file only' });
+                setPdfFile(null);
+                return;
+            }
+            setPdfFile(file);
+            setStatusMsg(null);
+        }
+    };
+
+    const handleSubmitReport = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!pdfFile) {
+            setStatusMsg({ type: 'error', text: 'Please select a PDF file to upload' });
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append('pdf_report', pdfFile);
+
+            await axios.post('/analytics/weekly-reports/submit/', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            setStatusMsg({ type: 'success', text: 'Weekly report submitted successfully!' });
+            setShowSubmitModal(false);
+            setPdfFile(null);
+            fetchData();
+            setTimeout(() => setStatusMsg(null), 5000);
+        } catch (err: any) {
+            console.error('Error submitting report:', err);
+            setStatusMsg({ type: 'error', text: err.response?.data?.error || 'Failed to submit report' });
         }
         setLoading(false);
     };
@@ -158,6 +182,16 @@ const MonitoringReportsPage: React.FC = () => {
                 </div>
             </div>
 
+            {/* Status Messages */}
+            {statusMsg && (
+                <div className={`mx-6 mt-4 px-4 py-3 rounded-xl flex items-center gap-2 animate-slide-up ${
+                    statusMsg.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border border-red-500/30 text-red-400'
+                }`}>
+                    {statusMsg.type === 'success' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
+                    {statusMsg.text}
+                </div>
+            )}
+
             {/* Content */}
             <div className="p-6">
                 {loading ? (
@@ -168,9 +202,74 @@ const MonitoringReportsPage: React.FC = () => {
                         </div>
                     </div>
                 ) : (
-                    <WeeklyReportsTab reports={reports} onSubmitReport={() => {}} />
+                    <WeeklyReportsTab 
+                        reports={reports} 
+                        onSubmitReport={() => setShowSubmitModal(true)} 
+                        showSubmit={user?.role === 'INTERN'}
+                    />
                 )}
             </div>
+
+            {/* Submit Report Modal */}
+            <Modal
+                isOpen={showSubmitModal}
+                onClose={() => {
+                    setShowSubmitModal(false);
+                    setPdfFile(null);
+                    setStatusMsg(null);
+                }}
+                title="Submit Weekly Report"
+                gradient="violet"
+                size="md"
+            >
+                <form onSubmit={handleSubmitReport} className="space-y-5">
+                    <div className="bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl p-4">
+                        <p className="text-sm text-[var(--text-dim)]">
+                            Upload your weekly report as a PDF. Our AI engine will automatically parse it to synchronize with system task records.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">
+                            <FileUp size={14} className="inline mr-1" />
+                            PDF Document
+                        </label>
+                        <div className="relative">
+                            <input
+                                type="file"
+                                accept=".pdf"
+                                onChange={handleFileChange}
+                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-500/20 file:text-purple-400 hover:file:bg-purple-500/30 cursor-pointer"
+                            />
+                            {pdfFile && (
+                                <div className="mt-2 flex items-center gap-2 text-emerald-400">
+                                    <CheckCircle size={16} />
+                                    <span className="text-sm">{pdfFile.name}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <Button
+                            type="button"
+                            onClick={() => setShowSubmitModal(false)}
+                            variant="outline"
+                            fullWidth
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            gradient="purple"
+                            fullWidth
+                            disabled={loading || !pdfFile}
+                        >
+                            {loading ? 'Processing...' : 'Upload & Sync'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 };

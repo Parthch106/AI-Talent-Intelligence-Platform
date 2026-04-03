@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { useMonitoring } from '../context/MonitoringContext';
 import { AttendanceTab } from '../components/monitoring';
 import { Card, AttendanceHeatmap, Modal, Button } from '../components/common';
 import { ChevronDown } from 'lucide-react';
@@ -26,8 +27,10 @@ const MonitoringAttendancePage: React.FC = () => {
     const { user } = useAuth();
     
     // State
-    const [selectedIntern, setSelectedIntern] = useState<number | null>(null);
-    const [interns, setInterns] = useState<Intern[]>([]);
+    // Global State from context
+    const { selectedInternId: selectedIntern, setSelectedInternId: setSelectedIntern, interns, loadingInterns } = useMonitoring();
+    
+    // Local State
     const [attendance, setAttendance] = useState<Attendance[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [monthFilter, setMonthFilter] = useState<number | 'all'>('all');
@@ -68,38 +71,14 @@ const MonitoringAttendancePage: React.FC = () => {
         }
     };
 
-    // Fetch interns when page loads (for managers/admins)
+    // Fetch data when page loads (for interns) or when selectedIntern changes
     useEffect(() => {
-        if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
-            fetchInterns();
-        } else if (user?.role === 'INTERN') {
+        if (user?.role === 'INTERN') {
             fetchData();
-        }
-    }, [user?.role]);
-
-    // Fetch data when selectedIntern changes
-    useEffect(() => {
-        if ((user?.role === 'ADMIN' || user?.role === 'MANAGER') && selectedIntern) {
+        } else if (selectedIntern) {
             fetchData();
         }
     }, [selectedIntern, user?.role]);
-
-    const fetchInterns = async (): Promise<void> => {
-        if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
-            try {
-                const response = await axios.get('/accounts/users/', {
-                    params: { role: 'INTERN', department: user.role === 'MANAGER' ? user.department : undefined }
-                });
-                const internList = Array.isArray(response.data) ? response.data : response.data.results || [];
-                setInterns(internList);
-                if (internList.length > 0 && !selectedIntern) {
-                    setSelectedIntern(internList[0].id);
-                }
-            } catch (err) {
-                console.error('[fetchInterns] Error:', err);
-            }
-        }
-    };
 
     const fetchHeatmapData = async (targetId: number): Promise<void> => {
         setHeatmapLoading(true);

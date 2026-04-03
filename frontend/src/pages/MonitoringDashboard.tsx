@@ -7,7 +7,7 @@ import {
     OverviewTab, TasksTab, AttendanceTab,
     PerformanceTab, WeeklyReportsTab
 } from '../components/monitoring';
-import { Home, Target, Calendar, TrendingUp, FileText, CheckCircle, ChevronDown, X, Plus } from 'lucide-react';
+import { Home, Target, Calendar, TrendingUp, FileText, CheckCircle, ChevronDown, X, Plus, FileUp, AlertTriangle } from 'lucide-react';
 
 // Types
 interface Task {
@@ -560,6 +560,7 @@ const MonitoringDashboard: React.FC = () => {
                             <WeeklyReportsTab
                                 reports={weeklyReports}
                                 onSubmitReport={() => openModal('report')}
+                                showSubmit={user?.role === 'INTERN'}
                             />
                         )}
                     </>
@@ -791,36 +792,64 @@ const MonitoringDashboard: React.FC = () => {
                 </form>
             </Modal>
 
-            {/* Report Modal */}
-            <Modal
-                isOpen={activeModal === 'report'}
-                onClose={closeModal}
-                title="Submit Weekly Report"
-                gradient="violet"
-                size="md"
-            >
-                <form onSubmit={handleSubmitReport} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Upload Weekly Report (PDF) *</label>
-                        <input
-                            type="file"
-                            accept=".pdf"
-                            required
-                            onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
-                            className="block w-full text-sm text-[var(--text-dim)] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-500/20 file:text-violet-400 hover:file:bg-violet-500/30"
-                        />
-                        <p className="text-xs text-[var(--text-muted)] mt-2">Upload your weekly report as a PDF file</p>
-                    </div>
-                    <div className="flex gap-3 pt-4">
-                        <Button type="button" onClick={closeModal} variant="outline" fullWidth>
-                            Cancel
-                        </Button>
-                        <Button type="submit" gradient="indigo" fullWidth>
-                            Submit Report
-                        </Button>
-                    </div>
-                </form>
-            </Modal>
+            {/* Report Modal - Only for Interns */}
+            {user?.role === 'INTERN' && (
+                <Modal
+                    isOpen={activeModal === 'report'}
+                    onClose={closeModal}
+                    title="Submit Weekly Report"
+                    gradient="violet"
+                    size="md"
+                >
+                    <form onSubmit={handleSubmitReport} className="space-y-5">
+                        <div className="bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl p-4">
+                            <p className="text-sm text-[var(--text-dim)]">
+                                Upload your weekly report as a PDF. Our AI engine will automatically parse it to synchronize with system task records.
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">
+                                <FileUp size={14} className="inline mr-1" />
+                                PDF Document
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    accept=".pdf"
+                                    onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-500/20 file:text-purple-400 hover:file:bg-purple-500/30 cursor-pointer"
+                                />
+                                {pdfFile && (
+                                    <div className="mt-2 flex items-center gap-2 text-emerald-400">
+                                        <CheckCircle size={16} />
+                                        <span className="text-sm">{pdfFile.name}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 pt-4">
+                            <Button
+                                type="button"
+                                onClick={closeModal}
+                                variant="outline"
+                                fullWidth
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                gradient="purple"
+                                fullWidth
+                                disabled={loading || !pdfFile}
+                            >
+                                {loading ? 'Processing...' : 'Upload & Sync'}
+                            </Button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
         </div>
     );
 };
