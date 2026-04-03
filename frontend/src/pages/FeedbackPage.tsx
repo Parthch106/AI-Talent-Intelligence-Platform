@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { MessageSquare, Plus, X, Star, User, Calendar, ThumbsUp, TrendingUp, CheckCircle, AlertCircle, Clock, Filter, ArrowUpDown, Target, AlertTriangle } from 'lucide-react';
+import Modal from '../components/common/Modal';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
@@ -663,180 +664,149 @@ const FeedbackPage: React.FC = () => {
             </div>
 
             {/* Give Feedback Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)}></div>
-                    <div className="relative bg-[var(--bg-color)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl shadow-purple-500/10 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
-                        {/* Modal Header */}
-                        <div className="sticky top-0 bg-[var(--bg-color)] backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] z-10">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl flex items-center justify-center">
-                                    <MessageSquare size={18} className="text-purple-400" />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-bold text-[var(--text-main)]">Give Feedback</h2>
-                                    <p className="text-xs text-[var(--text-dim)]">Share your thoughts and help others grow</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setShowModal(false)}
-                                className="p-2 hover:bg-[var(--bg-muted)] rounded-xl transition-colors group"
-                            >
-                                <X size={20} className="text-[var(--text-dim)] group-hover:text-[var(--text-main)] transition-colors" />
-                            </button>
+            <Modal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                title="Give Feedback"
+                size="md"
+                gradient="purple"
+            >
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    {error && (
+                        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
+                            <AlertTriangle size={16} />
+                            {error}
                         </div>
+                    )}
 
-                        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                            {error && (
-                                <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
-                                    <X size={16} />
-                                    {error}
-                                </div>
-                            )}
-
-                             <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">
-                                    {user?.role === 'ADMIN' ? 'Recipient (Manager or Intern)' : 'Recipient (Intern)'} *
-                                </label>
-                                <select
-                                    required
-                                    value={newFeedback.recipient_id || ''}
-                                    onChange={e => setNewFeedback(prev => ({ ...prev, recipient_id: parseInt(e.target.value) }))}
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
-                                >
-                                    <option value="">Select recipient...</option>
-                                    {getRecipients().map(u => (
-                                        <option key={u.id} value={u.id} className="bg-[var(--bg-color)]">
-                                            {u.full_name} ({u.role})
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Feedback Type *</label>
-                                <select
-                                    value={newFeedback.feedback_type}
-                                    onChange={e => setNewFeedback(prev => ({ ...prev, feedback_type: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
-                                >
-                                    {user?.role === 'ADMIN' ? (
-                                        <>
-                                            <option value="WEEKLY">Weekly Check-in</option>
-                                            <option value="PROJECT">Project Review</option>
-                                            <option value="MID_TERM">Mid-term Evaluation</option>
-                                            <option value="FINAL">Final Evaluation</option>
-                                            <option value="MANAGER_REVIEW">Manager Review</option>
-                                            <option value="TASK">Task Feedback</option>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <option value="WEEKLY">Weekly Check-in</option>
-                                            <option value="PROJECT">Project Review</option>
-                                            <option value="MID_TERM">Mid-term Evaluation</option>
-                                            <option value="FINAL">Final Evaluation</option>
-                                            <option value="MANAGER_REVIEW">Manager Review</option>
-                                            <option value="TASK">Task Feedback</option>
-                                        </>
-                                    )}
-                                </select>
-                            </div>
-
-                            {/* Task Status - Show when TASK feedback type is selected */}
-                            {newFeedback.feedback_type === 'TASK' && (
-                                <div className="group">
-                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Task Status *</label>
-                                    <select
-                                        value={newFeedback.task_status || ''}
-                                        onChange={e => setNewFeedback(prev => ({ ...prev, task_status: e.target.value }))}
-                                        className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
-                                    >
-                                        <option value="IN_PROGRESS" className="bg-[var(--bg-color)]">In Progress</option>
-                                        <option value="COMPLETED_APPROVED" className="bg-[var(--bg-color)]">Complete - Approved</option>
-                                        <option value="COMPLETED_REWORK" className="bg-[var(--bg-color)]">Complete - Needs Rework</option>
-                                    </select>
-                                </div>
-                            )}
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-3">Rating *</label>
-                                <div className="flex items-center gap-2">
-                                    {[1, 2, 3, 4, 5].map(star => (
-                                        <button
-                                            key={star}
-                                            type="button"
-                                            onClick={() => setNewFeedback(prev => ({ ...prev, rating: star }))}
-                                            className="p-1 hover:scale-110 transition-transform"
-                                        >
-                                            <Star
-                                                size={32}
-                                                fill={star <= newFeedback.rating ? '#f59e0b' : 'transparent'}
-                                                color="#f59e0b"
-                                                className="transition-all"
-                                            />
-                                        </button>
-                                    ))}
-                                    <span className="ml-2 text-lg font-bold text-amber-400">{newFeedback.rating}/5</span>
-                                </div>
-                            </div>
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Comments *</label>
-                                <textarea
-                                    required
-                                    value={newFeedback.comments}
-                                    onChange={e => setNewFeedback(prev => ({ ...prev, comments: e.target.value }))}
-                                    rows={4}
-                                    placeholder="Provide detailed feedback..."
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="group">
-                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Strengths</label>
-                                    <textarea
-                                        value={newFeedback.strengths}
-                                        onChange={e => setNewFeedback(prev => ({ ...prev, strengths: e.target.value }))}
-                                        rows={3}
-                                        placeholder="What they do well..."
-                                        className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
-                                    />
-                                </div>
-                                <div className="group">
-                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Areas for Improvement</label>
-                                    <textarea
-                                        value={newFeedback.areas_for_improvement}
-                                        onChange={e => setNewFeedback(prev => ({ ...prev, areas_for_improvement: e.target.value }))}
-                                        rows={3}
-                                        placeholder="What they can improve..."
-                                        className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex gap-3 pt-4">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={() => setShowModal(false)}
-                                    fullWidth
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    gradient="purple"
-                                    loading={submitting}
-                                    fullWidth
-                                >
-                                    Submit Feedback
-                                </Button>
-                            </div>
-                        </form>
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">
+                            {user?.role === 'ADMIN' ? 'Recipient (Manager or Intern)' : 'Recipient (Intern)'} *
+                        </label>
+                        <select
+                            required
+                            value={newFeedback.recipient_id || ''}
+                            onChange={e => setNewFeedback(prev => ({ ...prev, recipient_id: parseInt(e.target.value) }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all cursor-pointer font-medium"
+                        >
+                            <option value="">Select recipient...</option>
+                            {getRecipients().map(u => (
+                                <option key={u.id} value={u.id}>
+                                    {u.full_name} ({u.role})
+                                </option>
+                            ))}
+                        </select>
                     </div>
-                </div>
-            )}
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Feedback Type *</label>
+                        <select
+                            value={newFeedback.feedback_type}
+                            onChange={e => setNewFeedback(prev => ({ ...prev, feedback_type: e.target.value }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all cursor-pointer font-medium"
+                        >
+                            <option value="WEEKLY">Weekly Check-in</option>
+                            <option value="PROJECT">Project Review</option>
+                            <option value="MID_TERM">Mid-term Evaluation</option>
+                            <option value="FINAL">Final Evaluation</option>
+                            <option value="MANAGER_REVIEW">Manager Review</option>
+                            <option value="TASK">Task Feedback</option>
+                        </select>
+                    </div>
+
+                    {/* Task Status - Show when TASK feedback type is selected */}
+                    {newFeedback.feedback_type === 'TASK' && (
+                        <div className="group">
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Task Status *</label>
+                            <select
+                                value={newFeedback.task_status || ''}
+                                onChange={e => setNewFeedback(prev => ({ ...prev, task_status: e.target.value }))}
+                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all cursor-pointer font-medium"
+                            >
+                                <option value="IN_PROGRESS">In Progress</option>
+                                <option value="COMPLETED_APPROVED">Complete - Approved</option>
+                                <option value="COMPLETED_REWORK">Complete - Needs Rework</option>
+                            </select>
+                        </div>
+                    )}
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-3">Rating *</label>
+                        <div className="flex items-center gap-2 bg-[var(--bg-muted)] p-4 rounded-xl border border-[var(--border-color)] justify-center">
+                            {[1, 2, 3, 4, 5].map(star => (
+                                <button
+                                    key={star}
+                                    type="button"
+                                    onClick={() => setNewFeedback(prev => ({ ...prev, rating: star }))}
+                                    className="p-1 transition-all hover:scale-110 active:scale-95"
+                                >
+                                    <Star
+                                        size={32}
+                                        fill={star <= newFeedback.rating ? '#f59e0b' : 'transparent'}
+                                        color="#f59e0b"
+                                        className={star <= newFeedback.rating ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'opacity-40'}
+                                    />
+                                </button>
+                            ))}
+                            <span className="ml-4 text-xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent w-8 text-center">{newFeedback.rating}</span>
+                        </div>
+                    </div>
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Comments *</label>
+                        <textarea
+                            required
+                            value={newFeedback.comments}
+                            onChange={e => setNewFeedback(prev => ({ ...prev, comments: e.target.value }))}
+                            rows={4}
+                            placeholder="Provide detailed feedback..."
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none font-medium text-sm"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="group">
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Strengths</label>
+                            <textarea
+                                value={newFeedback.strengths}
+                                onChange={e => setNewFeedback(prev => ({ ...prev, strengths: e.target.value }))}
+                                rows={3}
+                                placeholder="What they do well..."
+                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none font-medium text-xs text-emerald-400"
+                            />
+                        </div>
+                        <div className="group">
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Areas for Improvement</label>
+                            <textarea
+                                value={newFeedback.areas_for_improvement}
+                                onChange={e => setNewFeedback(prev => ({ ...prev, areas_for_improvement: e.target.value }))}
+                                rows={3}
+                                placeholder="What they can improve..."
+                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none font-medium text-xs text-amber-400"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setShowModal(false)}
+                            fullWidth
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            gradient="purple"
+                            disabled={submitting}
+                            fullWidth
+                        >
+                            {submitting ? 'Submitting...' : 'Submit Feedback'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 };

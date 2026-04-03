@@ -229,22 +229,22 @@ const MyAttendance: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-950 p-8 flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--bg-color)] p-8 flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                    <p className="text-slate-400 animate-pulse">Loading attendance...</p>
+                    <p className="text-[var(--text-dim)] animate-pulse">Loading attendance...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-slate-950 p-8">
+        <div className="min-h-screen bg-[var(--bg-color)] p-8">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-white mb-2">My Attendance</h1>
-                    <p className="text-slate-400">View your attendance records</p>
+                    <h1 className="text-3xl font-bold text-[var(--text-main)] mb-2">My Attendance</h1>
+                    <p className="text-[var(--text-dim)]">View your attendance records</p>
                 </div>
 
                 {/* Stats Cards - Clickable */}
@@ -254,10 +254,10 @@ const MyAttendance: React.FC = () => {
                             setSelectedStatus(selectedStatus === 'PRESENT' ? '' : 'PRESENT');
                             handleFilterChange();
                         }}
-                        className={`bg-slate-900/50 backdrop-blur-xl rounded-2xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${
+                        className={`bg-[var(--card-bg)] backdrop-blur-xl rounded-2xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${
                             selectedStatus === 'PRESENT' 
                             ? 'border-emerald-500/50 shadow-lg shadow-emerald-500/20' 
-                            : 'border-white/5 hover:border-emerald-500/30'
+                            : 'border-[var(--border-color)] hover:border-emerald-500/30'
                         }`}
                     >
                         <div className="flex items-center gap-4">
@@ -265,8 +265,8 @@ const MyAttendance: React.FC = () => {
                                 <CheckCircle className="text-emerald-400" size={24} />
                             </div>
                             <div>
-                                <p className="text-slate-400 text-sm">Present</p>
-                                <p className="text-2xl font-bold text-white">{stats.present}</p>
+                                <p className="text-[var(--text-dim)] text-sm">Present</p>
+                                <p className="text-2xl font-bold text-[var(--text-main)]">{stats.present}</p>
                             </div>
                         </div>
                     </button>
@@ -275,10 +275,10 @@ const MyAttendance: React.FC = () => {
                             setSelectedStatus(selectedStatus === 'ABSENT' ? '' : 'ABSENT');
                             handleFilterChange();
                         }}
-                        className={`bg-slate-900/50 backdrop-blur-xl rounded-2xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${
+                        className={`bg-[var(--card-bg)] backdrop-blur-xl rounded-2xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${
                             selectedStatus === 'ABSENT' 
                             ? 'border-red-500/50 shadow-lg shadow-red-500/20' 
-                            : 'border-white/5 hover:border-red-500/30'
+                            : 'border-[var(--border-color)] hover:border-red-500/30'
                         }`}
                     >
                         <div className="flex items-center gap-4">
@@ -286,8 +286,8 @@ const MyAttendance: React.FC = () => {
                                 <XCircle className="text-red-400" size={24} />
                             </div>
                             <div>
-                                <p className="text-slate-400 text-sm">Absent</p>
-                                <p className="text-2xl font-bold text-white">{stats.absent}</p>
+                                <p className="text-[var(--text-dim)] text-sm">Absent</p>
+                                <p className="text-2xl font-bold text-[var(--text-main)]">{stats.absent}</p>
                             </div>
                         </div>
                     </button>
@@ -296,10 +296,10 @@ const MyAttendance: React.FC = () => {
                             setSelectedStatus(selectedStatus === 'LATE' ? '' : 'LATE');
                             handleFilterChange();
                         }}
-                        className={`bg-slate-900/50 backdrop-blur-xl rounded-2xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${
+                        className={`bg-[var(--card-bg)] backdrop-blur-xl rounded-2xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${
                             selectedStatus === 'LATE' 
                             ? 'border-amber-500/50 shadow-lg shadow-amber-500/20' 
-                            : 'border-white/5 hover:border-amber-500/30'
+                            : 'border-[var(--border-color)] hover:border-amber-500/30'
                         }`}
                     >
                         <div className="flex items-center gap-4">
@@ -307,8 +307,8 @@ const MyAttendance: React.FC = () => {
                                 <Clock className="text-amber-400" size={24} />
                             </div>
                             <div>
-                                <p className="text-slate-400 text-sm">Late</p>
-                                <p className="text-2xl font-bold text-white">{stats.late}</p>
+                                <p className="text-[var(--text-dim)] text-sm">Late</p>
+                                <p className="text-2xl font-bold text-[var(--text-main)]">{stats.late}</p>
                             </div>
                         </div>
                     </button>
@@ -317,10 +317,10 @@ const MyAttendance: React.FC = () => {
                             setSelectedStatus(selectedStatus === 'WORK_FROM_HOME' ? '' : 'WORK_FROM_HOME');
                             handleFilterChange();
                         }}
-                        className={`bg-slate-900/50 backdrop-blur-xl rounded-2xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${
+                        className={`bg-[var(--card-bg)] backdrop-blur-xl rounded-2xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${
                             selectedStatus === 'WORK_FROM_HOME' 
                             ? 'border-cyan-500/50 shadow-lg shadow-cyan-500/20' 
-                            : 'border-white/5 hover:border-cyan-500/30'
+                            : 'border-[var(--border-color)] hover:border-cyan-500/30'
                         }`}
                     >
                         <div className="flex items-center gap-4">
@@ -328,8 +328,8 @@ const MyAttendance: React.FC = () => {
                                 <Home className="text-cyan-400" size={24} />
                             </div>
                             <div>
-                                <p className="text-slate-400 text-sm">WFH</p>
-                                <p className="text-2xl font-bold text-white">{stats.wfh}</p>
+                                <p className="text-[var(--text-dim)] text-sm">WFH</p>
+                                <p className="text-2xl font-bold text-[var(--text-main)]">{stats.wfh}</p>
                             </div>
                         </div>
                     </button>
@@ -338,10 +338,10 @@ const MyAttendance: React.FC = () => {
                             setSelectedStatus('');
                             handleFilterChange();
                         }}
-                        className={`bg-slate-900/50 backdrop-blur-xl rounded-2xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${
+                        className={`bg-[var(--card-bg)] backdrop-blur-xl rounded-2xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${
                             selectedStatus === '' 
                             ? 'border-purple-500/50 shadow-lg shadow-purple-500/20' 
-                            : 'border-white/5 hover:border-purple-500/30'
+                            : 'border-[var(--border-color)] hover:border-purple-500/30'
                         }`}
                     >
                         <div className="flex items-center gap-4">
@@ -349,8 +349,8 @@ const MyAttendance: React.FC = () => {
                                 <TrendingUp className="text-purple-400" size={24} />
                             </div>
                             <div>
-                                <p className="text-slate-400 text-sm">Attendance Rate</p>
-                                <p className="text-2xl font-bold text-white">
+                                <p className="text-[var(--text-dim)] text-sm">Attendance Rate</p>
+                                <p className="text-2xl font-bold text-[var(--text-main)]">
                                     {stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0}%
                                 </p>
                             </div>
@@ -374,19 +374,19 @@ const MyAttendance: React.FC = () => {
                 </Card>
 
                 {/* Filter Section */}
-                <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-white/5 p-6 mb-6">
+                <div className="bg-[var(--card-bg)] backdrop-blur-xl rounded-2xl border border-[var(--border-color)] p-6 mb-6">
                     <div className="flex items-center gap-4 flex-wrap">
-                        <Filter className="text-slate-400" size={20} />
+                        <Filter className="text-[var(--text-dim)]" size={20} />
                         <div className="flex items-center gap-4">
                             <div>
-                                <label className="text-slate-400 text-sm block mb-1">Month</label>
+                                <label className="text-[var(--text-dim)] text-sm block mb-1">Month</label>
                                 <select
                                     value={selectedMonth}
                                     onChange={(e) => {
                                         setSelectedMonth(e.target.value);
                                         handleFilterChange();
                                     }}
-                                    className="px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500"
+                                    className="px-4 py-2 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-emerald-500"
                                 >
                                     <option value="">All Months</option>
                                     {getMonthOptions().map(option => (
@@ -397,7 +397,7 @@ const MyAttendance: React.FC = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="text-slate-400 text-sm block mb-1">Year</label>
+                                <label className="text-[var(--text-dim)] text-sm block mb-1">Year</label>
                                 <select
                                     value={selectedYear}
                                     onChange={(e) => {
@@ -413,9 +413,9 @@ const MyAttendance: React.FC = () => {
                             </div>
                             {selectedStatus && (
                                 <div>
-                                    <label className="text-slate-400 text-sm block mb-1">Status</label>
+                                    <label className="text-[var(--text-dim)] text-sm block mb-1">Status</label>
                                     <div className="flex items-center gap-2">
-                                        <span className={`px-3 py-2 rounded-xl text-white bg-slate-700 border border-slate-600`}>
+                                        <span className={`px-3 py-2 rounded-xl text-[var(--text-main)] bg-[var(--bg-muted)] border border-[var(--border-color)]`}>
                                             {selectedStatus === 'LATE' ? 'Late/Half Day' : selectedStatus === 'WORK_FROM_HOME' ? 'WFH' : selectedStatus}
                                         </span>
                                         <button
@@ -423,7 +423,7 @@ const MyAttendance: React.FC = () => {
                                                 setSelectedStatus('');
                                                 handleFilterChange();
                                             }}
-                                            className="px-2 py-2 text-slate-400 hover:text-white transition-colors"
+                                            className="px-2 py-2 text-[var(--text-dim)] hover:text-[var(--text-main)] transition-colors"
                                         >
                                             <XCircle size={18} />
                                         </button>
@@ -435,29 +435,29 @@ const MyAttendance: React.FC = () => {
                 </div>
 
                 {/* Attendance Records */}
-                <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-white/5 overflow-hidden">
-                    <div className="p-6 border-b border-white/5 flex justify-between items-center">
-                        <h2 className="text-xl font-semibold text-white">Attendance History</h2>
-                        <div className="text-slate-400 text-sm">
+                <div className="bg-[var(--card-bg)] backdrop-blur-xl rounded-2xl border border-[var(--border-color)] overflow-hidden">
+                    <div className="p-6 border-b border-[var(--border-color)] flex justify-between items-center">
+                        <h2 className="text-xl font-semibold text-[var(--text-main)]">Attendance History</h2>
+                        <div className="text-[var(--text-dim)] text-sm">
                             Showing {attendance.length} of {pagination.total_records} records
                         </div>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-slate-800/50">
+                            <thead className="bg-[var(--bg-muted)]">
                                 <tr>
-                                    <th className="px-6 py-4 text-left text-sm font-medium text-slate-400">Date</th>
-                                    <th className="px-6 py-4 text-left text-sm font-medium text-slate-400">Status</th>
-                                    <th className="px-6 py-4 text-left text-sm font-medium text-slate-400">Check In</th>
-                                    <th className="px-6 py-4 text-left text-sm font-medium text-slate-400">Check Out</th>
-                                    <th className="px-6 py-4 text-left text-sm font-medium text-slate-400">Notes</th>
+                                    <th className="px-6 py-4 text-left text-sm font-medium text-[var(--text-dim)]">Date</th>
+                                    <th className="px-6 py-4 text-left text-sm font-medium text-[var(--text-dim)]">Status</th>
+                                    <th className="px-6 py-4 text-left text-sm font-medium text-[var(--text-dim)]">Check In</th>
+                                    <th className="px-6 py-4 text-left text-sm font-medium text-[var(--text-dim)]">Check Out</th>
+                                    <th className="px-6 py-4 text-left text-sm font-medium text-[var(--text-dim)]">Notes</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-white/5">
+                            <tbody className="divide-y divide-[var(--border-color)] text-[var(--text-main)]">
                                 {Array.isArray(attendance) && attendance.length > 0 ? (
                                     attendance.map((record) => (
-                                        <tr key={record.id} className="hover:bg-white/5 transition-colors">
-                                            <td className="px-6 py-4 text-white">
+                                        <tr key={record.id} className="hover:bg-[var(--bg-muted)] transition-colors">
+                                            <td className="px-6 py-4">
                                                 {new Date(record.date).toLocaleDateString('en-US', {
                                                     weekday: 'short',
                                                     year: 'numeric',
@@ -471,22 +471,22 @@ const MyAttendance: React.FC = () => {
                                                     {record.status}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-slate-300">
+                                            <td className="px-6 py-4 text-[var(--text-dim)]">
                                                 {record.check_in_time ? record.check_in_time : '-'}
                                             </td>
-                                            <td className="px-6 py-4 text-slate-300">
+                                            <td className="px-6 py-4 text-[var(--text-dim)]">
                                                 {record.check_out_time ? record.check_out_time : '-'}
                                             </td>
-                                            <td className="px-6 py-4 text-slate-400 text-sm">
+                                            <td className="px-6 py-4 text-[var(--text-dim)] text-sm">
                                                 {record.notes || '-'}
                                             </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                                        <td colSpan={5} className="px-6 py-12 text-center text-[var(--text-dim)]">
                                             <div className="flex flex-col items-center gap-3">
-                                                <Calendar size={48} className="text-slate-600" />
+                                                <Calendar size={48} className="opacity-20" />
                                                 <p>No attendance records found</p>
                                             </div>
                                         </td>
@@ -496,10 +496,10 @@ const MyAttendance: React.FC = () => {
                         </table>
                     </div>
                     
-                    {/* Pagination */}
+                     {/* Pagination */}
                     {pagination.total_pages > 1 && (
-                        <div className="p-4 border-t border-white/5 flex justify-between items-center">
-                            <div className="text-slate-400 text-sm">
+                        <div className="p-4 border-t border-[var(--border-color)] flex justify-between items-center">
+                            <div className="text-[var(--text-dim)] text-sm">
                                 Page {pagination.page} of {pagination.total_pages}
                             </div>
                             <div className="flex items-center gap-2">
@@ -508,8 +508,8 @@ const MyAttendance: React.FC = () => {
                                     disabled={pagination.page <= 1}
                                     className={`flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
                                         pagination.page <= 1 
-                                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                                        : 'bg-slate-800 text-white hover:bg-slate-700'
+                                        ? 'bg-[var(--bg-muted)] text-[var(--text-muted)] cursor-not-allowed' 
+                                        : 'bg-[var(--bg-muted)] text-[var(--text-main)] hover:bg-purple-500/10'
                                     }`}
                                 >
                                     <ChevronLeft size={16} />
@@ -520,8 +520,8 @@ const MyAttendance: React.FC = () => {
                                     disabled={pagination.page >= pagination.total_pages}
                                     className={`flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
                                         pagination.page >= pagination.total_pages 
-                                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                                        : 'bg-slate-800 text-white hover:bg-slate-700'
+                                        ? 'bg-[var(--bg-muted)] text-[var(--text-muted)] cursor-not-allowed' 
+                                        : 'bg-[var(--bg-muted)] text-[var(--text-main)] hover:bg-purple-500/10'
                                     }`}
                                 >
                                     Next

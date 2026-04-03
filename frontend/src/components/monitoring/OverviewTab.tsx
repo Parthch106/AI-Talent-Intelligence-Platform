@@ -3,6 +3,7 @@ import { Briefcase, Calendar, BarChart2, AlertTriangle, Target, Award, Users, Tr
 import StatsCard from '../common/StatsCard';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
+import { useNavigate } from 'react-router-dom';
 
 interface Task {
     id: number;
@@ -31,9 +32,11 @@ interface OverviewTabProps {
     tasks: Task[];
     attendance: Attendance[];
     performance: PerformanceMetric | null;
+    selectedInternId?: number | null;
 }
 
-const OverviewTab: React.FC<OverviewTabProps> = ({ tasks, attendance, performance }) => {
+const OverviewTab: React.FC<OverviewTabProps> = ({ tasks, attendance, performance, selectedInternId }) => {
+    const navigate = useNavigate();
     // Ensure data is always arrays
     const tasksArray = Array.isArray(tasks) ? tasks : [];
     const attendanceArray = Array.isArray(attendance) ? attendance : [];
@@ -42,6 +45,14 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ tasks, attendance, performanc
     const completedTasks = tasksArray.filter(t => t.status === 'COMPLETED').length;
     const presentDays = attendanceArray.filter(a => a.status === 'PRESENT').length;
     const attendanceRate = attendanceArray.length > 0 ? Math.round((presentDays / attendanceArray.length) * 100) : 0;
+
+    const handleTaskClick = (taskId: number) => {
+        if (selectedInternId) {
+            navigate(`/tasks?internId=${selectedInternId}&taskId=${taskId}`);
+        } else {
+            navigate('/tasks');
+        }
+    };
 
     const getStatusBadge = (status: string) => {
         const variants: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
@@ -121,11 +132,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ tasks, attendance, performanc
             <Card title="Recent Tasks" icon={<Target size={20} className="text-blue-500" />}>
                 <div className="space-y-3">
                     {tasksArray.slice(0, 5).map((task) => (
-                        <div key={task.id} className="flex items-center justify-between p-4 bg-[var(--card-bg)] hover:bg-purple-500/[0.05] transition-colors border border-[var(--border-color)] rounded-xl">
+                        <div 
+                            key={task.id} 
+                            onClick={() => handleTaskClick(task.id)}
+                            className="flex items-center justify-between p-4 bg-[var(--card-bg)] hover:bg-purple-500/[0.05] cursor-pointer hover:scale-[1.01] transition-all border border-[var(--border-color)] rounded-xl group"
+                        >
                             <div className="flex items-center gap-4">
                                 <div className={`w-2 h-2 rounded-full ${task.status === 'COMPLETED' ? 'bg-emerald-500' : task.status === 'BLOCKED' ? 'bg-red-500' : 'bg-blue-500'}`}></div>
                                 <div>
-                                    <p className="font-medium text-[var(--text-main)]">{task.title}</p>
+                                    <p className="font-medium text-[var(--text-main)] group-hover:text-purple-400 transition-colors">{task.title}</p>
                                     <p className="text-sm text-[var(--text-dim)]">Due: {task.due_date}</p>
                                 </div>
                             </div>

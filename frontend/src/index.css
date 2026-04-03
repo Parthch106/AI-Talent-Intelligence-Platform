@@ -23,12 +23,13 @@
     --glass-blur: blur(40px);
     --sidebar-bg: #050510;
     --header-bg: rgba(5, 5, 16, 0.8);
+    --theme-transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   :root.light {
     --bg-color: #f8fafc;
     --bg-muted: #f1f5f9;
-    --card-bg: rgba(255, 255, 255, 0.9);
+    --card-bg: rgba(255, 255, 255, 0.95);
     --text-main: #020617;
     --text-dim: #475569;
     --text-muted: #94a3b8;
@@ -36,12 +37,21 @@
     --glass-blur: blur(20px);
     --sidebar-bg: #ffffff;
     --header-bg: rgba(255, 255, 255, 0.8);
+    --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
   }
 
   body {
-    @apply font-sans antialiased transition-colors duration-500;
+    @apply font-sans antialiased;
     background-color: var(--bg-color);
     color: var(--text-main);
+    transition: var(--theme-transition);
+  }
+
+  aside, header, main, section, div {
+    transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                color 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -54,11 +64,38 @@
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-black/20;
+    background: transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+    @apply rounded-full transition-colors;
+    background-color: var(--border-color);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-muted);
+  }
+
+  /* Global Dropdown Styling */
+  select {
+    @apply cursor-pointer transition-all duration-300;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25em 1.25em;
+    padding-right: 2.5rem !important;
+    appearance: none;
+  }
+
+  select:focus {
+    @apply ring-2 ring-purple-500/40 border-purple-500/50;
+  }
+
+  /* Native option styling (browser-dependent) */
+  option {
+    background-color: var(--bg-muted);
+    color: var(--text-main);
+    padding: 12px;
   }
 }
 
@@ -72,7 +109,8 @@
     background-color: var(--card-bg);
     backdrop-filter: var(--glass-blur);
     border: 1px solid var(--border-color);
-    @apply rounded-[32px] shadow-2xl transition-all duration-500;
+    @apply rounded-[32px] shadow-2xl;
+    transition: var(--theme-transition);
   }
 
   .glass-card-hover {
@@ -81,7 +119,7 @@
 
   /* Premium Heading Variants */
   .heading-black {
-    @apply font-heading font-black uppercase italic tracking-tighter;
+    @apply font-heading font-black uppercase tracking-tighter;
   }
 
   .label-premium {
@@ -99,7 +137,8 @@
 
   /* Premium Button Styles */
   .btn-premium {
-    @apply px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.1em] transition-all duration-500 hover:scale-[1.02] active:scale-[0.98];
+    @apply px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.1em] hover:scale-[1.02] active:scale-[0.98];
+    transition: var(--theme-transition);
   }
 
   .btn-primary-premium {
@@ -115,7 +154,8 @@
     background-color: var(--card-bg);
     border: 1px solid var(--border-color);
     color: var(--text-main);
-    @apply w-full rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all duration-500 placeholder:text-slate-500;
+    @apply w-full rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-purple-500/40 placeholder:text-slate-500;
+    transition: var(--theme-transition);
   }
 
   /* Badge Styles Refined */
@@ -125,7 +165,8 @@
 
   /* Stats Card Refined */
   .stats-card-premium {
-    @apply glass-card p-8 flex flex-col items-center text-center cursor-pointer transition-all duration-500 hover:scale-[1.05];
+    @apply glass-card p-8 flex flex-col items-center text-center cursor-pointer hover:scale-[1.05];
+    transition: var(--theme-transition);
   }
 
   /* Sidebar Styles */
@@ -176,6 +217,18 @@
 
   .section-subtitle {
     @apply text-slate-400 text-lg;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-black/5;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-white/20;
   }
 }
 
@@ -411,4 +464,43 @@
 
 .delay-1000 {
   animation-delay: 1000ms;
+}
+/* Chatbot Markdown Styles */
+.markdown-content p {
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content ul, .markdown-content ol {
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+  padding-left: 1.25rem;
+}
+
+.markdown-content ul {
+  list-style-type: disc;
+}
+
+.markdown-content ol {
+  list-style-type: decimal;
+}
+
+.markdown-content li {
+  margin-bottom: 0.25rem;
+}
+
+.markdown-content strong {
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.markdown-content code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }

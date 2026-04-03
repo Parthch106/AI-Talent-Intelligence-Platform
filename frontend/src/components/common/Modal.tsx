@@ -44,10 +44,10 @@ const Modal: React.FC<ModalProps> = ({
                 onClick={onClose}
             ></div>
             <div
-                className={`relative glass-card w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden animate-modal-enter shadow-[0_0_50px_rgba(0,0,0,0.5)] border-white/10`}
+                className={`relative glass-card w-full ${sizeClasses[size]} max-h-[85vh] overflow-hidden animate-modal-enter shadow-[0_0_50px_rgba(0,0,0,0.5)] border-white/10`}
             >
                 <div className={`flex items-center justify-between px-8 py-6 border-b border-white/5 bg-gradient-to-r ${gradientClasses[gradient]}`}>
-                    <h2 className="text-xl font-heading font-black tracking-tighter text-white uppercase italic">{title}</h2>
+                    <h2 className="text-xl font-heading font-black tracking-tighter text-white uppercase">{title}</h2>
                     <button
                         onClick={onClose}
                         className="p-2 hover:bg-white/5 rounded-xl transition-all duration-300 border border-transparent hover:border-white/10 group"
@@ -55,7 +55,7 @@ const Modal: React.FC<ModalProps> = ({
                         <X size={20} className="text-slate-500 group-hover:text-white transition-colors" />
                     </button>
                 </div>
-                <div className="p-8 overflow-y-auto max-h-[calc(90vh-80px)] text-slate-300 leading-relaxed font-sans">
+                <div className="p-8 overflow-y-auto max-h-[calc(85vh-88px)] text-slate-300 leading-relaxed font-sans custom-scrollbar">
                     {children}
                 </div>
             </div>

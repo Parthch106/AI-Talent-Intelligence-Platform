@@ -139,9 +139,9 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
   const weekStride = cellSize + gap;
 
   const getColor = (item: { data: AttendanceData | null; isCurrentYear: boolean }): string => {
-    if (!item.isCurrentYear) return '#0f172a'; // slate-950 for outside year
-    if (!item.data) return '#1e293b'; // slate-800 for no data
-    return STATUS_COLORS[item.data.status] || '#1e293b';
+    if (!item.isCurrentYear) return 'transparent';
+    if (!item.data) return 'var(--bg-muted)'; 
+    return STATUS_COLORS[item.data.status] || 'var(--bg-muted)';
   };
 
   const handleMouseEnter = (date: Date, attendanceData: AttendanceData | null, isCurrentYear: boolean, event: React.MouseEvent) => {
@@ -187,9 +187,9 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
   };
 
   return (
-    <div className="relative p-3 bg-slate-800 rounded-lg border border-slate-700" ref={containerRef}>
+    <div className="relative p-4 bg-[var(--card-bg)] rounded-2xl border border-[var(--border-color)]" ref={containerRef}>
       {title && (
-        <h3 className="text-sm font-medium text-slate-300 mb-3">
+        <h3 className="text-sm font-bold text-[var(--text-main)] mb-4 uppercase tracking-wider">
           {title}
         </h3>
       )}
@@ -200,7 +200,7 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
           {DAYS.map((day) => (
             <div
               key={day}
-              className="text-xs text-slate-500 leading-3 mb-0.5"
+              className="text-[10px] text-[var(--text-muted)] font-bold leading-3 mb-0.5 uppercase tracking-tighter"
               style={{ height: `${cellSize}px`, lineHeight: `${cellSize}px` }}
             >
               {day}
@@ -215,7 +215,7 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
             {monthLabelPositions.map(({ month, weekIndex }) => (
               <span
                 key={month}
-                className="absolute text-xs text-slate-500"
+                className="absolute text-[10px] font-bold text-[var(--text-muted)] uppercase"
                 style={{ left: `${weekIndex * weekStride}px` }}
               >
                 {month}
@@ -238,8 +238,8 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
                       border: day.data && day.isCurrentYear
                         ? 'none'
                         : day.isCurrentYear
-                          ? '1px dashed #475569'
-                          : '1px dashed #1e293b',
+                          ? '1px dashed var(--border-color)'
+                          : '1px dashed transparent',
                       boxShadow: day.data && day.isCurrentYear
                         ? `0 0 4px ${STATUS_COLORS[day.data.status] || '#000'}40`
                         : 'none',
@@ -261,34 +261,34 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
       <div className="flex items-center justify-end mt-3 gap-3 flex-wrap">
         <div className="flex items-center gap-1">
           <div className="w-3 h-3 rounded-sm border border-slate-700/50" style={{ backgroundColor: STATUS_COLORS.PRESENT }} />
-          <span className="text-xs text-slate-500">Present</span>
+          <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-tight">Present</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded-sm border border-slate-700/50" style={{ backgroundColor: STATUS_COLORS.WORK_FROM_HOME }} />
-          <span className="text-xs text-slate-500">WFH</span>
+          <div className="w-3 h-3 rounded-sm border border-[var(--border-color)]" style={{ backgroundColor: STATUS_COLORS.WORK_FROM_HOME }} />
+          <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-tight">WFH</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded-sm border border-slate-700/50" style={{ backgroundColor: STATUS_COLORS.LATE }} />
-          <span className="text-xs text-slate-500">Late</span>
+          <div className="w-3 h-3 rounded-sm border border-[var(--border-color)]" style={{ backgroundColor: STATUS_COLORS.LATE }} />
+          <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-tight">Late</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded-sm border border-slate-700/50" style={{ backgroundColor: STATUS_COLORS.HALF_DAY }} />
-          <span className="text-xs text-slate-500">Half Day</span>
+          <div className="w-3 h-3 rounded-sm border border-[var(--border-color)]" style={{ backgroundColor: STATUS_COLORS.HALF_DAY }} />
+          <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-tight">Half Day</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded-sm border border-slate-700/50" style={{ backgroundColor: STATUS_COLORS.ABSENT }} />
-          <span className="text-xs text-slate-500">Absent</span>
+          <div className="w-3 h-3 rounded-sm border border-[var(--border-color)]" style={{ backgroundColor: STATUS_COLORS.ABSENT }} />
+          <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-tight">Absent</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded-sm border border-dashed border-slate-600" style={{ backgroundColor: '#1e293b' }} />
-          <span className="text-xs text-slate-500">No record</span>
+          <div className="w-3 h-3 rounded-sm border border-dashed border-[var(--border-color)]" style={{ backgroundColor: 'var(--bg-muted)' }} />
+          <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-tight">No record</span>
         </div>
       </div>
       
       {/* Tooltip with animation - Using Portal to avoid clipping */}
       {tooltip && createPortal(
         <div
-          className="fixed z-[9999] bg-slate-800 text-white text-xs px-3 py-2 rounded-lg shadow-xl border border-slate-700 pointer-events-none animate-fadeIn"
+          className="fixed z-[9999] bg-[var(--card-bg)] text-[var(--text-main)] text-xs px-3 py-2 rounded-lg shadow-xl border border-[var(--border-color)] pointer-events-none animate-fadeIn backdrop-blur-md"
           style={{
             left: tooltip.x + 15,
             top: tooltip.y - 15,
@@ -296,8 +296,8 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
             minWidth: '120px',
           }}
         >
-          <div className="font-medium">{tooltip.status}</div>
-          <div className="text-slate-400">{tooltip.date} • {tooltip.hours}h</div>
+          <div className="font-bold uppercase tracking-tight">{tooltip.status}</div>
+          <div className="text-[var(--text-dim)] font-medium mt-1">{tooltip.date} • {tooltip.hours}h</div>
         </div>,
         document.body
       )}

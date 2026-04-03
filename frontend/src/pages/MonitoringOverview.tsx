@@ -89,18 +89,25 @@ const MonitoringOverviewPage: React.FC = () => {
             const [tasksRes, attendanceRes, performanceRes] = await Promise.all([
                 axios.get('/analytics/tasks/', { params: { intern_id: targetId } }),
                 axios.get('/analytics/attendance/', { params: { intern_id: targetId } }),
-                axios.get('/analytics/performance/', { params: { intern_id: targetId } })
+                axios.get(`/analytics/performance/dashboard/${targetId}/?all_time=true`)
             ]);
 
             const tasks = Array.isArray(tasksRes.data.tasks) ? tasksRes.data.tasks : [];
             const attendance = Array.isArray(attendanceRes.data.attendance) ? attendanceRes.data.attendance : [];
-            const performance = Array.isArray(performanceRes.data.performance_metrics) 
-                ? performanceRes.data.performance_metrics[0] || null 
-                : null;
+            const dashData = performanceRes.data;
+            const performance = dashData ? {
+                overall_performance_score: (dashData.performance_score || 0) * 100,
+                productivity_score: (dashData.metrics?.completion_rate || 0) * 100,
+                quality_score: (dashData.metrics?.quality_score || 0) * 100,
+                engagement_score: (dashData.metrics?.engagement || 0) * 100,
+                growth_score: (dashData.metrics?.growth_velocity || 0) * 100,
+                dropout_risk: dashData.performance_status === 'High Risk' ? 'HIGH' : 
+                             dashData.performance_status === 'Struggling' ? 'MEDIUM' : 'LOW'
+            } : null;
 
             setTasks(tasks);
             setAttendance(attendance);
-            setPerformance(performance);
+            setPerformance(performance as any);
         } catch (err: any) {
             console.error('[fetchData] Error fetching data:', err.message || err);
         }
@@ -131,28 +138,28 @@ const MonitoringOverviewPage: React.FC = () => {
     return (
         <div className="min-h-screen animate-fade-in overflow-visible">
             {/* Header */}
-            <div className="bg-slate-800/30 border-b-0 px-6 py-4 backdrop-blur-xl overflow-visible z-30 relative">
+            <div className="bg-[var(--card-bg)] border-b border-[var(--border-color)] px-6 py-6 backdrop-blur-3xl overflow-visible z-30 relative rounded-2xl mx-6 mt-6 glass-card">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 overflow-visible">
                     <div>
-                        <h1 className="text-2xl font-bold text-white">
-                            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Overview</span>
+                        <h1 className="text-3xl font-heading font-black tracking-tighter text-[var(--text-main)] uppercase leading-none mb-2">
+                             <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Overview</span>
                         </h1>
-                        <p className="text-slate-400 mt-1">Summary of intern activities and performance</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--text-dim)]">Status: Active Intelligence</p>
                     </div>
                     {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
-                        <div className="relative z-30">
+                                <div className="relative z-30">
                             <button
                                 onClick={() => setShowInternDropdown(!showInternDropdown)}
-                                className="flex items-center gap-3 px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-purple-500/50 transition-all"
+                                className="flex items-center gap-3 px-4 py-2.5 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl hover:border-purple-500/50 transition-all"
                             >
                                 <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(getSelectedInternName())} flex items-center justify-center text-white font-bold text-xs`}>
                                     {getInitials(interns.find(i => i.id === selectedIntern)?.full_name || null)}
                                 </div>
-                                <span className="text-white">{getSelectedInternName()}</span>
-                                <ChevronDown size={16} className={`text-slate-400 transition-transform ${showInternDropdown ? 'rotate-180' : ''}`} />
+                                <span className="text-[var(--text-main)] font-bold">{getSelectedInternName()}</span>
+                                <ChevronDown size={16} className={`text-[var(--text-muted)] transition-transform ${showInternDropdown ? 'rotate-180' : ''}`} />
                             </button>
                             {showInternDropdown && (
-                                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-xl z-[9999] isolate animate-scale-in">
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--bg-muted)] backdrop-blur-xl border border-[var(--border-color)] rounded-xl shadow-xl z-[9999] isolate animate-scale-in">
                                     <div className="p-2">
                                         {interns.map((intern) => (
                                             <button
@@ -161,12 +168,12 @@ const MonitoringOverviewPage: React.FC = () => {
                                                     setSelectedIntern(intern.id);
                                                     setShowInternDropdown(false);
                                                 }}
-                                                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${selectedIntern === intern.id ? 'bg-purple-500/20' : 'hover:bg-slate-700'}`}
+                                                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${selectedIntern === intern.id ? 'bg-purple-500/20' : 'hover:bg-[var(--bg-color)]'}`}
                                             >
                                                 <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(intern.full_name || intern.email)} flex items-center justify-center text-white font-bold text-xs`}>
                                                     {getInitials(intern.full_name)}
                                                 </div>
-                                                <span className="text-white text-sm">{intern.full_name || intern.email}</span>
+                                                <span className="text-[var(--text-main)] text-sm font-medium">{intern.full_name || intern.email}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -183,11 +190,16 @@ const MonitoringOverviewPage: React.FC = () => {
                     <div className="flex justify-center items-center h-64">
                         <div className="flex flex-col items-center gap-4">
                             <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                            <p className="text-slate-400">Loading data...</p>
+                            <p className="text-[var(--text-dim)]">Loading data...</p>
                         </div>
                     </div>
                 ) : (
-                    <OverviewTab tasks={tasks} attendance={attendance} performance={performance} />
+                    <OverviewTab 
+                        tasks={tasks} 
+                        attendance={attendance} 
+                        performance={performance}
+                        selectedInternId={selectedIntern}
+                    />
                 )}
             </div>
         </div>

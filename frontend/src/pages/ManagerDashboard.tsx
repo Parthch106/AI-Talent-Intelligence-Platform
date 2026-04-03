@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, ClipboardList, MessageSquare, Plus, X, Star, Mail, Building } from 'lucide-react';
+import Modal from '../components/common/Modal';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
@@ -438,189 +439,178 @@ const ManagerDashboard: React.FC = () => {
             )}
 
             {/* Create Assessment Modal */}
-            {showAssessmentModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-                    <Card className="w-full max-w-md animate-scale-in" padding="lg">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-semibold text-[var(--text-main)]">Create Assessment</h3>
-                            <button
-                                onClick={() => setShowAssessmentModal(false)}
-                                className="p-2 rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
-                            >
-                                <X size={20} className="text-[var(--text-muted)]" />
-                            </button>
-                        </div>
-                        <form onSubmit={handleCreateAssessment} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Title *</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={newAssessment.title}
-                                    onChange={e => setNewAssessment(prev => ({ ...prev, title: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                                    placeholder="Enter assessment title"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Type *</label>
-                                <select
-                                    value={newAssessment.assessment_type}
-                                    onChange={e => setNewAssessment(prev => ({ ...prev, assessment_type: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                                >
-                                    <option value="TECHNICAL">Technical Quiz</option>
-                                    <option value="CODING">Coding Challenge</option>
-                                    <option value="BEHAVIORAL">Behavioral</option>
-                                    <option value="PROJECT">Project Evaluation</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description</label>
-                                <textarea
-                                    value={newAssessment.description}
-                                    onChange={e => setNewAssessment(prev => ({ ...prev, description: e.target.value }))}
-                                    rows={3}
-                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
-                                    placeholder="Enter description"
-                                />
-                            </div>
-                            <div className="flex gap-3 pt-2">
-                                <Button
-                                    type="button"
-                                    onClick={() => setShowAssessmentModal(false)}
-                                    variant="outline"
-                                    className="flex-1"
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    disabled={submitting}
-                                    gradient="purple"
-                                    className="flex-1"
-                                >
-                                    {submitting ? 'Creating...' : 'Create'}
-                                </Button>
-                            </div>
-                        </form>
-                    </Card>
-                </div>
-            )}
+            <Modal
+                isOpen={showAssessmentModal}
+                onClose={() => setShowAssessmentModal(false)}
+                title="Create Assessment"
+                size="md"
+                gradient="purple"
+            >
+                <form onSubmit={handleCreateAssessment} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Title *</label>
+                        <input
+                            type="text"
+                            required
+                            value={newAssessment.title}
+                            onChange={e => setNewAssessment(prev => ({ ...prev, title: e.target.value }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all font-medium"
+                            placeholder="Enter assessment title"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Type *</label>
+                        <select
+                            value={newAssessment.assessment_type}
+                            onChange={e => setNewAssessment(prev => ({ ...prev, assessment_type: e.target.value }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all cursor-pointer font-medium"
+                        >
+                            <option value="TECHNICAL">Technical Quiz</option>
+                            <option value="CODING">Coding Challenge</option>
+                            <option value="BEHAVIORAL">Behavioral</option>
+                            <option value="PROJECT">Project Evaluation</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description</label>
+                        <textarea
+                            value={newAssessment.description}
+                            onChange={e => setNewAssessment(prev => ({ ...prev, description: e.target.value }))}
+                            rows={3}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none font-medium"
+                            placeholder="Enter description"
+                        />
+                    </div>
+                    <div className="flex gap-3 pt-4">
+                        <Button
+                            type="button"
+                            onClick={() => setShowAssessmentModal(false)}
+                            variant="ghost"
+                            fullWidth
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={submitting}
+                            gradient="purple"
+                            fullWidth
+                        >
+                            {submitting ? 'Creating...' : 'Create Assessment'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
 
             {/* Give Feedback Modal */}
-            {showFeedbackModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-                    <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto animate-scale-in" padding="lg">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-semibold text-[var(--text-main)]">Give Feedback</h3>
-                            <button
-                                onClick={() => setShowFeedbackModal(false)}
-                                className="p-2 rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
-                            >
-                                <X size={20} className="text-[var(--text-muted)]" />
-                            </button>
-                        </div>
-                        <form onSubmit={handleCreateFeedback} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Intern *</label>
-                                <select
-                                    required
-                                    value={newFeedback.recipient_id || ''}
-                                    onChange={e => setNewFeedback(prev => ({ ...prev, recipient_id: parseInt(e.target.value) }))}
-                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                                >
-                                    <option value="">Select intern...</option>
-                                    {interns.map(intern => (
-                                        <option key={intern.id} value={intern.id}>{intern.user.full_name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Feedback Type *</label>
-                                <select
-                                    value={newFeedback.feedback_type}
-                                    onChange={e => setNewFeedback(prev => ({ ...prev, feedback_type: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                                >
-                                    <option value="WEEKLY">Weekly Check-in</option>
-                                    <option value="PROJECT">Project Review</option>
-                                    <option value="MID_TERM">Mid-term Evaluation</option>
-                                    <option value="FINAL">Final Evaluation</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Rating *</label>
-                                <div className="flex gap-2">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                        <button
-                                            key={star}
-                                            type="button"
-                                            onClick={() => setNewFeedback(prev => ({ ...prev, rating: star }))}
-                                            className="p-1 transition-transform hover:scale-110"
-                                        >
-                                            <Star
-                                                size={32}
-                                                fill={star <= newFeedback.rating ? '#f59e0b' : 'transparent'}
-                                                color="#f59e0b"
-                                            />
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Comments *</label>
-                                <textarea
-                                    required
-                                    value={newFeedback.comments}
-                                    onChange={e => setNewFeedback(prev => ({ ...prev, comments: e.target.value }))}
-                                    rows={3}
-                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
-                                    placeholder="Enter your feedback comments"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Strengths</label>
-                                <textarea
-                                    value={newFeedback.strengths}
-                                    onChange={e => setNewFeedback(prev => ({ ...prev, strengths: e.target.value }))}
-                                    rows={2}
-                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
-                                    placeholder="List areas of strength"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Areas for Improvement</label>
-                                <textarea
-                                    value={newFeedback.areas_for_improvement}
-                                    onChange={e => setNewFeedback(prev => ({ ...prev, areas_for_improvement: e.target.value }))}
-                                    rows={2}
-                                    className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
-                                    placeholder="List areas for improvement"
-                                />
-                            </div>
-                            <div className="flex gap-3 pt-2">
-                                <Button
+            <Modal
+                isOpen={showFeedbackModal}
+                onClose={() => setShowFeedbackModal(false)}
+                title="Give Feedback"
+                size="md"
+                gradient="purple"
+            >
+                <form onSubmit={handleCreateFeedback} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Intern *</label>
+                        <select
+                            required
+                            value={newFeedback.recipient_id || ''}
+                            onChange={e => setNewFeedback(prev => ({ ...prev, recipient_id: parseInt(e.target.value) }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all cursor-pointer font-medium"
+                        >
+                            <option value="">Select intern...</option>
+                            {interns.map(intern => (
+                                <option key={intern.id} value={intern.id}>{intern.user.full_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Feedback Type *</label>
+                        <select
+                            value={newFeedback.feedback_type}
+                            onChange={e => setNewFeedback(prev => ({ ...prev, feedback_type: e.target.value }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all cursor-pointer font-medium"
+                        >
+                            <option value="WEEKLY">Weekly Check-in</option>
+                            <option value="PROJECT">Project Review</option>
+                            <option value="MID_TERM">Mid-term Evaluation</option>
+                            <option value="FINAL">Final Evaluation</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Rating points *</label>
+                        <div className="flex gap-2 bg-[var(--bg-muted)] p-4 rounded-xl border border-[var(--border-color)] justify-center">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                                <button
+                                    key={star}
                                     type="button"
-                                    onClick={() => setShowFeedbackModal(false)}
-                                    variant="outline"
-                                    className="flex-1"
+                                    onClick={() => setNewFeedback(prev => ({ ...prev, rating: star }))}
+                                    className="p-1 transition-all hover:scale-110 active:scale-95"
                                 >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    disabled={submitting}
-                                    gradient="purple"
-                                    className="flex-1"
-                                >
-                                    {submitting ? 'Submitting...' : 'Submit'}
-                                </Button>
-                            </div>
-                        </form>
-                    </Card>
-                </div>
-            )}
+                                    <Star
+                                        size={32}
+                                        fill={star <= newFeedback.rating ? '#f59e0b' : 'transparent'}
+                                        color="#f59e0b"
+                                        className={star <= newFeedback.rating ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'opacity-40'}
+                                    />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Comments *</label>
+                        <textarea
+                            required
+                            value={newFeedback.comments}
+                            onChange={e => setNewFeedback(prev => ({ ...prev, comments: e.target.value }))}
+                            rows={3}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none font-medium"
+                            placeholder="Enter your feedback comments"
+                        />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Strengths</label>
+                            <textarea
+                                value={newFeedback.strengths}
+                                onChange={e => setNewFeedback(prev => ({ ...prev, strengths: e.target.value }))}
+                                rows={2}
+                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none font-medium text-xs text-emerald-400"
+                                placeholder="List areas of strength"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Areas for Improvement</label>
+                            <textarea
+                                value={newFeedback.areas_for_improvement}
+                                onChange={e => setNewFeedback(prev => ({ ...prev, areas_for_improvement: e.target.value }))}
+                                rows={2}
+                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none font-medium text-xs text-amber-400"
+                                placeholder="List areas for improvement"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex gap-3 pt-4">
+                        <Button
+                            type="button"
+                            onClick={() => setShowFeedbackModal(false)}
+                            variant="ghost"
+                            fullWidth
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={submitting}
+                            gradient="purple"
+                            fullWidth
+                        >
+                            {submitting ? 'Submitting...' : 'Submit Feedback'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 };

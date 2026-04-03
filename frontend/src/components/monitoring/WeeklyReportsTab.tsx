@@ -75,15 +75,15 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                                     )}
                                 </div>
                                 <div className="flex flex-wrap gap-4 text-sm font-bold">
-                                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                                    <span className="flex items-center gap-1 text-emerald-500">
                                         <CheckCircle size={14} />
                                         {report.tasks_completed} completed
                                     </span>
-                                    <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                                    <span className="flex items-center gap-1 text-blue-500">
                                         <Clock size={14} />
                                         {report.tasks_in_progress} in progress
                                     </span>
-                                    <span className="flex items-center gap-1 text-red-500 dark:text-red-400">
+                                    <span className="flex items-center gap-1 text-red-500">
                                         <AlertTriangle size={14} />
                                         {report.tasks_blocked} blocked
                                     </span>
@@ -94,7 +94,7 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                                     href={report.pdf_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded-lg transition-colors border border-purple-500/20"
+                                    className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 rounded-lg transition-colors border border-purple-500/20"
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     <Download size={16} />
@@ -112,12 +112,12 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                                         <p className="text-sm font-bold text-red-500 uppercase tracking-tight">Status Mismatch Detected</p>
                                         <ul className="mt-1 space-y-1">
                                             {report.mismatch_details?.map((detail, idx) => (
-                                                <li key={idx} className="text-xs text-red-400 font-medium list-disc list-inside">
+                                                <li key={idx} className="text-xs text-red-500 font-medium list-disc list-inside">
                                                     {detail}
                                                 </li>
                                             ))}
                                         </ul>
-                                        <p className="text-[10px] text-red-400/60 mt-2 italic">* Discrepancy between PDF report and system task records.</p>
+                                        <p className="text-[10px] text-red-500/60 mt-2">* Discrepancy between PDF report and system task records.</p>
                                     </div>
                                 </div>
                             </div>
@@ -170,7 +170,7 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                 {reportsArray.length === 0 && (
                     <div className="text-center py-20 animate-fade-in">
                         <FileText size={48} className="mx-auto mb-4 text-[var(--text-muted)] opacity-20" />
-                        <p className="text-lg font-bold text-[var(--text-main)] uppercase italic">No weekly reports found</p>
+                        <p className="text-lg font-bold text-[var(--text-main)] uppercase">No weekly reports found</p>
                         <p className="text-sm text-[var(--text-dim)]">Reports will appear here once submitted</p>
                     </div>
                 )}
@@ -193,7 +193,7 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                                     <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={20} />
                                     <div>
                                         <p className="font-bold text-red-500 uppercase tracking-tight">Status Mismatch Detected</p>
-                                        <p className="text-sm text-red-400 mt-1">There is a discrepancy between the tasks reported in the PDF and the system records for this week.</p>
+                                        <p className="text-sm text-red-500 mt-1">There is a discrepancy between the tasks reported in the PDF and the system records for this week.</p>
                                     </div>
                                 </div>
                             </div>
@@ -227,16 +227,16 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                                 </h4>
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center bg-emerald-500/10 px-3 py-2 rounded-lg border border-emerald-500/20">
-                                        <span className="text-sm text-emerald-400/80">Completed</span>
-                                        <span className="font-bold text-emerald-400">{selectedReport.actual_tasks?.completed ?? 0}</span>
+                                        <span className="text-sm text-emerald-500/80">Completed</span>
+                                        <span className="font-bold text-emerald-500">{selectedReport.actual_tasks?.completed ?? 0}</span>
                                     </div>
                                     <div className="flex justify-between items-center bg-blue-500/10 px-3 py-2 rounded-lg border border-blue-500/20">
-                                        <span className="text-sm text-blue-400/80">In Progress</span>
-                                        <span className="font-bold text-blue-400">{selectedReport.actual_tasks?.in_progress ?? 0}</span>
+                                        <span className="text-sm text-blue-500/80">In Progress</span>
+                                        <span className="font-bold text-blue-500">{selectedReport.actual_tasks?.in_progress ?? 0}</span>
                                     </div>
                                     <div className="flex justify-between items-center bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20">
-                                        <span className="text-sm text-red-400/80">Blocked</span>
-                                        <span className="font-bold text-red-400">{selectedReport.actual_tasks?.blocked ?? 0}</span>
+                                        <span className="text-sm text-red-500/80">Blocked</span>
+                                        <span className="font-bold text-red-500">{selectedReport.actual_tasks?.blocked ?? 0}</span>
                                     </div>
                                 </div>
                             </div>
@@ -278,7 +278,7 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                                     href={selectedReport.pdf_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex w-full items-center justify-center gap-2 px-6 py-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-xl transition-colors border border-purple-500/20 font-bold"
+                                    className="flex w-full items-center justify-center gap-2 px-6 py-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 rounded-xl transition-colors border border-purple-500/20 font-bold"
                                 >
                                     <Download size={18} />
                                     Download Original PDF

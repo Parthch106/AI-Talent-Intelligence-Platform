@@ -73,7 +73,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
         
         setEvaluating(true);
         try {
-            const response = await axios.get(`/analytics/performance/dashboard/${selectedInternId}/`);
+            const response = await axios.get(`/analytics/performance/dashboard/${selectedInternId}/?all_time=true`);
             if (response.data) {
                 setRlEvaluation(response.data);
             }
@@ -145,7 +145,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
             'MEDIUM': 'bg-amber-500',
             'HIGH': 'bg-red-500',
         };
-        return colors[risk] || 'bg-gray-500';
+        return colors[risk] || 'bg-[var(--text-muted)]';
     };
 
     // Get status color based on RL performance status
@@ -374,7 +374,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                                                         ? 'bg-emerald-500 text-white'
                                                         : idx === rlEvaluation.learning_path.current_position
                                                             ? 'bg-blue-500 text-white'
-                                                            : 'bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500'
+                                                            : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border border-[var(--border-color)]'
                                                 }`}>
                                                     {idx < rlEvaluation.learning_path.current_position ? (
                                                         <CheckCircle size={16} />
@@ -446,7 +446,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                         <div className="flex flex-col md:flex-row items-center gap-8">
                             <div className="relative w-40 h-40">
                                 <svg className="w-full h-full transform -rotate-90">
-                                    <circle cx="80" cy="80" r="70" fill="none" stroke="#334155" strokeWidth="14" />
+                                    <circle cx="80" cy="80" r="70" fill="none" stroke="var(--border-color)" strokeWidth="14" />
                                     <circle
                                         cx="80" cy="80" r="70" fill="none"
                                         stroke={performance.overall_performance_score >= 80 ? '#10b981' : performance.overall_performance_score >= 60 ? '#3b82f6' : '#f59e0b'}
@@ -468,12 +468,12 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                                     { label: 'Engagement', value: performance.engagement_score, color: 'bg-violet-500' },
                                     { label: 'Growth', value: performance.growth_score, color: 'bg-amber-500' },
                                 ].map((metric) => (
-                                    <div key={metric.label} className="bg-slate-800/30 rounded-xl p-4 border border-white/5">
+                                    <div key={metric.label} className="bg-[var(--bg-muted)] rounded-xl p-4 border border-[var(--border-color)]">
                                         <div className="flex justify-between items-center mb-2">
-                                            <span className="text-sm text-slate-300">{metric.label}</span>
-                                            <span className="text-lg font-bold text-white">{Math.round(metric.value)}%</span>
+                                            <span className="text-sm text-[var(--text-dim)]">{metric.label}</span>
+                                            <span className="text-lg font-bold text-[var(--text-main)]">{Math.round(metric.value)}%</span>
                                         </div>
-                                        <div className="w-full bg-slate-700/50 rounded-full h-2">
+                                        <div className="w-full bg-[var(--card-bg)] rounded-full h-2">
                                             <div className={`${metric.color} h-2 rounded-full transition-all duration-500`} style={{ width: `${metric.value}%` }}></div>
                                         </div>
                                     </div>

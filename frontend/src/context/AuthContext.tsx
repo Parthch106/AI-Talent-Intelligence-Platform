@@ -6,6 +6,7 @@ interface User {
     role: string;
     full_name?: string;
     department?: string;
+    is_profile_complete?: boolean;
 }
 
 interface AuthContextType {

@@ -21,6 +21,8 @@ interface Task {
     status: string;
     priority: string;
     due_date: string;
+    assigned_at?: string;
+    completed_at?: string;
     estimated_hours?: number;
     actual_hours?: number;
     quality_rating: number | null;
@@ -51,6 +53,8 @@ interface TasksTabProps {
     setMonthFilter: (value: number | 'all') => void;
     yearFilter: number | 'all';
     setYearFilter: (value: number | 'all') => void;
+    dateFilter?: string | null;
+    setDateFilter?: (date: string | null) => void;
 }
 
 const TasksTab: React.FC<TasksTabProps> = ({ 
@@ -64,7 +68,9 @@ const TasksTab: React.FC<TasksTabProps> = ({
     monthFilter,
     setMonthFilter,
     yearFilter,
-    setYearFilter
+    setYearFilter,
+    dateFilter,
+    setDateFilter
 }) => {
     const tasksArray = Array.isArray(tasks) ? tasks : [];
 
@@ -181,12 +187,18 @@ const TasksTab: React.FC<TasksTabProps> = ({
     const filteredTasks = statusFilter ? monthYearFilteredTasks.filter(task => task.status === statusFilter) : monthYearFilteredTasks;
     const projectFilteredTasks = projectFilter ? filteredTasks.filter(task => task.project && task.project.id === projectFilter) : filteredTasks;
 
+    const finalFilteredTasks = dateFilter ? projectFilteredTasks.filter(task => {
+        const taskAssignedDate = task.assigned_at ? task.assigned_at.split('T')[0] : '';
+        const taskCompletedDate = task.completed_at ? task.completed_at.split('T')[0] : '';
+        return taskAssignedDate === dateFilter || taskCompletedDate === dateFilter;
+    }) : projectFilteredTasks;
+
     React.useEffect(() => {
         setCurrentPage(1);
-    }, [statusFilter, projectFilter, monthFilter, yearFilter, viewMode]);
+    }, [statusFilter, projectFilter, monthFilter, yearFilter, viewMode, dateFilter]);
 
-    const totalPages = Math.ceil(projectFilteredTasks.length / ITEMS_PER_PAGE);
-    const paginatedTasks = projectFilteredTasks.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(finalFilteredTasks.length / ITEMS_PER_PAGE);
+    const paginatedTasks = finalFilteredTasks.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
     const openEvaluationModal = (task: Task) => {
         setSelectedTask(task);
@@ -240,7 +252,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
         const selected = isActive || isAll;
         
         const activeColorMap: Record<string, string> = {
-            slate: 'border-slate-500/50 bg-slate-500/5 shadow-slate-500/10',
+            slate: 'border-[var(--text-muted)] bg-[var(--bg-muted)] shadow-[var(--card-shadow)]',
             indigo: 'border-indigo-500/50 bg-indigo-500/5 shadow-indigo-500/10',
             blue: 'border-blue-500/50 bg-blue-500/5 shadow-blue-500/10',
             yellow: 'border-yellow-500/50 bg-yellow-500/5 shadow-yellow-500/10',
@@ -337,7 +349,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
                 <h4 className="text-sm font-black text-[var(--text-main)] truncate capitalize group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{task.title}</h4>
                 <div className="flex items-center gap-4 mt-0.5">
                     <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest">{task.project?.name || 'General'}</span>
-                    {task.module && <span className="text-[10px] text-blue-500/50 font-black tracking-widest uppercase italic">{task.module.name}</span>}
+                    {task.module && <span className="text-[10px] text-blue-500/50 font-black tracking-widest uppercase">{task.module.name}</span>}
                     {task.status === 'COMPLETED' && (
                         <Badge variant={task.quality_rating ? 'success' : 'warning'} size="sm" className="font-black uppercase tracking-widest text-[8px] scale-90 origin-left">
                             {task.quality_rating ? 'Evaluated' : 'Not Evaluated'}
@@ -403,7 +415,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
             {/* Header Area */}
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8">
                 <div>
-                    <h2 className="text-4xl font-black text-[var(--text-main)] tracking-tighter uppercase italic">Tasks</h2>
+                    <h2 className="text-4xl font-black text-[var(--text-main)] tracking-tighter uppercase">Tasks</h2>
                     <p className="text-[var(--text-dim)] mt-4 font-medium max-w-md leading-relaxed">Track and manage intern assignments and performance.</p>
                 </div>
                 {canCreate && (
@@ -505,7 +517,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
             ) : (
                 <div className="py-32 flex flex-col items-center justify-center text-center animate-fade-in">
                     <Target size={80} className="text-[var(--text-muted)] opacity-20 mb-8" />
-                    <h3 className="text-2xl font-black text-[var(--text-main)] uppercase italic mb-2">No tasks found</h3>
+                    <h3 className="text-2xl font-black text-[var(--text-main)] uppercase mb-2">No tasks found</h3>
                     <p className="text-[var(--text-dim)] max-w-sm font-medium">No tasks match your current filter parameters.</p>
                 </div>
             )}

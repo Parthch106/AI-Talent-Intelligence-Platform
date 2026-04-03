@@ -87,7 +87,7 @@ const Dashboard: React.FC = () => {
         };
 
         fetchData();
-    }, [user?.role]);
+    }, [user?.id]);
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -138,7 +138,7 @@ const Dashboard: React.FC = () => {
             {/* Page Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-4xl font-heading font-black tracking-tighter text-[var(--text-main)] mb-2 uppercase italic">
+                    <h1 className="text-4xl font-heading font-black tracking-tighter text-[var(--text-main)] mb-2 uppercase">
                         Dashboard <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Overview</span>
                     </h1>
                     <p className="text-[var(--text-dim)] font-bold uppercase text-[10px] tracking-[0.2em]">Welcome back, Commander</p>
@@ -159,8 +159,8 @@ const Dashboard: React.FC = () => {
                         icon={stat.icon}
                         gradient={stat.color}
                         trend={{
-                            value: parseInt(stat.trend) || 0,
-                            isPositive: stat.trendUp
+                            value: typeof stat.trend === 'string' ? (parseInt(stat.trend) || 0) : (stat.trend || 0),
+                            isPositive: !!stat.trendUp
                         }}
                     />
                 ))}

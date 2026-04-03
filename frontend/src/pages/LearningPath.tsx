@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import Modal from '../components/common/Modal';
+import Button from '../components/common/Button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -129,28 +131,22 @@ function MilestoneCard({ milestone, isActive, onClick }: { milestone: Milestone;
                 <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 flex-shrink-0
                     ${isCompleted
                         ? 'bg-emerald-500/20 border-emerald-500 shadow-lg shadow-emerald-500/20 group-hover:bg-emerald-500/30'
-                        : isActive
-                            ? 'bg-violet-500/20 border-violet-500 shadow-lg shadow-violet-500/30 animate-pulse group-hover:bg-violet-500/30'
-                            : 'dark:bg-slate-800/60 dark:border-slate-600/50 dark:group-hover:bg-slate-700/60 dark:group-hover:border-slate-500/50 bg-slate-100/80 border-slate-200/50 group-hover:bg-slate-200/80 group-hover:border-slate-300/50'
+                            : 'bg-[var(--bg-muted)] border-[var(--border-color)] hover:bg-purple-500/10'
                     }`}
                 >
                     {isCompleted
                         ? <CheckCircle2 size={18} className="text-emerald-400 group-hover:scale-110 transition-transform" />
-                        : isInProgress
-                            ? <Play size={16} className="text-violet-400 group-hover:scale-110 transition-transform" />
-                            : <Circle size={18} className="dark:text-slate-500 text-slate-400 group-hover:dark:text-slate-400 group-hover:text-slate-500 transition-colors" />
+                            : <Circle size={18} className="text-[var(--text-muted)] group-hover:text-[var(--text-dim)] transition-colors" />
                     }
                 </div>
-                <div className={`w-0.5 flex-1 mt-1 rounded-full transition-colors ${isCompleted ? 'bg-emerald-500/40 group-hover:bg-emerald-500/60' : 'dark:bg-slate-700/40 dark:group-hover:bg-slate-600/50 bg-slate-200/40 group-hover:bg-slate-300/50'}`} style={{ minHeight: 24 }} />
+                <div className={`w-0.5 flex-1 mt-1 rounded-full transition-colors ${isCompleted ? 'bg-emerald-500/40 group-hover:bg-emerald-500/60' : 'bg-[var(--border-color)]'}`} style={{ minHeight: 24 }} />
             </div>
 
             {/* Card */}
             <div className={`flex-1 pb-5 rounded-2xl p-4 border transition-all duration-300
                 ${isCompleted
                     ? 'bg-emerald-500/5 border-emerald-500/20 group-hover:border-emerald-500/40 group-hover:bg-emerald-500/10'
-                    : isActive
-                        ? 'bg-violet-500/10 border-violet-500/30 shadow-lg shadow-violet-500/10 group-hover:border-violet-500/50 group-hover:shadow-violet-500/20'
-                        : 'dark:bg-slate-800/40 dark:border-slate-700/40 dark:group-hover:bg-slate-800/60 dark:group-hover:border-slate-600/50 bg-white/60 border-slate-200/40 group-hover:bg-white/80 group-hover:border-slate-300/50'
+                        : 'bg-[var(--card-bg)] border-[var(--border-color)] hover:bg-purple-500/[0.03] hover:border-purple-500/20'
                 }
             `}>
                 <div className="flex items-start justify-between mb-2 gap-3">
@@ -204,8 +200,8 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
                         : isOverdue
                             ? 'bg-red-500/10 border-red-500/50 shadow-red-500/10 group-hover:bg-red-500/20'
                             : isInProgress
-                                ? 'bg-violet-500/10 border-violet-500/50 shadow-violet-500/10 group-hover:bg-violet-500/20 animate-pulse'
-                                : 'dark:bg-slate-800/40 dark:border-slate-700/50 dark:group-hover:bg-slate-800/60 bg-white/60 border-slate-200/50 group-hover:bg-white/80'
+                                ? 'bg-violet-500/10 border-violet-500/50 shadow-violet-500/10 group-hover:bg-violet-500/20'
+                                : 'bg-[var(--bg-muted)] border-[var(--border-color)]'
                     }`}
                 >
                     {isCompleted
@@ -214,10 +210,10 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
                             ? <AlertCircle size={22} className="text-red-400 group-hover:scale-110 transition-transform" />
                             : isInProgress
                                 ? <Play size={20} className="text-violet-400 group-hover:scale-110 transition-transform" />
-                                : <Circle size={20} className="dark:text-slate-500 text-slate-400 group-hover:dark:text-slate-400 group-hover:text-slate-500 transition-colors" />
+                                : <Circle size={20} className="text-[var(--text-muted)] group-hover:text-[var(--text-dim)] transition-colors" />
                     }
                 </div>
-                <div className={`w-0.5 flex-1 rounded-full transition-all duration-500 ${isCompleted ? 'bg-emerald-500/30 group-hover:bg-emerald-500/50' : 'dark:bg-slate-700/30 dark:group-hover:bg-slate-600/50 bg-slate-200/30 group-hover:bg-slate-300/50'}`} />
+                <div className={`w-0.5 flex-1 rounded-full transition-all duration-500 ${isCompleted ? 'bg-emerald-500/30 group-hover:bg-emerald-500/50' : 'bg-[var(--border-color)]'}`} />
             </div>
 
             {/* Content Card */}
@@ -226,9 +222,9 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
                     ? 'bg-emerald-500/5 border-emerald-500/20 group-hover:border-emerald-500/40'
                     : isOverdue
                         ? 'bg-red-500/5 border-red-500/20 group-hover:border-red-500/40'
-                        : isInProgress
-                            ? 'bg-violet-500/5 border-violet-500/30 group-hover:border-violet-500/50 shadow-lg shadow-violet-500/5'
-                            : 'dark:bg-slate-800/20 dark:border-slate-700/30 dark:group-hover:bg-slate-800/40 dark:group-hover:border-slate-600/50 bg-slate-50/50 border-slate-200/30 group-hover:bg-white/60 group-hover:border-slate-300/50'
+                    : isInProgress
+                        ? 'bg-violet-500/5 border-violet-500/30 group-hover:border-violet-500/50 shadow-lg shadow-violet-500/5'
+                        : 'bg-[var(--card-bg)] border-[var(--border-color)] hover:border-purple-500/20'
                 }
             `}>
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -239,7 +235,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
                                 ${task.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 
                                   task.status === 'SUBMITTED' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 
                                   task.status === 'IN_PROGRESS' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 text-glow-amber' : 
-                                  'dark:bg-slate-700/30 dark:text-slate-400 dark:border-slate-600/30 bg-slate-200/30 text-slate-600 border-slate-300/30 text-indigo-600'}`}>
+                                  'bg-[var(--bg-muted)] text-[var(--text-dim)] border border-[var(--border-color)]'}`}>
                                 {task.status.replace('_', ' ')}
                             </span>
                         </div>
@@ -255,7 +251,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
                                 )}
                             </div>
                         )}
-                        <p className="text-xs text-[var(--text-dim)] line-clamp-2 mt-2 leading-relaxed italic">
+                        <p className="text-xs text-[var(--text-dim)] line-clamp-2 mt-2 leading-relaxed">
                             {task.description.substring(0, 120)}...
                         </p>
                     </div>
@@ -271,7 +267,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
                         
                         <div className="flex items-center gap-3">
                             <div title="Estimated Effort" className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase">
-                                <Target size={12} className="dark:text-slate-600 text-slate-400" />
+                                <Target size={12} className="text-[var(--text-muted)] opacity-60" />
                                 {task.estimated_hours}h
                             </div>
                             {task.quality_rating && (
@@ -294,7 +290,7 @@ function RLRecommendationCard({ recommendation, loading, onRefresh }: {
     const info = recommendation ? ACTION_INFO[recommendation.action] || ACTION_INFO['MODERATE_TASK'] : null;
 
     return (
-        <div className="group relative rounded-3xl dark:bg-slate-900/40 dark:border-slate-800/60 bg-white/80 border border-slate-200/30 p-6 overflow-hidden backdrop-blur-xl transition-all duration-300 hover:border-violet-500/30 dark:hover:border-violet-500/30">
+        <div className="group relative rounded-3xl bg-[var(--card-bg)] border border-[var(--border-color)] p-6 overflow-hidden backdrop-blur-xl transition-all duration-300 hover:border-violet-500/30">
             <div className="absolute top-0 right-0 w-32 h-32 bg-violet-600/5 rounded-full blur-3xl group-hover:scale-110 transition-transform" />
             <div className="relative z-10">
                 <div className="flex items-center justify-between mb-6">
@@ -303,17 +299,13 @@ function RLRecommendationCard({ recommendation, loading, onRefresh }: {
                             <Brain size={20} className="text-white" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-[var(--text-main)] text-sm">AI Recommendation</h3>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Q-Agent Live</p>
-                            </div>
+                            <h3 className="font-bold text-[var(--text-main)] text-sm">Task Complexity Recommendation</h3>
                         </div>
                     </div>
                     <button
                         onClick={onRefresh}
                         disabled={loading}
-                        className="w-9 h-9 rounded-xl dark:bg-slate-800/80 dark:border-slate-700/50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/80 bg-slate-200/80 border border-slate-300/50 text-slate-600 hover:text-slate-800 hover:bg-slate-300/80 transition-all active:scale-90"
+                        className="w-9 h-9 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] text-[var(--text-dim)] hover:text-[var(--text-main)] hover:bg-purple-500/10 transition-all active:scale-90"
                     >
                         <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                     </button>
@@ -341,16 +333,11 @@ function RLRecommendationCard({ recommendation, loading, onRefresh }: {
                             <div className="flex items-center gap-3">
                                 <div className="flex gap-1">
                                     {[1, 2, 3, 4, 5].map(d => (
-                                        <div key={d} className={`h-2 flex-1 rounded-full transition-all duration-500 ${d <= recommendation.recommended_difficulty ? 'bg-violet-500' : 'dark:bg-slate-700 bg-slate-300'}`} />
+                                        <div key={d} className={`h-2 flex-1 rounded-full transition-all duration-500 ${d <= recommendation.recommended_difficulty ? 'bg-violet-500' : 'bg-[var(--bg-muted)]'}`} />
                                     ))}
                                 </div>
                                 <span className="text-sm font-bold text-[var(--text-main)]">{recommendation.recommended_difficulty}/5</span>
                             </div>
-                            <p className="text-xs text-[var(--text-dim)] mt-2">
-                                {recommendation.recommended_difficulty <= 2 ? 'Recommended for current skill level' : 
-                                 recommendation.recommended_difficulty === 3 ? 'Moderate challenge recommended' : 
-                                 'High difficulty - stretch goal'}
-                            </p>
                         </div>
 
                         {/* Rationale */}
@@ -360,31 +347,11 @@ function RLRecommendationCard({ recommendation, loading, onRefresh }: {
                                 {recommendation.rationale}
                             </p>
                         </div>
-
-                        {/* Q-Values visualization */}
-                        <div className="pt-2">
-                            <div className="flex items-end gap-1.5 h-12 px-1">
-                                {recommendation.q_values.map((q, i) => {
-                                    const maxQ = Math.max(...recommendation.q_values);
-                                    const normH = maxQ > 0 ? (q / maxQ) * 100 : 20;
-                                    const labels = ['E', 'M', 'H', 'G', 'C'];
-                                    const isActive = i === recommendation.q_values.indexOf(maxQ);
-                                    return (
-                                        <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                                            <div className={`w-full rounded-t-md transition-all duration-1000 origin-bottom
-                                                ${isActive ? 'bg-gradient-to-t from-violet-600 to-indigo-400 shadow-[0_-4px_12px_rgba(139,92,246,0.3)]' : 'dark:bg-slate-800 bg-slate-200'}`}
-                                                style={{ height: `${Math.max(10, normH)}%` }} />
-                                            <span className={`text-[9px] font-black tracking-tighter ${isActive ? 'text-violet-400' : 'dark:text-slate-600 text-slate-500'}`}>{labels[i]}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
                     </div>
                 ) : (
                     <div className="text-center py-10">
-                        <div className="w-16 h-16 rounded-full dark:bg-slate-800/40 dark:border-dashed dark:border-slate-700 bg-slate-100/40 border border-dashed border-slate-300 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                            <Cpu size={32} className="dark:text-slate-600 text-slate-400" />
+                        <div className="w-16 h-16 rounded-full bg-[var(--bg-muted)] border border-dashed border-[var(--border-color)] flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                            <Cpu size={32} className="text-[var(--text-muted)]" />
                         </div>
                         <p className="text-sm font-bold text-[var(--text-dim)]">AI Engine Ready</p>
                         <p className="text-xs text-[var(--text-muted)] mt-1">Tap refresh to synthesize next step</p>
@@ -687,6 +654,8 @@ const LearningPath: React.FC = () => {
 
     const tasksCompleted = tasks.filter(t => t.status === 'COMPLETED').length;
     const tasksSubmitted = tasks.filter(t => t.status === 'SUBMITTED').length;
+    const tasksInProgress = tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'SUBMITTED').length;
+    const tasksRemaining = tasks.filter(t => t.status === 'ASSIGNED').length;
     const tasksOverdue = tasks.filter(t => t.status !== 'COMPLETED' && t.status !== 'SUBMITTED' && new Date(t.due_date) < new Date()).length;
     const totalActualHours = tasks.reduce((s, t) => s + (t.actual_hours || 0), 0);
 
@@ -708,7 +677,7 @@ const LearningPath: React.FC = () => {
                                 <ClipboardList size={24} className="text-white" />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-black text-[var(--text-main)] italic tracking-tighter uppercase">AIMs Adaptive Roadmap</h1>
+                                <h1 className="text-2xl font-black text-[var(--text-main)] tracking-tighter uppercase">AIMs Adaptive Roadmap</h1>
                                 <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-[0.2em]">Personalized Learning & Skill Mastery</p>
                             </div>
                         </div>
@@ -956,7 +925,7 @@ const LearningPath: React.FC = () => {
                                                 >
                                                     <div className="flex items-start justify-between gap-3 mb-4">
                                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors
-                                                            ${m.status === 'COMPLETED' ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'dark:bg-slate-700/50 dark:border-slate-600/50 dark:text-slate-400 bg-slate-200/50 border-slate-300/50 text-slate-600'}
+                                                            ${m.status === 'COMPLETED' ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'bg-[var(--bg-muted)] border-[var(--border-color)] text-[var(--text-muted)]'}
                                                         `}>
                                                             {m.status === 'COMPLETED' ? <CheckCircle2 size={16} /> : <Circle size={14} />}
                                                         </div>
@@ -978,7 +947,7 @@ const LearningPath: React.FC = () => {
                                                             <span>Mastery</span>
                                                             <span className={m.current_mastery >= 0.8 ? 'text-emerald-400' : 'text-violet-400'}>{Math.round(m.current_mastery * 100)}%</span>
                                                         </div>
-                                                        <div className="h-1 dark:bg-slate-800 bg-slate-200 rounded-full overflow-hidden">
+                                                        <div className="h-1 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                                                             <div 
                                                                 className={`h-full rounded-full transition-all duration-1000 ${m.status === 'COMPLETED' ? 'bg-emerald-500' : 'bg-violet-500'}`}
                                                                 style={{ width: `${Math.round(m.current_mastery * 100)}%` }}
@@ -1132,8 +1101,8 @@ const LearningPath: React.FC = () => {
                                                     {/* Start node - only on the last page */}
                                                     {taskPage === totalPages && filteredTasks.length > 0 && (
                                                         <div className="flex items-start gap-6 pt-4">
-                                                            <div className="w-12 h-12 rounded-2xl dark:bg-slate-900 dark:border-slate-800 bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 shadow-lg relative z-10">
-                                                                <div className="w-2 h-2 rounded-full dark:bg-slate-600 bg-slate-400" />
+                                                            <div className="w-12 h-12 rounded-2xl bg-[var(--card-bg)] border border-[var(--border-color)] flex items-center justify-center flex-shrink-0 shadow-lg relative z-10">
+                                                                <div className="w-2 h-2 rounded-full text-[var(--text-muted)] bg-[var(--text-muted)]" />
                                                             </div>
                                                             <div className="py-3">
                                                                 <p className="text-sm font-bold text-[var(--text-muted)] tracking-tight uppercase">
@@ -1178,8 +1147,8 @@ const LearningPath: React.FC = () => {
                                     })()}
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center py-16 rounded-2xl dark:bg-slate-800/30 dark:border-slate-700/30 border-dashed bg-white/50 border border-slate-200/30 border-dashed">
-                                <Activity size={40} className="dark:text-slate-600 text-slate-400 mb-3" />
+                            <div className="flex flex-col items-center justify-center py-16 rounded-2xl bg-[var(--bg-muted)]/50 border border-[var(--border-color)] border-dashed">
+                                <Activity size={40} className="text-[var(--text-muted)] mb-3" />
                                 <p className="text-[var(--text-dim)] font-medium text-sm mb-1">No tasks assigned yet</p>
                                 <p className="text-[var(--text-muted)] text-xs text-center max-w-xs">
                                     Interns will see their active project tasks flow here once assigned by a manager.
@@ -1193,7 +1162,7 @@ const LearningPath: React.FC = () => {
 
                         {/* Optimal Difficulty Card */}
                         {optimalDiff && (
-                            <div className="group relative rounded-3xl dark:bg-slate-900/40 dark:border-slate-800/60 bg-white/60 border border-slate-200/30 p-6 overflow-hidden backdrop-blur-xl transition-all duration-300 hover:border-indigo-500/30">
+                            <div className="group relative rounded-3xl bg-[var(--card-bg)] border border-[var(--border-color)] p-6 overflow-hidden backdrop-blur-xl transition-all duration-300 hover:border-indigo-500/30">
                                 <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl transition-transform group-hover:scale-125" />
                                 <div className="relative z-10">
                                     <div className="flex items-center gap-3 mb-6">
@@ -1209,7 +1178,7 @@ const LearningPath: React.FC = () => {
                                     <div className="flex items-center gap-4 mb-6">
                                         <div className="relative">
                                             <svg className="w-16 h-16 transform -rotate-90">
-                                                <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" className="dark:text-slate-800 text-slate-300" />
+                                                <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-[var(--bg-muted)]" />
                                                 <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" 
                                                     strokeDasharray={176} strokeDashoffset={176 - (optimalDiff.optimal_difficulty / 5) * 176}
                                                     strokeLinecap="round" className="text-indigo-400 transition-all duration-1000" />
@@ -1262,7 +1231,7 @@ const LearningPath: React.FC = () => {
 
                         {/* Action Needed Card */}
                         {(tasks.filter(t => t.status !== 'COMPLETED' && t.status !== 'SUBMITTED').length > 0) && (
-                            <div className="rounded-3xl dark:bg-slate-900/40 dark:border-slate-800/60 bg-white/60 border border-slate-200/30 p-5 overflow-hidden backdrop-blur-xl transition-all duration-300 hover:border-violet-500/30">
+                            <div className="rounded-3xl bg-[var(--card-bg)] border border-[var(--border-color)] p-5 overflow-hidden backdrop-blur-xl transition-all duration-300 hover:border-violet-500/30">
                                 <div className="flex items-center gap-3 mb-4">
                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${tasksOverdue > 0 ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>
                                         <AlertCircle size={20} />
@@ -1276,7 +1245,7 @@ const LearningPath: React.FC = () => {
                                     {tasks.filter(t => t.status !== 'COMPLETED' && t.status !== 'SUBMITTED').sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).map(task => {
                                         const isOverdue = new Date(task.due_date) < new Date();
                                         return (
-                                            <div key={task.id} onClick={() => setActiveTaskModal(task)} className={`group cursor-pointer flex flex-col p-3 rounded-xl border transition-all hover:scale-[1.02] ${isOverdue ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/40' : 'dark:bg-slate-800/30 dark:border-slate-700/50 dark:hover:border-slate-600 bg-white/60 border-slate-200/50 hover:border-slate-300'}`}>
+                                            <div key={task.id} onClick={() => setActiveTaskModal(task)} className={`group cursor-pointer flex flex-col p-3 rounded-xl border transition-all hover:scale-[1.02] ${isOverdue ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/40' : 'bg-[var(--bg-muted)] border-[var(--border-color)] hover:border-blue-500/20'}`}>
                                                 <div className="flex justify-between items-start mb-2 gap-2">
                                                     <span className="text-xs font-bold text-[var(--text-main)] group-hover:text-[var(--text-main)] line-clamp-1 flex-1">{task.title}</span>
                                                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0 ${isOverdue ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>
@@ -1284,8 +1253,8 @@ const LearningPath: React.FC = () => {
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2 text-[10px] font-semibold">
-                                                    <Clock size={12} className={isOverdue ? "text-red-400" : "dark:text-slate-500 text-slate-400"} />
-                                                    <span className={isOverdue ? "text-red-400" : "dark:text-slate-400 text-slate-500"}>Due: {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                                    <Clock size={12} className={isOverdue ? "text-red-400" : "text-[var(--text-muted)]"} />
+                                                    <span className={isOverdue ? "text-red-400" : "text-[var(--text-muted)]"}>Due: {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                                                 </div>
                                             </div>
                                         );
@@ -1319,31 +1288,74 @@ const LearningPath: React.FC = () => {
                                     <BarChart3 size={16} className="text-emerald-400" />
                                     <h3 className="font-semibold text-[var(--text-main)] text-sm">Overall Progress</h3>
                                 </div>
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-6">
                                     {/* SVG ring */}
-                                    <div className="relative w-20 h-20 flex-shrink-0">
-                                        <svg viewBox="0 0 36 36" className="w-20 h-20 -rotate-90">
-                                            <circle cx="18" cy="18" r="15.9" fill="none" className="dark:text-slate-700 text-slate-300" strokeWidth="3" />
-                                            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#8b5cf6" strokeWidth="3"
-                                                strokeDasharray={`${path.completion_percentage || 0} ${100 - (path.completion_percentage || 0)}`}
-                                                strokeLinecap="round" style={{ transition: 'stroke-dasharray 0.8s ease' }} />
+                                    <div className="relative w-24 h-24 flex-shrink-0">
+                                        <svg viewBox="0 0 36 36" className="w-24 h-24 -rotate-90">
+                                            {/* Background Track */}
+                                            <circle cx="18" cy="18" r="15.9" fill="none" className="stroke-[var(--bg-color)]" strokeWidth="3.5" />
+                                            
+                                            {(() => {
+                                                const total = tasks.length || 1;
+                                                const cPct = (tasksCompleted / total) * 100;
+                                                const iPct = (tasksInProgress / total) * 100;
+                                                const rPct = (tasksRemaining / total) * 100;
+                                                
+                                                return (
+                                                    <>
+                                                        {/* Remaining Segment */}
+                                                        <circle cx="18" cy="18" r="15.9" fill="none" className="stroke-[var(--bg-muted)]" strokeWidth="3.5"
+                                                            strokeDasharray={`${rPct} ${100 - rPct}`}
+                                                            strokeDashoffset={-(cPct + iPct)}
+                                                            strokeLinecap="round" />
+                                                        
+                                                        {/* In Progress Segment */}
+                                                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#8b5cf6" strokeWidth="3.5"
+                                                            strokeDasharray={`${iPct} ${100 - iPct}`}
+                                                            strokeDashoffset={-cPct}
+                                                            strokeLinecap="round" />
+                                                            
+                                                        {/* Completed Segment */}
+                                                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#10b981" strokeWidth="3.5"
+                                                            strokeDasharray={`${cPct} ${100 - cPct}`}
+                                                            strokeLinecap="round" />
+                                                    </>
+                                                );
+                                            })()}
                                         </svg>
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <span className="text-sm font-bold dark:text-violet-300 text-violet-600">{path.completion_percentage?.toFixed(0) || 0}%</span>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-base font-black text-[var(--text-main)]">
+                                                {tasks.length > 0 ? Math.round((tasksCompleted / tasks.length) * 100) : 0}%
+                                            </span>
                                         </div>
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                            <span className="text-xs text-[var(--text-dim)]">{tasksCompleted} completed</span>
+                                    <div className="flex-1 space-y-2">
+                                        <div className="flex items-center justify-between group/stat">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+                                                <span className="text-xs font-bold text-[var(--text-dim)] group-hover/stat:text-[var(--text-main)] transition-colors tracking-tight">Completed</span>
+                                            </div>
+                                            <span className="text-xs font-black text-[var(--text-main)]">{tasksCompleted}</span>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
-                                            <span className="text-xs text-[var(--text-dim)]">1 in progress</span>
+                                        <div className="flex items-center justify-between group/stat">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse shadow-[0_0_8px_rgba(139,92,246,0.4)]" />
+                                                <span className="text-xs font-bold text-[var(--text-dim)] group-hover/stat:text-[var(--text-main)] transition-colors tracking-tight">In Progress</span>
+                                            </div>
+                                            <span className="text-xs font-black text-violet-400">{tasksInProgress}</span>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full dark:bg-slate-600 bg-slate-400" />
-                                            <span className="text-xs text-[var(--text-dim)]">{Math.max(0, tasks.length - tasksCompleted - 1)} remaining</span>
+                                        <div className="flex items-center justify-between group/stat">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-[var(--bg-muted)] border border-[var(--border-color)]" />
+                                                <span className="text-xs font-bold text-[var(--text-dim)] group-hover/stat:text-[var(--text-main)] transition-colors tracking-tight">Remaining</span>
+                                            </div>
+                                            <span className="text-xs font-black text-[var(--text-muted)]">{tasksRemaining}</span>
+                                        </div>
+                                        <div className="pt-1 mt-1 border-t border-[var(--border-color)]/30">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Total Volume</span>
+                                                <span className="text-[10px] font-black text-[var(--text-main)]">{tasks.length} Tasks</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1353,147 +1365,132 @@ const LearningPath: React.FC = () => {
                 </div>
                 </div>
 
-            {/* Analysis Modal */}
-            {activeStatModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 dark:bg-slate-950/80 bg-slate-900/60 backdrop-blur-sm" onClick={() => setActiveStatModal(null)} />
-                    <div className="relative z-10 w-full max-w-lg dark:bg-[var(--bg-color)] bg-white border dark:border-[var(--border-color)] border-slate-200 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
-                        {/* Header */}
-                        <div className="flex items-center justify-between p-5 border-b border-[var(--border-color)]">
-                            <h2 className="text-lg font-bold text-[var(--text-main)]">
-                                {activeStatModal} Analysis
-                            </h2>
-                            <button onClick={() => setActiveStatModal(null)} className="p-1 hover:bg-[var(--bg-muted)] rounded-lg text-[var(--text-dim)] hover:text-[var(--text-main)] transition-colors">
-                                <X size={20} />
-                            </button>
-                        </div>
-                        
-                        {/* Body */}
-                        <div className="p-6 overflow-y-auto">
-                            {/* We keep the old Path breakdown for these modals if path exists, otherwise hide or show task stats */}
-                            {activeStatModal === 'Completion' && path && (
-                                <div className="space-y-4">
-                                    <p className="text-sm text-[var(--text-dim)] leading-relaxed">
-                                        The completion metric measures the aggregated average mastery across all {path.total_milestones} milestones in the `{path.target_role}` path.
-                                    </p>
-                                    <div className="bg-[var(--bg-muted)] rounded-xl p-4 border border-emerald-500/20">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-semibold text-emerald-400 uppercase">Overall Progress</span>
-                                            <span className="text-sm font-bold text-[var(--text-main)]">{path.completion_percentage?.toFixed(1) || 0}%</span>
+            <Modal
+                isOpen={!!activeStatModal}
+                onClose={() => setActiveStatModal(null)}
+                title={`${activeStatModal} Analysis`}
+                size="md"
+            >
+                <div className="space-y-6">
+                    {/* We keep the old Path breakdown for these modals if path exists, otherwise hide or show task stats */}
+                    {activeStatModal === 'Completion' && path && (
+                        <div className="space-y-4">
+                            <p className="text-sm text-[var(--text-dim)] leading-relaxed">
+                                The completion metric measures the aggregated average mastery across all {path.total_milestones} milestones in the `{path.target_role}` path.
+                            </p>
+                            <div className="bg-[var(--bg-muted)] rounded-xl p-4 border border-emerald-500/20">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-semibold text-emerald-400 uppercase">Overall Progress</span>
+                                    <span className="text-sm font-bold text-[var(--text-main)]">{path.completion_percentage?.toFixed(1) || 0}%</span>
+                                </div>
+                                <div className="h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${path.completion_percentage || 0}%` }} />
+                                </div>
+                            </div>
+                            <h3 className="text-sm font-semibold text-[var(--text-dim)] mt-6 mb-3">Mastery Breakdown</h3>
+                            <div className="space-y-3">
+                                {path.milestones?.map(m => (
+                                    <div key={m.skill}>
+                                        <div className="flex justify-between text-xs mb-1">
+                                            <span className="text-[var(--text-dim)]">{m.title}</span>
+                                            <span className={m.current_mastery >= m.mastery_target ? 'text-emerald-400' : 'text-slate-500'}>
+                                                {Math.round(m.current_mastery * 100)}% / {Math.round(m.mastery_target * 100)}%
+                                            </span>
                                         </div>
-                                        <div className="h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
-                                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${path.completion_percentage || 0}%` }} />
+                                        <div className="h-1 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                                            <div 
+                                                className={`h-full rounded-full ${m.current_mastery >= m.mastery_target ? 'bg-emerald-500' : 'bg-slate-600'}`} 
+                                                style={{ width: `${Math.min(100, Math.round((m.current_mastery/m.mastery_target)*100))}%` }} 
+                                            />
                                         </div>
                                     </div>
-                                    <h3 className="text-sm font-semibold text-[var(--text-dim)] mt-6 mb-3">Mastery Breakdown</h3>
-                                    <div className="space-y-3">
-                                        {path.milestones?.map(m => (
-                                            <div key={m.skill}>
-                                                <div className="flex justify-between text-xs mb-1">
-                                                    <span className="text-[var(--text-dim)]">{m.title}</span>
-                                                    <span className={m.current_mastery >= m.mastery_target ? 'text-emerald-400' : 'text-slate-500'}>
-                                                        {Math.round(m.current_mastery * 100)}% / {Math.round(m.mastery_target * 100)}%
-                                                    </span>
-                                                </div>
-                                                <div className="h-1 bg-[var(--bg-muted)] rounded-full overflow-hidden">
-                                                    <div 
-                                                        className={`h-full rounded-full ${m.current_mastery >= m.mastery_target ? 'bg-emerald-500' : 'bg-slate-600'}`} 
-                                                        style={{ width: `${Math.min(100, Math.round((m.current_mastery/m.mastery_target)*100))}%` }} 
-                                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeStatModal === 'Milestones Done' && path && (
+                        <div className="space-y-4">
+                            <p className="text-sm text-[var(--text-dim)] leading-relaxed">
+                                You have mastered {path.milestones?.filter(m => m.status === 'COMPLETED').length || 0} out of {path.total_milestones} required skills for the {path.target_role} role.
+                            </p>
+                            <div className="grid grid-cols-2 gap-3 mt-4">
+                                <div className="bg-[var(--bg-muted)] border border-emerald-500/20 rounded-xl p-4 text-center">
+                                    <p className="text-3xl font-black text-emerald-400">{path.milestones?.filter(m => m.status === 'COMPLETED').length || 0}</p>
+                                    <p className="text-xs text-[var(--text-dim)] mt-1 uppercase tracking-wider font-semibold">Done</p>
+                                </div>
+                                <div className="bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl p-4 text-center">
+                                    <p className="text-3xl font-black text-[var(--text-main)]">{path.total_milestones - (path.milestones?.filter(m => m.status === 'COMPLETED').length || 0)}</p>
+                                    <p className="text-xs text-[var(--text-dim)] mt-1 uppercase tracking-wider font-semibold">Remaining</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeStatModal === 'Total Hours' && path && (
+                        <div className="space-y-4">
+                            <p className="text-sm text-[var(--text-dim)] leading-relaxed">
+                                Total estimated effort: {path.milestones?.reduce((s, m) => s + m.estimated_hours, 0) || 0} hours for {path.total_milestones} milestones.
+                            </p>
+                            <h3 className="text-sm font-semibold text-[var(--text-dim)] mt-6 mb-3">Time Distribution</h3>
+                            <div className="space-y-2">
+                                {path.milestones?.map(m => {
+                                    const tH = path.milestones?.reduce((s, x) => s + x.estimated_hours, 0) || 1;
+                                    const pct = (m.estimated_hours / tH) * 100;
+                                    return (
+                                        <div key={m.skill} className="bg-[var(--bg-muted)] p-3 rounded-lg flex items-center gap-3">
+                                            <div className="w-12 text-right flex-shrink-0">
+                                                <span className="text-sm font-bold text-indigo-400">{m.estimated_hours}h</span>
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm text-[var(--text-dim)]">{m.title}</p>
+                                                <div className="w-full h-1 bg-[var(--bg-muted)] mt-2 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-indigo-500" style={{ width: `${pct}%` }}/>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {activeStatModal === 'Milestones Done' && path && (
-                                <div className="space-y-4">
-                                    <p className="text-sm text-[var(--text-dim)] leading-relaxed">
-                                        You have fully mastered {path.milestones?.filter(m => m.status === 'COMPLETED').length || 0} out of {path.total_milestones} required skills for the {path.target_role} role. A milestone is considered "done" when its current mastery meets or exceeds the target mastery.
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-3 mt-4">
-                                        <div className="bg-[var(--bg-muted)] border border-emerald-500/20 rounded-xl p-4 text-center">
-                                            <p className="text-3xl font-black text-emerald-400">{path.milestones?.filter(m => m.status === 'COMPLETED').length || 0}</p>
-                                            <p className="text-xs text-[var(--text-dim)] mt-1 uppercase tracking-wider font-semibold">Done</p>
+                                            <span className="text-xs text-[var(--text-muted)] w-8 text-right">{pct.toFixed(0)}%</span>
                                         </div>
-                                        <div className="bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl p-4 text-center">
-                                            <p className="text-3xl font-black text-[var(--text-main)]">{path.total_milestones - (path.milestones?.filter(m => m.status === 'COMPLETED').length || 0)}</p>
-                                            <p className="text-xs text-[var(--text-dim)] mt-1 uppercase tracking-wider font-semibold">Remaining</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {activeStatModal === 'Total Hours' && path && (
-                                <div className="space-y-4">
-                                    <p className="text-sm text-[var(--text-dim)] leading-relaxed">
-                                        This path requires approximately {path.milestones?.reduce((s, m) => s + m.estimated_hours, 0) || 0} estimated hours of deliberate practice and project work to complete all {path.total_milestones} milestones.
-                                    </p>
-                                    <h3 className="text-sm font-semibold text-[var(--text-dim)] mt-6 mb-3">Time Distribution</h3>
-                                    <div className="space-y-2">
-                                        {path.milestones?.map(m => {
-                                            const tH = path.milestones?.reduce((s, x) => s + x.estimated_hours, 0) || 1;
-                                            const pct = (m.estimated_hours / tH) * 100;
-                                            return (
-                                                <div key={m.skill} className="bg-[var(--bg-muted)] p-3 rounded-lg flex items-center gap-3">
-                                                    <div className="w-12 text-right flex-shrink-0">
-                                                        <span className="text-sm font-bold text-indigo-400">{m.estimated_hours}h</span>
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <p className="text-sm text-[var(--text-dim)]">{m.title}</p>
-                                                        <div className="w-full h-1 bg-[var(--bg-muted)] mt-2 rounded-full overflow-hidden">
-                                                            <div className="h-full bg-indigo-500" style={{ width: `${pct}%` }}/>
-                                                        </div>
-                                                    </div>
-                                                    <span className="text-xs text-[var(--text-muted)] w-8">{pct.toFixed(0)}%</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {activeStatModal === 'Hours Left' && path && (
-                                <div className="space-y-4">
-                                    <p className="text-sm text-[var(--text-dim)] leading-relaxed">
-                                        Based on your current progress, there are approximately {path.milestones?.filter(m => m.status !== 'COMPLETED').reduce((s, m) => s + m.estimated_hours, 0) || 0} hours of learning left to hit your target role.
-                                    </p>
-                                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center justify-between">
-                                        <div>
-                                            <p className="text-2xl font-black text-amber-500">{path.milestones?.filter(m => m.status !== 'COMPLETED').reduce((s, m) => s + m.estimated_hours, 0) || 0}h</p>
-                                            <p className="text-xs font-semibold text-amber-500/70 uppercase tracking-wider mt-1">Remaining Time</p>
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
-                                        <p className="text-xs text-[var(--text-dim)] italic">
-                                            * Note: The AI agent recalculates these hours dynamically. If you demonstrate fast mastery or high quality scores in task completions, the remaining hours will compress.
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
+                                    );
+                                })}
+                            </div>
                         </div>
-                        
-                        {/* Footer */}
-                        <div className="p-4 border-t border-[var(--border-color)] bg-[var(--bg-muted)] rounded-b-2xl">
-                            <button
-                                onClick={() => setActiveStatModal(null)}
-                                className="w-full py-2.5 bg-[var(--bg-muted)] hover:bg-[var(--bg-color)] text-[var(--text-dim)] text-sm font-semibold rounded-xl transition-colors border border-[var(--border-color)]"
-                            >
-                                Close Analysis
-                            </button>
+                    )}
+
+                    {activeStatModal === 'Hours Left' && path && (
+                        <div className="space-y-4">
+                            <p className="text-sm text-[var(--text-dim)] leading-relaxed">
+                                Approximately {path.milestones?.filter(m => m.status !== 'COMPLETED').reduce((s, m) => s + m.estimated_hours, 0) || 0} hours remaining.
+                            </p>
+                            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center justify-between">
+                                <div>
+                                    <p className="text-2xl font-black text-amber-500">{path.milestones?.filter(m => m.status !== 'COMPLETED').reduce((s, m) => s + m.estimated_hours, 0) || 0}h</p>
+                                    <p className="text-xs font-semibold text-amber-500/70 uppercase tracking-wider mt-1">Remaining Time</p>
+                                </div>
+                            </div>
                         </div>
+                    )}
+
+                    <div className="pt-4 mt-6 border-t border-[var(--border-color)]">
+                        <Button
+                            onClick={() => setActiveStatModal(null)}
+                            variant="outline"
+                            fullWidth
+                        >
+                            Close Analysis
+                        </Button>
                     </div>
                 </div>
-            )}
+            </Modal>
 
-            {/* Task Detailed Modal */}
-            {activeTaskModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 dark:bg-slate-950/80 bg-white/70 backdrop-blur-sm" onClick={() => setActiveTaskModal(null)} />
-                    <div className="relative z-10 w-full max-w-2xl dark:bg-[var(--bg-color)] bg-white border dark:border-[var(--border-color)] border-slate-200 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
-                        {/* Header */}
-                        <div className="flex items-start justify-between p-6 dark:border-b dark:border-slate-800 border-b border-slate-200">
+            <Modal
+                isOpen={!!activeTaskModal}
+                onClose={() => setActiveTaskModal(null)}
+                title={activeTaskModal?.title || 'Task Details'}
+                size="lg"
+            >
+                {activeTaskModal && (
+                    <div className="space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-[var(--bg-muted)]/50 border border-[var(--border-color)] rounded-2xl">
                             <div className="flex gap-4 items-center">
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0
                                     ${activeTaskModal.status === 'COMPLETED' ? 'bg-gradient-to-br from-emerald-500 to-green-600' : 
@@ -1507,7 +1504,6 @@ const LearningPath: React.FC = () => {
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2 mb-1">
-                                        <h2 className="text-xl font-bold text-slate-100">{activeTaskModal.title}</h2>
                                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
                                             ${activeTaskModal.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400' : 
                                               activeTaskModal.status === 'SUBMITTED' ? 'bg-blue-500/20 text-blue-400' : 
@@ -1516,83 +1512,84 @@ const LearningPath: React.FC = () => {
                                             {activeTaskModal.status.replace('_', ' ')}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-3 text-sm text-slate-400">
+                                    <div className="flex items-center gap-3 text-sm text-[var(--text-dim)]">
                                         {activeTaskModal.project && <span className="text-indigo-400 font-medium">{activeTaskModal.project.name}</span>}
                                         {activeTaskModal.project && <span>•</span>}
-                                        <span className="flex items-center gap-1"><Target size={14} /> D: {new Date(activeTaskModal.due_date).toLocaleDateString()}</span>
+                                        <span className="flex items-center gap-1"><Target size={14} /> Due: {new Date(activeTaskModal.due_date).toLocaleDateString()}</span>
                                     </div>
                                 </div>
                             </div>
-                            <button onClick={() => setActiveTaskModal(null)} className="p-2 dark:hover:bg-slate-800 rounded-lg dark:text-slate-400 dark:hover:text-white hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors">
-                                <X size={20} />
-                            </button>
                         </div>
                         
-                        {/* Body */}
-                        <div className="p-6 overflow-y-auto space-y-6">
-                            
-                            {/* Description */}
-                            <div>
-                                <h3 className="text-sm font-semibold dark:text-slate-400 text-slate-600 mb-2">Description</h3>
-                                <div className="dark:bg-slate-800/30 p-4 rounded-xl dark:border border-slate-700/50 bg-slate-100/50 border border-slate-200/50">
-                                    <p className="dark:text-slate-300 text-slate-700 text-sm whitespace-pre-wrap">{activeTaskModal.description}</p>
-                                </div>
+                        {/* Description */}
+                        <div>
+                            <h3 className="text-sm font-semibold text-[var(--text-dim)] mb-2 uppercase tracking-widest">Description</h3>
+                            <div className="bg-[var(--bg-muted)] p-4 rounded-xl border border-[var(--border-color)]">
+                                <p className="text-[var(--text-main)] text-sm whitespace-pre-wrap leading-relaxed">{activeTaskModal.description}</p>
                             </div>
+                        </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <h3 className="text-sm font-semibold dark:text-slate-400 text-slate-600 mb-2">Time Tracking</h3>
-                                    <div className="dark:bg-slate-800/30 p-4 rounded-xl dark:border border-slate-700/50 bg-slate-100/50 border border-slate-200/50 space-y-3">
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="dark:text-slate-400 text-slate-600">Estimated</span>
-                                            <span className="font-semibold dark:text-slate-200 text-slate-800">{activeTaskModal.estimated_hours} hrs</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="dark:text-slate-400 text-slate-600">Logged</span>
-                                            <span className="font-semibold text-indigo-400">{activeTaskModal.actual_hours || 0} hrs</span>
-                                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <h3 className="text-sm font-semibold text-[var(--text-dim)] mb-2 uppercase tracking-widest">Time Tracking</h3>
+                                <div className="bg-[var(--bg-muted)] p-4 rounded-xl border border-[var(--border-color)] space-y-3">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-[var(--text-dim)]">Estimated Effort</span>
+                                        <span className="font-bold text-[var(--text-main)]">{activeTaskModal.estimated_hours} hrs</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-[var(--text-dim)]">Logged Hours</span>
+                                        <span className="font-bold text-indigo-400">{activeTaskModal.actual_hours || 0} hrs</span>
                                     </div>
                                 </div>
-                                <div>
-                                    <h3 className="text-sm font-semibold dark:text-slate-400 text-slate-600 mb-2">Evaluation</h3>
-                                    <div className="dark:bg-slate-800/30 p-4 rounded-xl dark:border border-slate-700/50 bg-slate-100/50 border border-slate-200/50 space-y-3">
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="dark:text-slate-400 text-slate-600">Quality</span>
-                                            <div className="flex items-center gap-1">
-                                                {activeTaskModal.quality_rating ? (
-                                                    <>
-                                                        <span className="font-bold text-yellow-400">{activeTaskModal.quality_rating}/5</span>
-                                                        <Star size={14} className="text-yellow-400 fill-yellow-400/20" />
-                                                    </>
-                                                ) : <span className="dark:text-slate-500 text-slate-400 italic">Not rated</span>}
-                                            </div>
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-semibold text-[var(--text-dim)] mb-2 uppercase tracking-widest">Evaluation</h3>
+                                <div className="bg-[var(--bg-muted)] p-4 rounded-xl border border-[var(--border-color)] space-y-3">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-[var(--text-dim)]">Quality Grade</span>
+                                        <div className="flex items-center gap-1">
+                                            {activeTaskModal.quality_rating ? (
+                                                <>
+                                                    <span className="font-bold text-yellow-500">{activeTaskModal.quality_rating}/5</span>
+                                                    <Star size={14} className="text-yellow-400 fill-yellow-400/20" />
+                                                </>
+                                            ) : <span className="text-[var(--text-muted)]">Awaiting Rating</span>}
                                         </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="dark:text-slate-400 text-slate-600">Code Score</span>
-                                            <div className="flex items-center gap-1">
-                                                {activeTaskModal.code_review_score ? (
-                                                    <>
-                                                        <span className="font-bold text-emerald-400">{activeTaskModal.code_review_score}%</span>
-                                                        <Cpu size={14} className="text-emerald-400" />
-                                                    </>
-                                                ) : <span className="dark:text-slate-500 text-slate-400 italic">No score</span>}
-                                            </div>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-[var(--text-dim)]">Code Review</span>
+                                        <div className="flex items-center gap-1">
+                                            {activeTaskModal.code_review_score ? (
+                                                <>
+                                                    <span className="font-bold text-emerald-400">{activeTaskModal.code_review_score}%</span>
+                                                    <Cpu size={14} className="text-emerald-400" />
+                                                </>
+                                            ) : <span className="text-[var(--text-muted)]">No Data</span>}
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Milestone Detailed Modal */}
-            {activeMilestoneModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 dark:bg-slate-950/80 bg-slate-900/60 backdrop-blur-sm" onClick={() => setActiveMilestoneModal(null)} />
-                    <div className="relative z-10 w-full max-w-2xl dark:bg-slate-900 dark:border border-slate-700/60 bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
-                        {/* Header */}
-                        <div className="flex items-start justify-between p-6 dark:border-b dark:border-slate-800 border-b border-slate-200">
+                        <div className="pt-4 mt-6 border-t border-[var(--border-color)]">
+                            <Button onClick={() => setActiveTaskModal(null)} variant="outline" fullWidth>
+                                Close Details
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            <Modal
+                isOpen={!!activeMilestoneModal}
+                onClose={() => setActiveMilestoneModal(null)}
+                title={activeMilestoneModal?.title || 'Milestone Details'}
+                size="lg"
+            >
+                {activeMilestoneModal && (
+                    <div className="space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-[var(--bg-muted)]/50 border border-[var(--border-color)] rounded-2xl">
                             <div className="flex gap-4 items-center">
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg
                                     ${activeMilestoneModal.status === 'COMPLETED' ? 'bg-gradient-to-br from-emerald-500 to-green-600' : 
@@ -1604,190 +1601,188 @@ const LearningPath: React.FC = () => {
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2 mb-1">
-                                        <h2 className="text-xl font-bold dark:text-slate-100 text-slate-800">{activeMilestoneModal.title}</h2>
                                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${DIFFICULTY_BG[activeMilestoneModal.difficulty] || DIFFICULTY_BG[3]}`}>
                                             {DIFFICULTY_LABELS[activeMilestoneModal.difficulty]}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-3 text-sm dark:text-slate-400 text-slate-600">
+                                    <div className="flex items-center gap-3 text-sm text-[var(--text-dim)]">
                                         <span className="flex items-center gap-1"><Clock size={14} /> {activeMilestoneModal.estimated_hours} hours required</span>
                                         <span>•</span>
-                                        <span className={`${activeMilestoneModal.status === 'COMPLETED' ? 'text-emerald-400' : activeMilestoneModal.status === 'IN_PROGRESS' ? 'text-violet-400 animate-pulse' : 'text-slate-500'}`}>
+                                        <span className={`${activeMilestoneModal.status === 'COMPLETED' ? 'text-emerald-400' : activeMilestoneModal.status === 'IN_PROGRESS' ? 'text-violet-400 animate-pulse' : 'text-slate-500'} font-bold`}>
                                             {activeMilestoneModal.status}
                                         </span>
                                     </div>
                                 </div>
                             </div>
-                            <button onClick={() => setActiveMilestoneModal(null)} className="p-2 dark:hover:bg-slate-800 rounded-lg dark:text-slate-400 dark:hover:text-white hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors">
-                                <X size={20} />
-                            </button>
                         </div>
                         
-                        {/* Body */}
-                        <div className="p-6 overflow-y-auto space-y-6 custom-scrollbar">
-                            
-                            {/* Outcome */}
-                            <div>
-                                <h3 className="text-sm font-semibold dark:text-slate-400 text-slate-600 mb-2">Outcome</h3>
-                                <div className="dark:bg-slate-800/30 p-4 rounded-xl dark:border border-slate-700/50 bg-slate-100/50 border border-slate-200/50">
-                                    <p className="dark:text-slate-300 text-slate-700 text-sm whitespace-pre-wrap">{activeMilestoneModal.description}</p>
-                                </div>
+                        {/* Outcome */}
+                        <div>
+                            <h3 className="text-sm font-semibold text-[var(--text-dim)] mb-2 uppercase tracking-widest">Objective</h3>
+                            <div className="bg-[var(--bg-muted)] p-4 rounded-xl border border-[var(--border-color)]">
+                                <p className="text-[var(--text-main)] text-sm whitespace-pre-wrap leading-relaxed">{activeMilestoneModal.description}</p>
                             </div>
+                        </div>
 
-                            {/* Mastery Target vs Current */}
-                            <div>
-                                <h3 className="text-sm font-semibold dark:text-slate-100 text-slate-800 mb-2">Mastery Objective</h3>
-                                <div className="dark:bg-slate-800/50 dark:border border-slate-700/50 rounded-xl p-4 bg-white/50 border border-slate-200/50">
-                                    <div className="flex items-center justify-between text-sm mb-2">
-                                        <span className="dark:text-slate-300 text-slate-700">Skill Target: <span className="font-bold dark:text-slate-100 text-slate-800">{activeMilestoneModal.skill}</span></span>
-                                        <span className={activeMilestoneModal.current_mastery >= activeMilestoneModal.mastery_target ? 'text-emerald-400 font-bold' : 'text-slate-400 font-bold'}>
-                                            {Math.round(activeMilestoneModal.current_mastery * 100)}% / {Math.round(activeMilestoneModal.mastery_target * 100)}%
-                                        </span>
-                                    </div>
-                                    <div className="h-2 dark:bg-slate-900 bg-slate-200 rounded-full overflow-hidden relative">
-                                        <div 
-                                            className="absolute top-0 bottom-0 left-0 bg-slate-700" 
-                                            style={{ width: `${Math.round(activeMilestoneModal.mastery_target * 100)}%` }}
-                                        />
-                                        <div 
-                                            className={`absolute top-0 bottom-0 left-0 transition-all duration-1000 ${activeMilestoneModal.current_mastery >= activeMilestoneModal.mastery_target ? 'bg-emerald-500' : 'bg-violet-500'}`} 
-                                            style={{ width: `${Math.min(100, Math.round(activeMilestoneModal.current_mastery * 100))}%` }}
-                                        />
-                                    </div>
-                                </div>
+                        {/* Mastery Target vs Current */}
+                        <div className="p-4 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl">
+                            <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-3">Mastery Progress: {activeMilestoneModal.skill}</h3>
+                            <div className="flex items-center justify-between text-sm mb-2">
+                                <span className={activeMilestoneModal.current_mastery >= activeMilestoneModal.mastery_target ? 'text-emerald-400 font-bold' : 'text-slate-400 font-bold'}>
+                                    {Math.round(activeMilestoneModal.current_mastery * 100)}% Current Mastery
+                                </span>
+                                <span className="text-[var(--text-dim)] font-bold">
+                                    Target: {Math.round(activeMilestoneModal.mastery_target * 100)}%
+                                </span>
                             </div>
+                            <div className="h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden relative border border-[var(--border-color)]">
+                                <div 
+                                    className="absolute top-0 bottom-0 left-0 bg-slate-700/50" 
+                                    style={{ width: `${Math.round(activeMilestoneModal.mastery_target * 100)}%` }}
+                                />
+                                <div 
+                                    className={`absolute top-0 bottom-0 left-0 transition-all duration-1000 ${activeMilestoneModal.current_mastery >= activeMilestoneModal.mastery_target ? 'bg-emerald-500' : 'bg-violet-500'}`} 
+                                    style={{ width: `${Math.min(100, Math.round(activeMilestoneModal.current_mastery * 100))}%` }}
+                                />
+                            </div>
+                        </div>
 
-                            {/* AI Generated Task & Script Section */}
-                            <div className="pt-4 border-t border-[var(--border-color)]">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-base font-bold text-[var(--text-main)] flex items-center gap-2">
-                                        <Sparkles size={18} className="text-purple-400" />
-                                        Hands-on Project Task
-                                    </h3>
-                                </div>
+                        {/* AI Generated Task & Script Section */}
+                        <div className="pt-4 border-t border-[var(--border-color)]">
+                            <h3 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2 mb-4 uppercase tracking-widest">
+                                <Sparkles size={18} className="text-purple-400" />
+                                Hands-on Project Task
+                            </h3>
 
-                                {activeMilestoneModal.task_details ? (
-                                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                                        {(isManagerOrAdmin || activeMilestoneModal.task_details.status === 'APPROVED') ? (
-                                            <>
-                                                <div className="p-4 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl">
-                                                    <h4 className="font-bold text-sm text-[var(--text-main)] mb-2">{activeMilestoneModal.task_details.title}</h4>
-                                                    <p className="text-xs text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap">{activeMilestoneModal.task_details.description}</p>
-                                                </div>
-                                                
-                                                <div>
-                                                    <h4 className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-2">Starter Script</h4>
-                                                    <div className="relative group">
-                                                        <pre className="p-4 bg-slate-950 rounded-xl text-xs text-indigo-300 font-mono overflow-x-auto border border-slate-800">
-                                                            <code>{activeMilestoneModal.task_details.starter_script}</code>
-                                                        </pre>
-                                                    </div>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <div className="p-6 text-center bg-violet-500/5 border border-dashed border-violet-500/20 rounded-xl">
-                                                <div className="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center mx-auto mb-3">
-                                                    <Clock size={20} className="text-violet-400 animate-pulse" />
-                                                </div>
-                                                <p className="text-xs text-violet-300 font-bold uppercase tracking-widest mb-1">Awaiting Review</p>
-                                                <p className="text-[11px] text-[var(--text-muted)]">Your mentor is currently reviewing the practical task for this milestone.</p>
+                            {activeMilestoneModal.task_details ? (
+                                <div className="space-y-4 animate-scale-in">
+                                    {(isManagerOrAdmin || activeMilestoneModal.task_details.status === 'APPROVED') ? (
+                                        <>
+                                            <div className="p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-xl">
+                                                <h4 className="font-bold text-sm text-indigo-300 mb-2">{activeMilestoneModal.task_details.title}</h4>
+                                                <p className="text-xs text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap">{activeMilestoneModal.task_details.description}</p>
                                             </div>
-                                        )}
-
-                                        {isManagerOrAdmin && activeMilestoneModal.task_details.status === 'PENDING' && (
-                                            <div className="flex gap-2 pt-2">
-                                                <button
-                                                    onClick={() => handleReviewMilestoneTask(path?.milestones.findIndex(m => m.skill === activeMilestoneModal.skill) ?? -1, 'APPROVE')}
-                                                    disabled={isReviewingTask}
-                                                    className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-emerald-500/20"
-                                                >
-                                                    {isReviewingTask ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                                                    {isReviewingTask ? 'Assigning...' : 'Approve & Assign to Intern'}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleReviewMilestoneTask(path?.milestones.findIndex(m => m.skill === activeMilestoneModal.skill) ?? -1, 'REJECT')}
-                                                    disabled={isReviewingTask}
-                                                    className="px-4 py-2.5 bg-slate-700 hover:bg-red-600/80 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-                                                    title="Reject & regenerate a fresh AI task for this milestone"
-                                                >
-                                                    Reject & Regenerate
-                                                </button>
+                                            
+                                            <div>
+                                                <h4 className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-2 px-1">Starter Script</h4>
+                                                <div className="relative group">
+                                                    <pre className="p-4 bg-slate-950 rounded-xl text-xs text-indigo-300 font-mono overflow-x-auto border border-slate-800 custom-scrollbar">
+                                                        <code>{activeMilestoneModal.task_details.starter_script}</code>
+                                                    </pre>
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="p-6 text-center bg-amber-500/5 border border-dashed border-amber-500/20 rounded-xl">
-                                        <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-3">
-                                            <Loader2 size={20} className="text-amber-400 animate-spin" />
+                                        </>
+                                    ) : (
+                                        <div className="p-6 text-center bg-violet-500/5 border border-dashed border-violet-500/20 rounded-xl">
+                                            <div className="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center mx-auto mb-3">
+                                                <Clock size={20} className="text-violet-400 animate-pulse" />
+                                            </div>
+                                            <p className="text-xs text-violet-300 font-bold uppercase tracking-widest mb-1">Awaiting Review</p>
+                                            <p className="text-[11px] text-[var(--text-muted)]">Your mentor is currently reviewing the practical task for this milestone.</p>
                                         </div>
-                                        <p className="text-xs text-amber-300 font-bold uppercase tracking-widest mb-1">Task Generating…</p>
-                                        <p className="text-[11px] text-[var(--text-muted)] mb-3">The AI is building a hands-on task for this milestone. Refresh the page in a moment.</p>
-                                        {isManagerOrAdmin && (
-                                            <button
-                                                onClick={() => handleGenerateMilestoneTask(activeMilestoneModal.skill, path?.milestones.findIndex(m => m.skill === activeMilestoneModal.skill) ?? -1)}
-                                                disabled={isGeneratingTask}
-                                                className="px-4 py-2 bg-purple-600/80 hover:bg-purple-500 text-white rounded-lg text-xs font-bold flex items-center gap-2 transition-all disabled:opacity-50 mx-auto"
+                                    )}
+
+                                    {isManagerOrAdmin && activeMilestoneModal.task_details.status === 'PENDING' && (
+                                        <div className="flex gap-2 pt-2">
+                                            <Button
+                                                onClick={() => handleReviewMilestoneTask(path?.milestones.findIndex(m => m.skill === activeMilestoneModal.skill) ?? -1, 'APPROVE')}
+                                                gradient="emerald"
+                                                fullWidth
+                                                disabled={isReviewingTask}
+                                                className="h-[40px] flex items-center justify-center gap-2"
                                             >
-                                                {isGeneratingTask ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
-                                                Manually Generate
-                                            </button>
-                                        )}
+                                                {isReviewingTask ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                                                {isReviewingTask ? 'Assigning...' : 'Approve & Assign'}
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleReviewMilestoneTask(path?.milestones.findIndex(m => m.skill === activeMilestoneModal.skill) ?? -1, 'REJECT')}
+                                                variant="outline"
+                                                disabled={isReviewingTask}
+                                                className="px-4 text-red-400 border-red-500/30 hover:bg-red-500/5"
+                                            >
+                                                Reject
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="p-6 text-center bg-amber-500/5 border border-dashed border-amber-500/20 rounded-xl">
+                                    <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-3">
+                                        <Loader2 size={20} className="text-amber-400 animate-spin" />
                                     </div>
-                                )}
-                            </div>
-
-                            {/* Dependencies Graph / Prereqs */}
-                            <div>
-                                <h3 className="text-sm font-semibold dark:text-slate-100 text-slate-800 mb-2">Required Dependencies</h3>
-                                {activeMilestoneModal.prerequisites.length > 0 ? (
-                                    <div className="flex flex-wrap gap-2 p-4 dark:bg-slate-800/30 rounded-xl dark:border border-slate-700/30 bg-white/50 border border-slate-200/30">
-                                        {activeMilestoneModal.prerequisites.map(p => {
-                                            const prereqNode = path?.milestones.find(m => m.skill === p);
-                                            const isDone = prereqNode?.status === 'COMPLETED';
-                                            return (
-                                                <div key={p} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${isDone ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 bg-white border border-slate-200 text-slate-600'}`}>
-                                                    {isDone ? <CheckCircle2 size={14} /> : <Clock size={14} />}
-                                                    <span className="text-sm font-medium">{p}</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-2 text-sm dark:text-slate-400 text-slate-500 italic dark:bg-slate-800/20 rounded-xl p-4 dark:border border-slate-800 bg-white/50 border border-slate-200">
-                                        <Target size={14} /> No prerequisites mapped for this skill.
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Learning Resources */}
-                            {activeMilestoneModal.resources.length > 0 && (
-                                <div>
-                                    <h3 className="text-sm font-semibold dark:text-slate-100 text-slate-800 mb-2">Recommended Learning Resources</h3>
-                                    <div className="space-y-2">
-                                        {activeMilestoneModal.resources.map((r, i) => (
-                                            <a key={i} href={r.url} target="_blank" rel="noopener noreferrer"
-                                                className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl dark:bg-slate-800/40 dark:hover:bg-slate-700/60 dark:border border-slate-700/50 dark:hover:border-violet-500/40 bg-white/50 hover:bg-slate-100 border border-slate-200 hover:border-violet-400/40 transition-all text-left">
-                                                <div>
-                                                    <p className="text-sm font-medium text-violet-300 group-hover:text-violet-200 transition-colors flex items-center gap-2">
-                                                        {r.type.toLowerCase() === 'video' ? <Play size={14} /> : <BookOpen size={14} />}
-                                                        {r.title}
-                                                    </p>
-                                                    <p className="text-xs text-slate-500 mt-1 sm:mt-0 font-mono hidden sm:block truncate max-w-sm">{r.url}</p>
-                                                </div>
-                                                <div className="mt-2 sm:mt-0 self-start sm:self-auto">
-                                                    <span className="px-2 py-1 rounded dark:bg-slate-900 dark:border border-slate-700 dark:text-slate-400 bg-slate-200 border border-slate-300 text-slate-600 text-[10px] font-bold uppercase tracking-wider">
-                                                        {r.type}
-                                                    </span>
-                                                </div>
-                                            </a>
-                                        ))}
-                                    </div>
+                                    <p className="text-xs text-amber-300 font-bold uppercase tracking-widest mb-1">Task Generating…</p>
+                                    <p className="text-[11px] text-[var(--text-muted)] mb-3">The AI is building a hands-on task for this milestone.</p>
+                                    {isManagerOrAdmin && (
+                                        <Button
+                                            onClick={() => handleGenerateMilestoneTask(activeMilestoneModal.skill, path?.milestones.findIndex(m => m.skill === activeMilestoneModal.skill) ?? -1)}
+                                            gradient="purple"
+                                            size="sm"
+                                            disabled={isGeneratingTask}
+                                            className="mx-auto"
+                                        >
+                                            {isGeneratingTask ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                                            Generate Now
+                                        </Button>
+                                    )}
                                 </div>
                             )}
                         </div>
+
+                        {/* Dependencies */}
+                        <div>
+                            <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-3 px-1">Required Dependencies</h3>
+                            {activeMilestoneModal.prerequisites.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {activeMilestoneModal.prerequisites.map(p => {
+                                        const prereqNode = path?.milestones.find(m => m.skill === p);
+                                        const isDone = prereqNode?.status === 'COMPLETED';
+                                        return (
+                                            <div key={p} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold ${isDone ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-[var(--bg-muted)] border-[var(--border-color)] text-[var(--text-dim)]'}`}>
+                                                {isDone ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                                                {p}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-xs text-[var(--text-muted)] px-1">No mandatory prerequisites.</p>
+                            )}
+                        </div>
+
+                        {/* Learning Resources */}
+                        {activeMilestoneModal.resources.length > 0 && (
+                            <div>
+                                <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-3 px-1">Learning Resources</h3>
+                                <div className="space-y-2">
+                                    {activeMilestoneModal.resources.map((r, i) => (
+                                        <a key={i} href={r.url} target="_blank" rel="noopener noreferrer"
+                                            className="group flex items-center justify-between p-3 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] hover:border-violet-500/30 transition-all">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-[var(--bg-color)] rounded-lg text-violet-400 group-hover:text-violet-300">
+                                                    {r.type.toLowerCase() === 'video' ? <Play size={16} /> : <BookOpen size={16} />}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-[var(--text-main)] group-hover:text-violet-400 transition-colors uppercase tracking-tight">{r.title}</p>
+                                                    <p className="text-[10px] text-[var(--text-muted)] font-mono truncate max-w-[200px] sm:max-w-xs">{r.url}</p>
+                                                </div>
+                                            </div>
+                                            <span className="px-2 py-1 bg-[var(--bg-color)] border border-[var(--border-color)] rounded text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">
+                                                {r.type}
+                                            </span>
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="pt-4 mt-6 border-t border-[var(--border-color)]">
+                            <Button onClick={() => setActiveMilestoneModal(null)} variant="outline" fullWidth>
+                                Close Milestone
+                            </Button>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
         </div>
     );
 };

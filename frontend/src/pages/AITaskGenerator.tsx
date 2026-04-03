@@ -233,7 +233,7 @@ const AITaskGenerator: React.FC = () => {
                                 <Brain size={24} className="text-white" />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-heading font-black tracking-tighter text-[var(--text-main)] flex items-center gap-2 uppercase italic leading-none">
+                                <h1 className="text-2xl font-heading font-black tracking-tighter text-[var(--text-main)] flex items-center gap-2 uppercase leading-none">
                                     AI Task Generator
                                     <span className="text-[8px] uppercase tracking-[0.2em] bg-purple-500/10 px-2 py-0.5 rounded-full text-purple-400 border border-purple-500/20 font-black">BETA</span>
                                 </h1>
@@ -388,7 +388,7 @@ const AITaskGenerator: React.FC = () => {
                                             <Layers size={64} className="text-[var(--text-muted)] group-hover:text-purple-600 transition-colors duration-500 opacity-20" />
                                         </div>
                                     </div>
-                                    <h3 className="text-2xl font-bold text-[var(--text-dim)] mb-3 tracking-tight uppercase italic">Ready to Generate</h3>
+                                    <h3 className="text-2xl font-bold text-[var(--text-dim)] mb-3 tracking-tight uppercase">Ready to Generate</h3>
                                     <p className="text-[var(--text-muted)] max-w-sm leading-relaxed text-sm font-medium">
                                         Select an intern and project on the left to generate customized tasks.
                                     </p>
@@ -403,7 +403,7 @@ const AITaskGenerator: React.FC = () => {
                                         <div className="absolute -top-4 -right-4 w-3 h-3 bg-blue-500 rounded-full animate-ping" />
                                         <div className="absolute -bottom-4 -left-4 w-2 h-2 bg-purple-500 rounded-full animate-ping delay-300" />
                                     </div>
-                                    <h3 className="text-2xl font-black text-[var(--text-main)] mb-2 tracking-tighter uppercase italic">Generating...</h3>
+                                    <h3 className="text-2xl font-black text-[var(--text-main)] mb-2 tracking-tighter uppercase">Generating...</h3>
                                     <p className="text-[var(--text-muted)] text-sm animate-pulse font-mono tracking-widest uppercase">Checking context and history...</p>
                                 </div>
                             )}
@@ -507,7 +507,7 @@ const AITaskGenerator: React.FC = () => {
                                                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-600 dark:text-purple-500 mb-4 flex items-center gap-2">
                                                             <Cpu size={12} /> AI Rationale
                                                         </h4>
-                                                        <p className="text-xs text-[var(--text-dim)] italic leading-relaxed">
+                                                        <p className="text-xs text-[var(--text-dim)] leading-relaxed">
                                                             "{task.rationale}"
                                                         </p>
                                                     </div>
@@ -552,7 +552,7 @@ const AITaskGenerator: React.FC = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="p-6 rounded-[32px] bg-[var(--card-bg)] border border-[var(--border-color)] space-y-4">
                                             <div className="flex items-center justify-between px-2">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-blue-500/80 italic">Ongoing Tasks</span>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-blue-500/80">Ongoing Tasks</span>
                                                 <Badge variant="info" size="sm">{ongoingHistory.length}</Badge>
                                             </div>
                                             <div className="space-y-3">
@@ -566,7 +566,7 @@ const AITaskGenerator: React.FC = () => {
                                         </div>
                                         <div className="p-6 rounded-[32px] bg-[var(--card-bg)] border border-[var(--border-color)] space-y-4">
                                             <div className="flex items-center justify-between px-2">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/80 italic">Completed Tasks</span>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/80">Completed Tasks</span>
                                                 <Badge variant="success" size="sm">{completedHistory.length}</Badge>
                                             </div>
                                             <div className="grid grid-cols-3 gap-3">

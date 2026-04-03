@@ -181,10 +181,10 @@ const MonitoringAttendancePage: React.FC = () => {
     return (
         <div className="min-h-screen animate-fade-in overflow-visible pb-20">
             {/* Header Area */}
-            <div className="bg-slate-800/30 border-b-0 px-6 py-6 backdrop-blur-xl overflow-visible z-30 relative">
+            <div className="bg-[var(--bg-muted)] border-b-0 px-6 py-6 backdrop-blur-xl overflow-visible z-30 relative">
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8 overflow-visible">
                     <div>
-                        <h1 className="text-4xl font-black text-[var(--text-main)] tracking-tighter uppercase italic">
+                        <h1 className="text-4xl font-black text-[var(--text-main)] tracking-tighter uppercase">
                             <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Attendance</span>
                         </h1>
                         <p className="text-[var(--text-dim)] mt-4 font-medium max-w-md leading-relaxed">Track intern attendance and working hours.</p>
@@ -195,22 +195,22 @@ const MonitoringAttendancePage: React.FC = () => {
                             <div className="relative z-30">
                                 <button
                                     onClick={() => setShowInternDropdown(!showInternDropdown)}
-                                    className="flex items-center gap-3 px-5 py-3 bg-slate-800/50 border border-slate-700/50 rounded-2xl hover:border-emerald-500/50 transition-all shadow-lg backdrop-blur-md group"
+                                    className="flex items-center gap-3 px-5 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-2xl hover:border-emerald-500/50 transition-all shadow-lg backdrop-blur-md group"
                                 >
                                     <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${getGradient(getSelectedInternName())} flex items-center justify-center text-white font-black text-xs shadow-lg group-hover:scale-110 transition-transform`}>
                                         {getInitials(interns.find(i => i.id === selectedIntern)?.full_name || null)}
                                     </div>
                                     <div className="text-left">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Selected Intern</p>
-                                        <span className="text-white font-bold text-sm">{getSelectedInternName()}</span>
+                                        <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest leading-none mb-1">Selected Intern</p>
+                                        <span className="text-[var(--text-main)] font-bold text-sm">{getSelectedInternName()}</span>
                                     </div>
-                                    <ChevronDown size={16} className={`text-slate-400 ml-2 transition-transform duration-300 ${showInternDropdown ? 'rotate-180' : ''}`} />
+                                    <ChevronDown size={16} className={`text-[var(--text-muted)] ml-2 transition-transform duration-300 ${showInternDropdown ? 'rotate-180' : ''}`} />
                                 </button>
                                 
                                 {showInternDropdown && (
-                                    <div className="absolute top-full right-0 left-0 xl:left-auto xl:w-64 mt-3 bg-slate-900/95 backdrop-blur-2xl border border-slate-700/50 rounded-2xl shadow-2xl z-[9999] overflow-hidden animate-scale-in">
+                                    <div className="absolute top-full right-0 left-0 xl:left-auto xl:w-64 mt-3 bg-[var(--card-bg)] backdrop-blur-2xl border border-[var(--border-color)] rounded-2xl shadow-2xl z-[9999] overflow-hidden animate-scale-in">
                                         <div className="p-2 max-h-[300px] overflow-y-auto custom-scrollbar">
-                                            <p className="px-4 py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 mb-1">Select Intern</p>
+                                            <p className="px-4 py-2 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest border-b border-[var(--border-color)] mb-1">Select Intern</p>
                                             {interns.map((intern) => (
                                                 <button
                                                     key={intern.id}
@@ -218,7 +218,7 @@ const MonitoringAttendancePage: React.FC = () => {
                                                         setSelectedIntern(intern.id);
                                                         setShowInternDropdown(false);
                                                     }}
-                                                    className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${selectedIntern === intern.id ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                                                    className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${selectedIntern === intern.id ? 'bg-emerald-500/20 text-emerald-400' : 'text-[var(--text-dim)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-main)]'}`}
                                                 >
                                                     <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(intern.full_name || intern.email)} flex items-center justify-center text-white font-bold text-[10px]`}>
                                                         {getInitials(intern.full_name)}

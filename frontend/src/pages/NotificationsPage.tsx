@@ -144,7 +144,7 @@ const NotificationsPage: React.FC = () => {
             {/* Header section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                 <div>
-                    <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase">
+                    <h1 className="text-3xl font-black text-white tracking-tighter uppercase">
                         Notification <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Center</span>
                     </h1>
                     <p className="text-slate-500 text-sm mt-1 uppercase font-black tracking-widest text-[10px]">Manage your system alerts and activities</p>

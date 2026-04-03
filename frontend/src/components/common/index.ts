@@ -7,3 +7,4 @@ export { default as Badge } from './Badge';
 export { default as ContributionHeatmap } from './ContributionHeatmap';
 export { default as AttendanceHeatmap } from './AttendanceHeatmap';
 export { default as YearContributionHeatmap } from './YearContributionHeatmap';
+export { default as FloatingAIChatbot } from './FloatingAIChatbot';

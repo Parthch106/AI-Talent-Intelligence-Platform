@@ -172,9 +172,11 @@ const TaskCard: React.FC<{
 const getStatusBadge = (status: string) => {
     const map: Record<string, { variant: any; label: string }> = {
         COMPLETED: { variant: 'success', label: 'Completed' },
+        SUBMITTED: { variant: 'warning', label: 'Submitted' },
         IN_PROGRESS: { variant: 'info', label: 'In Progress' },
         BLOCKED: { variant: 'danger', label: 'Blocked' },
         ASSIGNED: { variant: 'default', label: 'Assigned' },
+        REWORK: { variant: 'danger', label: 'Needs Rework' },
     };
     return map[status] || { variant: 'default', label: status };
 };
@@ -210,6 +212,7 @@ const InternTasks: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [heatmapLoading, setHeatmapLoading] = useState(true);
     const [filter, setFilter] = useState('all');
+    const [priorityFilter, setPriorityFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
@@ -304,6 +307,12 @@ const InternTasks: React.FC = () => {
                 disabled: task.status === 'IN_PROGRESS',
             },
             {
+                value: 'SUBMITTED',
+                label: 'Mark Submitted',
+                icon: <Clock size={14} className="text-amber-400" />,
+                disabled: task.status === 'SUBMITTED',
+            },
+            {
                 value: 'COMPLETED',
                 label: 'Completed',
                 icon: <CheckCircle size={14} className="text-emerald-400" />,
@@ -328,11 +337,14 @@ const InternTasks: React.FC = () => {
             filter === 'all' ||
             (filter === 'OVERDUE' ? isOverdue(task.due_date, task.status) : task.status === filter);
 
+        const matchesPriority =
+            priorityFilter === 'all' || task.priority === priorityFilter;
+
         const matchesSearch =
             task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (task.description || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-        return matchesFilter && matchesSearch;
+        return matchesFilter && matchesPriority && matchesSearch;
     });
     
     const groupedTasks = filteredTasks.reduce((groups: ProjectGroup[], task) => {
@@ -383,6 +395,7 @@ const InternTasks: React.FC = () => {
     const statsValues = {
         total: tasks.length,
         completed: tasks.filter((t) => t.status === 'COMPLETED').length,
+        submitted: tasks.filter((t) => t.status === 'SUBMITTED' || t.status === 'REVIEWED').length,
         inProgress: tasks.filter((t) => t.status === 'IN_PROGRESS').length,
         blocked: tasks.filter((t) => t.status === 'BLOCKED').length,
         overdue: tasks.filter((t) => isOverdue(t.due_date, t.status)).length,
@@ -468,6 +481,22 @@ const InternTasks: React.FC = () => {
                     </StatsCard>
 
                     <StatsCard
+                        className="bg-gradient-to-br from-amber-500/10 to-yellow-500/10 border-amber-500/20"
+                        onClick={() => setFilter('SUBMITTED')}
+                        isActive={filter === 'SUBMITTED'}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-amber-500/20 rounded-lg">
+                                <Clock size={20} className="text-amber-400" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-[var(--text-main)]">{statsValues.submitted}</p>
+                                <p className="text-sm text-[var(--text-dim)]">Submitted</p>
+                            </div>
+                        </div>
+                    </StatsCard>
+
+                    <StatsCard
                         className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border-blue-500/20"
                         onClick={() => setFilter('IN_PROGRESS')}
                         isActive={filter === 'IN_PROGRESS'}
@@ -516,7 +545,7 @@ const InternTasks: React.FC = () => {
                     </StatsCard>
                 </div>
 
-                {/* Task Contribution Heatmap */}
+                {/* Task Distribution Heatmap */}
                 <Card className="mb-8 p-4">
                     {heatmapLoading ? (
                         <div className="flex items-center justify-center h-32">
@@ -552,9 +581,22 @@ const InternTasks: React.FC = () => {
                             <option value="all">All Status</option>
                             <option value="ASSIGNED">Assigned</option>
                             <option value="IN_PROGRESS">In Progress</option>
+                            <option value="SUBMITTED">Submitted</option>
                             <option value="COMPLETED">Completed</option>
                             <option value="BLOCKED">Blocked</option>
                             <option value="OVERDUE">Overdue</option>
+                        </select>
+                        
+                        <select
+                            value={priorityFilter}
+                            onChange={(e) => setPriorityFilter(e.target.value)}
+                            className="px-4 py-2.5 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                        >
+                            <option value="all">All Priorities</option>
+                            <option value="CRITICAL">Critical</option>
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="LOW">Low</option>
                         </select>
                     </div>
                 </div>

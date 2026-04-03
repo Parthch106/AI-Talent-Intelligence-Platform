@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
+import Modal from '../components/common/Modal';
 
 interface User {
     id: number;
@@ -510,134 +511,116 @@ const DocumentsPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Upload Modal */}
-            {showUploadModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowUploadModal(false)}></div>
-                    <div className="relative bg-[var(--bg-color)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl shadow-purple-500/10 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
-                        {/* Modal Header */}
-                        <div className="sticky top-0 bg-[var(--bg-color)] backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] z-10">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl flex items-center justify-center">
-                                    <Upload size={18} className="text-purple-500" />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-bold text-[var(--text-main)]">Upload Document</h2>
-                                    <p className="text-xs text-[var(--text-dim)]">Add a new document to your library</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setShowUploadModal(false)}
-                                className="p-2 hover:bg-[var(--bg-muted)] rounded-xl transition-colors group"
-                            >
-                                <X size={20} className="text-[var(--text-dim)] group-hover:text-[var(--text-main)] transition-colors" />
-                            </button>
+            <Modal
+                isOpen={showUploadModal}
+                onClose={() => setShowUploadModal(false)}
+                title="Upload Document"
+                size="md"
+            >
+                <form onSubmit={handleUpload} className="space-y-5">
+                    {error && (
+                        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
+                            <X size={16} />
+                            {error}
                         </div>
+                    )}
+                    {success && (
+                        <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-xl text-sm">
+                            {success}
+                        </div>
+                    )}
 
-                        <form onSubmit={handleUpload} className="p-6 space-y-5">
-                            {error && (
-                                <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
-                                    <X size={16} />
-                                    {error}
-                                </div>
-                            )}
-                            {success && (
-                                <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-xl text-sm">
-                                    {success}
-                                </div>
-                            )}
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Title *</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={newDocument.title}
-                                    onChange={e => setNewDocument(prev => ({ ...prev, title: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                    placeholder="Document title"
-                                />
-                            </div>
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Document Type *</label>
-                                <select
-                                    required
-                                    value={newDocument.document_type}
-                                    onChange={e => setNewDocument(prev => ({ ...prev, document_type: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
-                                >
-                                    <option value="">Select type...</option>
-                                    {getDocumentTypes().map(type => (
-                                        <option key={type.value} value={type.value}>{type.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">File *</label>
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        required
-                                        onChange={handleFileChange}
-                                        accept=".pdf,.doc,.docx,.ppt,.pptx,.csv"
-                                        className="hidden"
-                                        id="file-upload"
-                                    />
-                                    <label
-                                        htmlFor="file-upload"
-                                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-[var(--border-color)] rounded-xl cursor-pointer hover:border-purple-500/50 hover:bg-[var(--bg-muted)] transition-all"
-                                    >
-                                        {newDocument.file ? (
-                                            <div className="flex items-center gap-3">
-                                                <FileText size={24} className="text-purple-500" />
-                                                <span className="text-[var(--text-main)]">{newDocument.file.name}</span>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <FilePlus size={24} className="text-[var(--text-muted)] mb-2" />
-                                                <span className="text-sm text-[var(--text-dim)]">Click to upload or drag and drop</span>
-                                                <span className="text-xs text-[var(--text-muted)] mt-1">PDF, DOC, DOCX, PPT, PPTX, CSV</span>
-                                            </>
-                                        )}
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description</label>
-                                <textarea
-                                    value={newDocument.description}
-                                    onChange={e => setNewDocument(prev => ({ ...prev, description: e.target.value }))}
-                                    rows={3}
-                                    placeholder="Optional description..."
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
-                                />
-                            </div>
-
-                            <div className="flex gap-3 pt-4">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={() => setShowUploadModal(false)}
-                                    fullWidth
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    gradient="purple"
-                                    loading={submitting}
-                                    fullWidth
-                                >
-                                    Upload
-                                </Button>
-                            </div>
-                        </form>
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Title *</label>
+                        <input
+                            type="text"
+                            required
+                            value={newDocument.title}
+                            onChange={e => setNewDocument(prev => ({ ...prev, title: e.target.value }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                            placeholder="Document title"
+                        />
                     </div>
-                </div>
-            )}
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Document Type *</label>
+                        <select
+                            required
+                            value={newDocument.document_type}
+                            onChange={e => setNewDocument(prev => ({ ...prev, document_type: e.target.value }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
+                        >
+                            <option value="">Select type...</option>
+                            {getDocumentTypes().map(type => (
+                                <option key={type.value} value={type.value}>{type.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">File *</label>
+                        <div className="relative">
+                            <input
+                                type="file"
+                                required
+                                onChange={handleFileChange}
+                                accept=".pdf,.doc,.docx,.ppt,.pptx,.csv"
+                                className="hidden"
+                                id="file-upload"
+                            />
+                            <label
+                                htmlFor="file-upload"
+                                className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-[var(--border-color)] rounded-xl cursor-pointer hover:border-purple-500/50 hover:bg-[var(--bg-muted)] transition-all"
+                            >
+                                {newDocument.file ? (
+                                    <div className="flex items-center gap-3">
+                                        <FileText size={24} className="text-purple-500" />
+                                        <span className="text-[var(--text-main)] whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px]">
+                                            {newDocument.file.name}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <FilePlus size={24} className="text-[var(--text-muted)] mb-2" />
+                                        <span className="text-sm text-[var(--text-dim)] text-center">Click to upload or drag and drop</span>
+                                        <span className="text-xs text-[var(--text-muted)] mt-1">PDF, DOC, DOCX, PPT, PPTX, CSV</span>
+                                    </>
+                                )}
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description</label>
+                        <textarea
+                            value={newDocument.description}
+                            onChange={e => setNewDocument(prev => ({ ...prev, description: e.target.value }))}
+                            rows={3}
+                            placeholder="Optional description..."
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
+                        />
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowUploadModal(false)}
+                            fullWidth
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            gradient="purple"
+                            loading={submitting}
+                            fullWidth
+                        >
+                            Upload
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 };

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { TasksTab } from '../components/monitoring';
+import { useSearchParams } from 'react-router-dom';
 import { Card, ContributionHeatmap, Modal, Button } from '../components/common';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Sparkles, Search, Check, X, Plus } from 'lucide-react';
 
 // Types (matching MonitoringDashboard)
 interface Task {
@@ -14,6 +15,8 @@ interface Task {
     status: string;
     priority: string;
     due_date: string;
+    assigned_at?: string;
+    completed_at?: string;
     estimated_hours: number;
     actual_hours: number;
     quality_rating: number | null;
@@ -32,37 +35,56 @@ interface Intern {
 
 const MonitoringTasksPage: React.FC = () => {
     const { user } = useAuth();
+    const [searchParams] = useSearchParams();
+    const urlInternId = searchParams.get('internId');
     
     // State
     const [selectedIntern, setSelectedIntern] = useState<number | null>(null);
     const [interns, setInterns] = useState<Intern[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
-    const [monthFilter, setMonthFilter] = useState<number | 'all'>('all');
-    const [yearFilter, setYearFilter] = useState<number | 'all'>(new Date().getFullYear());
     const [heatmapData, setHeatmapData] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState<boolean>(false);
+    const [monthFilter, setMonthFilter] = useState<number | 'all'>('all');
+    const [yearFilter, setYearFilter] = useState<number | 'all'>(new Date().getFullYear());
     const [heatmapLoading, setHeatmapLoading] = useState<boolean>(false);
+    const [filterDate, setFilterDate] = useState<string | null>(null);
     const [showInternDropdown, setShowInternDropdown] = useState(false);
     const [activeModal, setActiveModal] = useState<string | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
     const [modules, setModules] = useState<any[]>([]);
+    const [availableSkills, setAvailableSkills] = useState<string[]>([]);
+    const [skillSearch, setSkillSearch] = useState('');
+    const [showSkillDropdown, setShowSkillDropdown] = useState(false);
     const [taskForm, setTaskForm] = useState({
-        title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] as string[],
+        title: '', description: '', priority: 'LOW', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] as string[],
     });
 
-    // Fetch interns when page loads (for managers/admins)
+    // Fetch interns and skills when page loads
     useEffect(() => {
         if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
             fetchInterns();
         } else if (user?.role === 'INTERN') {
             fetchData();
+            fetchAvailableSkills(user.id);
         }
     }, [user?.role]);
+
+    const fetchAvailableSkills = async (internId?: number): Promise<void> => {
+        try {
+            const params = internId ? { intern_id: internId } : {};
+            const response = await axios.get('/analytics/skills/', { params });
+            setAvailableSkills(response.data.skills || []);
+        } catch (err) {
+            console.error('Error fetching skills:', err);
+        }
+    };
+
 
     // Fetch data when selectedIntern changes
     useEffect(() => {
         if ((user?.role === 'ADMIN' || user?.role === 'MANAGER') && selectedIntern) {
             fetchData();
+            fetchAvailableSkills(selectedIntern);
         }
     }, [selectedIntern, user?.role]);
 
@@ -74,7 +96,11 @@ const MonitoringTasksPage: React.FC = () => {
                 });
                 const internList = Array.isArray(response.data) ? response.data : response.data.results || [];
                 setInterns(internList);
-                if (internList.length > 0 && !selectedIntern) {
+                
+                // Prioritize internId from URL
+                if (urlInternId) {
+                    setSelectedIntern(parseInt(urlInternId));
+                } else if (internList.length > 0 && !selectedIntern) {
                     setSelectedIntern(internList[0].id);
                 }
             } catch (err) {
@@ -213,6 +239,14 @@ const MonitoringTasksPage: React.FC = () => {
         return selected?.full_name || selected?.email || 'Select Intern';
     };
 
+    const handleHeatmapClick = (date: string) => {
+        if (filterDate === date) {
+            setFilterDate(null);
+        } else {
+            setFilterDate(date);
+        }
+    };
+
     const getGradient = (name: string): string => {
         const colors = [
             'from-pink-500 to-rose-500', 'from-purple-500 to-indigo-500',
@@ -228,31 +262,50 @@ const MonitoringTasksPage: React.FC = () => {
         return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     };
 
+    const filteredSkills = useMemo(() => {
+        return availableSkills.filter(skill => 
+            skill.toLowerCase().includes(skillSearch.toLowerCase()) &&
+            !taskForm.skills_required.includes(skill)
+        );
+    }, [availableSkills, skillSearch, taskForm.skills_required]);
+
+    const toggleSkill = (skill: string) => {
+        setTaskForm(prev => {
+            const exists = prev.skills_required.includes(skill);
+            if (exists) {
+                return { ...prev, skills_required: prev.skills_required.filter(s => s !== skill) };
+            } else {
+                return { ...prev, skills_required: [...prev.skills_required, skill] };
+            }
+        });
+        setSkillSearch('');
+    };
+
     return (
         <div className="min-h-screen animate-fade-in overflow-visible">
             {/* Header */}
-            <div className="bg-slate-800/30 border-b-0 px-6 py-4 backdrop-blur-xl overflow-visible z-30 relative">
+            <div className="bg-[var(--bg-muted)] border-b-0 px-6 py-4 backdrop-blur-xl overflow-visible z-30 relative">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 overflow-visible">
                     <div>
-                        <h1 className="text-2xl font-bold text-white">
+                        <h1 className="text-2xl font-bold text-[var(--text-main)]">
                             <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Tasks</span>
                         </h1>
-                        <p className="text-slate-400 mt-1">Manage and track intern tasks</p>
+                        <p className="text-[var(--text-dim)] mt-1">Manage and track intern tasks</p>
                     </div>
                     {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
                         <div className="relative z-30">
                             <button
                                 onClick={() => setShowInternDropdown(!showInternDropdown)}
-                                className="flex items-center gap-3 px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-purple-500/50 transition-all"
+                                className="flex items-center gap-3 px-4 py-2.5 bg-[var(--bg-muted)]/50 border border-[var(--border-color)] rounded-xl hover:border-purple-500/50 transition-all"
                             >
-                                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(getSelectedInternName())} flex items-center justify-center text-white font-bold text-xs`}>
+                                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(getSelectedInternName())} flex items-center justify-center text-[var(--text-main)] font-bold text-xs`}>
                                     {getInitials(interns.find(i => i.id === selectedIntern)?.full_name || null)}
                                 </div>
-                                <span className="text-white">{getSelectedInternName()}</span>
-                                <ChevronDown size={16} className={`text-slate-400 transition-transform ${showInternDropdown ? 'rotate-180' : ''}`} />
+                                <span className="text-[var(--text-main)] truncate max-w-[150px]">{getSelectedInternName()}</span>
+                                <ChevronDown size={16} className={`text-[var(--text-dim)] transition-transform ${showInternDropdown ? 'rotate-180' : ''}`} />
                             </button>
                             {showInternDropdown && (
-                                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-xl z-[9999] isolate animate-scale-in">
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--bg-muted)]/95 backdrop-blur-xl border border-[var(--border-color)] rounded-xl shadow-xl z-[9999] isolate animate-scale-in max-h-[400px] overflow-y-auto custom-scrollbar">
                                     <div className="p-2">
                                         {interns.map((intern) => (
                                             <button
@@ -261,12 +314,12 @@ const MonitoringTasksPage: React.FC = () => {
                                                     setSelectedIntern(intern.id);
                                                     setShowInternDropdown(false);
                                                 }}
-                                                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${selectedIntern === intern.id ? 'bg-purple-500/20' : 'hover:bg-slate-700'}`}
+                                                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${selectedIntern === intern.id ? 'bg-purple-500/20' : 'hover:bg-[var(--bg-muted)]'}`}
                                             >
-                                                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(intern.full_name || intern.email)} flex items-center justify-center text-white font-bold text-xs`}>
+                                                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(intern.full_name || intern.email)} flex items-center justify-center text-[var(--text-main)] font-bold text-xs`}>
                                                     {getInitials(intern.full_name)}
                                                 </div>
-                                                <span className="text-white text-sm">{intern.full_name || intern.email}</span>
+                                                <span className="text-[var(--text-main)] text-sm">{intern.full_name || intern.email}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -283,7 +336,7 @@ const MonitoringTasksPage: React.FC = () => {
                     <div className="flex justify-center items-center h-64">
                         <div className="flex flex-col items-center gap-4">
                             <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                            <p className="text-slate-400">Loading tasks...</p>
+                            <p className="text-[var(--text-dim)]">Loading tasks...</p>
                         </div>
                     </div>
                 ) : (
@@ -299,9 +352,26 @@ const MonitoringTasksPage: React.FC = () => {
                                     year={yearFilter === 'all' ? new Date().getFullYear() : yearFilter}
                                     title={`Task Contribution ${yearFilter !== 'all' ? `(${yearFilter})` : '(Last 12 Months)'}`}
                                     colorScheme="green"
+                                    onCellClick={handleHeatmapClick}
                                 />
                             )}
                         </Card>
+
+                        {filterDate && (
+                            <div className="flex items-center gap-3 mb-6 animate-slide-in">
+                                <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 border border-purple-500/30 rounded-xl">
+                                    <span className="text-xs font-black text-purple-400 uppercase tracking-widest">Showing Activity for:</span>
+                                    <span className="text-sm font-bold text-[var(--text-main)]">{new Date(filterDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                                </div>
+                                <button 
+                                    onClick={() => setFilterDate(null)}
+                                    className="text-xs font-black text-[var(--text-muted)] hover:text-[var(--text-main)] uppercase tracking-widest transition-colors flex items-center gap-1"
+                                >
+                                    Clear Filter
+                                </button>
+                            </div>
+                        )}
+
                         <TasksTab
                             tasks={tasks}
                             onAddTask={() => openModal('task')}
@@ -313,6 +383,8 @@ const MonitoringTasksPage: React.FC = () => {
                             setMonthFilter={setMonthFilter}
                             yearFilter={yearFilter}
                             setYearFilter={setYearFilter}
+                            dateFilter={filterDate}
+                            setDateFilter={setFilterDate}
                         />
                     </>
                 )}
@@ -414,17 +486,67 @@ const MonitoringTasksPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Skills Developed (comma-separated)</label>
-                            <input
-                                type="text"
-                                placeholder="e.g., Python, Django, React"
-                                value={taskForm.skills_required.join(', ')}
-                                onChange={(e) => setTaskForm({ ...taskForm, skills_required: e.target.value.split(',').map(s => s.trim()).filter(s => s) })}
-                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                            />
+                    <div className="relative">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Skills Developed (Select from list)</label>
+                        <div className="min-h-[44px] p-1.5 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl flex flex-wrap gap-2 focus-within:border-purple-500 transition-all">
+                            {taskForm.skills_required.map(skill => (
+                                <span key={skill} className="flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg text-sm group animate-scale-in">
+                                    {skill}
+                                    <button 
+                                        type="button"
+                                        onClick={() => toggleSkill(skill)}
+                                        className="hover:text-white transition-colors"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </span>
+                            ))}
+                            <div className="flex-1 min-w-[120px] relative">
+                                <input
+                                    type="text"
+                                    placeholder={taskForm.skills_required.length === 0 ? "Search skills..." : ""}
+                                    value={skillSearch}
+                                    onChange={(e) => {
+                                        setSkillSearch(e.target.value);
+                                        setShowSkillDropdown(true);
+                                    }}
+                                    onFocus={() => setShowSkillDropdown(true)}
+                                    className="w-full bg-transparent border-none outline-none text-[var(--text-main)] placeholder-[var(--text-dim)] py-1"
+                                />
+                                {showSkillDropdown && (skillSearch || filteredSkills.length > 0) && (
+                                    <>
+                                        <div 
+                                            className="fixed inset-0 z-[100]" 
+                                            onClick={() => setShowSkillDropdown(false)}
+                                        />
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--bg-muted)]/95 backdrop-blur-xl border border-[var(--border-color)] rounded-xl shadow-2xl z-[101] max-h-[200px] overflow-y-auto custom-scrollbar animate-scale-in">
+                                            {filteredSkills.length > 0 ? (
+                                                <div className="p-1">
+                                                    {filteredSkills.map(skill => (
+                                                        <button
+                                                            key={skill}
+                                                            type="button"
+                                                            onClick={() => toggleSkill(skill)}
+                                                            className="w-full flex items-center justify-between p-2 hover:bg-purple-500/10 rounded-lg text-sm text-left text-[var(--text-dim)] hover:text-[var(--text-main)] transition-colors"
+                                                        >
+                                                            {skill}
+                                                            <Plus size={14} className="opacity-50" />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ) : skillSearch && (
+                                                <div className="p-4 text-center text-[var(--text-muted)] text-sm">
+                                                    No matching skills found
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Due Date</label>
                             <input
@@ -432,12 +554,24 @@ const MonitoringTasksPage: React.FC = () => {
                                 required
                                 value={taskForm.due_date}
                                 onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
-                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all font-medium"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Estimated Hours</label>
+                            <input
+                                type="number"
+                                required
+                                min="1"
+                                step="0.5"
+                                value={taskForm.estimated_hours}
+                                onChange={(e) => setTaskForm({ ...taskForm, estimated_hours: parseFloat(e.target.value) })}
+                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all font-medium"
                             />
                         </div>
                     </div>
 
-                    <div className="flex gap-3 pt-4">
+                    <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
                         <Button type="button" onClick={closeModal} variant="outline" fullWidth>
                             Cancel
                         </Button>

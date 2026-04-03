@@ -106,10 +106,10 @@ const UploadWeeklyReport: React.FC = () => {
         <div className="min-h-screen animate-fade-in p-6">
             {/* Header */}
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-white">
+                <h1 className="text-3xl font-bold text-[var(--text-main)]">
                     Weekly <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Reports</span>
                 </h1>
-                <p className="text-slate-400 mt-1">Submit and track your weekly progress reports</p>
+                <p className="text-[var(--text-dim)] mt-1">Submit and track your weekly progress reports</p>
             </div>
 
             {/* Success/Error Messages */}
@@ -135,8 +135,8 @@ const UploadWeeklyReport: React.FC = () => {
                             <FileText size={20} className="text-purple-400" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-white">{stats.total}</p>
-                            <p className="text-sm text-slate-400">Total Reports</p>
+                            <p className="text-2xl font-bold text-[var(--text-main)]">{stats.total}</p>
+                            <p className="text-sm text-[var(--text-dim)]">Total Reports</p>
                         </div>
                     </div>
                 </Card>
@@ -146,8 +146,8 @@ const UploadWeeklyReport: React.FC = () => {
                             <CheckCircle size={20} className="text-emerald-400" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-white">{stats.submitted}</p>
-                            <p className="text-sm text-slate-400">Submitted</p>
+                            <p className="text-2xl font-bold text-[var(--text-main)]">{stats.submitted}</p>
+                            <p className="text-sm text-[var(--text-dim)]">Submitted</p>
                         </div>
                     </div>
                 </Card>
@@ -157,8 +157,8 @@ const UploadWeeklyReport: React.FC = () => {
                             <Clock size={20} className="text-amber-400" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-white">{stats.pending}</p>
-                            <p className="text-sm text-slate-400">Drafts</p>
+                            <p className="text-2xl font-bold text-[var(--text-main)]">{stats.pending}</p>
+                            <p className="text-sm text-[var(--text-dim)]">Drafts</p>
                         </div>
                     </div>
                 </Card>
@@ -168,8 +168,8 @@ const UploadWeeklyReport: React.FC = () => {
                             <Target size={20} className="text-blue-400" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-white">{stats.totalCompleted}</p>
-                            <p className="text-sm text-slate-400">Tasks Completed</p>
+                            <p className="text-2xl font-bold text-[var(--text-main)]">{stats.totalCompleted}</p>
+                            <p className="text-sm text-[var(--text-dim)]">Tasks Completed</p>
                         </div>
                     </div>
                 </Card>
@@ -189,20 +189,20 @@ const UploadWeeklyReport: React.FC = () => {
 
             {/* Reports List */}
             <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-white mb-4">Report History</h2>
+                <h2 className="text-xl font-semibold text-[var(--text-main)] mb-4">Report History</h2>
 
                 {loading ? (
                     <div className="flex justify-center items-center h-64">
                         <div className="flex flex-col items-center gap-4">
                             <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                            <p className="text-slate-400">Loading reports...</p>
+                            <p className="text-[var(--text-dim)]">Loading reports...</p>
                         </div>
                     </div>
                 ) : reports.length === 0 ? (
                     <Card padding="lg" className="text-center py-12">
-                        <FileText size={48} className="mx-auto mb-4 text-slate-600" />
-                        <p className="text-lg font-medium text-white">No weekly reports found</p>
-                        <p className="text-sm text-slate-400 mt-1">Submit your first weekly report to get started</p>
+                        <FileText size={48} className="mx-auto mb-4 opacity-20" />
+                        <p className="text-lg font-medium text-[var(--text-main)]">No weekly reports found</p>
+                        <p className="text-sm text-[var(--text-dim)] mt-1">Submit your first weekly report to get started</p>
                     </Card>
                 ) : (
                     reports.map((report) => (
@@ -213,7 +213,7 @@ const UploadWeeklyReport: React.FC = () => {
                                         <div className="p-2 bg-purple-500/20 rounded-lg">
                                             <Calendar size={18} className="text-purple-400" />
                                         </div>
-                                        <h3 className="font-semibold text-white text-lg">
+                                        <h3 className="font-semibold text-[var(--text-main)] text-lg">
                                             {report.week_start_date} - {report.week_end_date}
                                         </h3>
                                         <Badge
@@ -228,43 +228,43 @@ const UploadWeeklyReport: React.FC = () => {
                                     <div className="grid grid-cols-3 gap-4 mb-4">
                                         <div className="flex items-center gap-2 text-sm">
                                             <CheckCircle size={14} className="text-emerald-400" />
-                                            <span className="text-slate-300">{report.tasks_completed} Completed</span>
+                                            <span className="text-[var(--text-dim)]">{report.tasks_completed} Completed</span>
                                         </div>
                                         <div className="flex items-center gap-2 text-sm">
                                             <TrendingUp size={14} className="text-blue-400" />
-                                            <span className="text-slate-300">{report.tasks_in_progress} In Progress</span>
+                                            <span className="text-[var(--text-dim)]">{report.tasks_in_progress} In Progress</span>
                                         </div>
                                         <div className="flex items-center gap-2 text-sm">
                                             <AlertTriangle size={14} className="text-red-400" />
-                                            <span className="text-slate-300">{report.tasks_blocked} Blocked</span>
+                                            <span className="text-[var(--text-dim)]">{report.tasks_blocked} Blocked</span>
                                         </div>
                                     </div>
 
                                     {report.is_submitted && report.accomplishments && (
-                                        <div className="pt-3 border-t border-white/10">
-                                            <p className="text-sm text-slate-300 line-clamp-2">
+                                        <div className="pt-3 border-t border-[var(--border-color)]">
+                                            <p className="text-sm text-[var(--text-dim)] line-clamp-2">
                                                 {report.accomplishments}
                                             </p>
                                             {report.self_rating && (
                                                 <div className="flex items-center gap-2 mt-2">
-                                                    <span className="text-sm text-slate-400">Self Rating:</span>
+                                                    <span className="text-sm text-[var(--text-muted)]">Self Rating:</span>
                                                     <div className="flex items-center gap-1">
                                                         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
                                                             <span
                                                                 key={star}
-                                                                className={`text-sm ${star <= report.self_rating! ? 'text-amber-400' : 'text-slate-600'}`}
+                                                                className={`text-sm ${star <= report.self_rating! ? 'text-amber-400' : 'text-[var(--border-color)] opacity-50'}`}
                                                             >
                                                                 ★
                                                             </span>
                                                         ))}
-                                                        <span className="text-white ml-1">{report.self_rating}/10</span>
+                                                        <span className="text-[var(--text-main)] ml-1">{report.self_rating}/10</span>
                                                     </div>
                                                 </div>
                                             )}
                                         </div>
                                     )}
                                 </div>
-                                <ChevronRight size={20} className="text-slate-400" />
+                                <ChevronRight size={20} className="text-[var(--text-muted)]" />
                             </div>
                         </Card>
                     ))
@@ -284,15 +284,15 @@ const UploadWeeklyReport: React.FC = () => {
                 size="md"
             >
                 <form onSubmit={handleSubmitReport} className="space-y-5">
-                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-4">
-                        <p className="text-sm text-slate-300">
+                    <div className="bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl p-4 mb-4">
+                        <p className="text-sm text-[var(--text-dim)]">
                             Upload your weekly report as a PDF document. The system will automatically
                             parse and extract the relevant information from your report.
                         </p>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">
                             <FileUp size={14} className="inline mr-1" />
                             Upload PDF Report (Required)
                         </label>
@@ -301,13 +301,13 @@ const UploadWeeklyReport: React.FC = () => {
                                 type="file"
                                 accept=".pdf"
                                 onChange={handleFileChange}
-                                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-500/20 file:text-purple-400 hover:file:bg-purple-500/30 cursor-pointer"
+                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-500/20 file:text-purple-400 hover:file:bg-purple-500/30 cursor-pointer"
                             />
                             {pdfFile && (
                                 <div className="mt-2 flex items-center gap-2 text-emerald-400">
                                     <CheckCircle size={16} />
                                     <span className="text-sm">{pdfFile.name}</span>
-                                    <span className="text-xs text-slate-400">
+                                    <span className="text-xs text-[var(--text-muted)]">
                                         ({(pdfFile.size / 1024).toFixed(1)} KB)
                                     </span>
                                 </div>

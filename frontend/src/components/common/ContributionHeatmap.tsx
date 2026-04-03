@@ -29,21 +29,21 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
   const [containerWidth, setContainerWidth] = useState(0);
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
-  // Dark theme color schemes - using the project's color palette
+  // Theme-aware color schemes
   const colorSchemes = {
     green: {
-      empty: '#1e293b',       // slate-800
-      outside: '#0f172a',    // slate-950
+      empty: 'var(--bg-muted)',
+      outside: 'var(--bg-color)',
       levels: ['#065f46', '#059669', '#10b981', '#34d399'],  // emerald shades
     },
     blue: {
-      empty: '#1e293b',       // slate-800
-      outside: '#0f172a',    // slate-950
+      empty: 'var(--bg-muted)',
+      outside: 'var(--bg-color)',
       levels: ['#1e3a5f', '#1e40af', '#3b82f6', '#60a5fa'],  // blue shades
     },
     purple: {
-      empty: '#1e293b',       // slate-800
-      outside: '#0f172a',    // slate-950
+      empty: 'var(--bg-muted)',
+      outside: 'var(--bg-color)',
       levels: ['#4c1d95', '#6d28d9', '#8b5cf6', '#a78bfa'],  // violet shades
     },
   };
@@ -195,9 +195,9 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
   }, []);
 
   return (
-    <div className="relative p-3 bg-slate-800 rounded-lg border border-slate-700">
+    <div className="relative p-3 bg-[var(--card-bg)] rounded-lg border border-[var(--border-color)]">
       {title && (
-        <h3 className="text-sm font-medium text-slate-300 mb-3">
+        <h3 className="text-sm font-medium text-[var(--text-dim)] mb-3">
           {title}
         </h3>
       )}
@@ -208,7 +208,7 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
           {DAYS.map((day) => (
             <div
               key={day}
-              className="text-xs text-slate-500 leading-3 mb-0.5"
+              className="text-xs text-[var(--text-muted)] leading-3 mb-0.5"
               style={{ height: `${cellSize}px`, lineHeight: `${cellSize}px` }}
             >
               {day}
@@ -223,7 +223,7 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
             {monthLabelPositions.map(({ month, weekIndex }) => (
               <span
                 key={month}
-                className="absolute text-xs text-slate-500"
+                className="absolute text-xs text-[var(--text-muted)]"
                 style={{ left: `${weekIndex * weekStride}px` }}
               >
                 {month}
@@ -247,8 +247,8 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
                       border: day.value > 0 && day.isCurrentYear 
                         ? 'none' 
                         : day.isCurrentYear 
-                          ? '1px dashed #475569' 
-                          : '1px dashed #1e293b',
+                          ? '1px dashed var(--border-color)' 
+                          : '1px dashed var(--bg-muted)',
                       boxShadow: day.value > 0 && day.isCurrentYear 
                         ? `0 0 4px ${colors.levels[Math.min(3, day.value - 1)]}40` 
                         : 'none',
@@ -267,28 +267,29 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
       
       {/* Legend */}
       <div className="flex items-center justify-end mt-3 gap-1">
-        <span className="text-xs text-slate-500 mr-2">Less</span>
-        <div className="w-3 h-3 rounded-sm border border-slate-700/50" style={{ backgroundColor: colors.empty }} />
-        <div className="w-3 h-3 rounded-sm border border-slate-700/50" style={{ backgroundColor: colors.levels[0] }} />
-        <div className="w-3 h-3 rounded-sm border border-slate-700/50" style={{ backgroundColor: colors.levels[1] }} />
-        <div className="w-3 h-3 rounded-sm border border-slate-700/50" style={{ backgroundColor: colors.levels[2] }} />
-        <div className="w-3 h-3 rounded-sm border border-slate-700/50" style={{ backgroundColor: colors.levels[3] }} />
-        <span className="text-xs text-slate-500 ml-1">More</span>
+        <span className="text-xs text-[var(--text-muted)] mr-2">Less</span>
+        <div className="w-3 h-3 rounded-sm border border-[var(--border-color)]" style={{ backgroundColor: colors.empty }} />
+        <div className="w-3 h-3 rounded-sm border border-[var(--border-color)]" style={{ backgroundColor: colors.levels[0] }} />
+        <div className="w-3 h-3 rounded-sm border border-[var(--border-color)]" style={{ backgroundColor: colors.levels[1] }} />
+        <div className="w-3 h-3 rounded-sm border border-[var(--border-color)]" style={{ backgroundColor: colors.levels[2] }} />
+        <div className="w-3 h-3 rounded-sm border border-[var(--border-color)]" style={{ backgroundColor: colors.levels[3] }} />
+        <span className="text-xs text-[var(--text-muted)] ml-1">More</span>
       </div>
       
       {/* Tooltip with animation - Using Portal to avoid clipping */}
       {tooltip && createPortal(
         <div
-          className="fixed z-[9999] bg-slate-800 text-white text-xs px-3 py-2 rounded-lg shadow-xl border border-slate-700 pointer-events-none animate-fadeIn"
+          className="fixed z-[9999] bg-[var(--card-bg)] text-[var(--text-main)] text-xs px-3 py-2 rounded-lg shadow-xl border border-[var(--border-color)] pointer-events-none animate-fadeIn"
           style={{
             left: tooltip.x + 15,
             top: tooltip.y - 15,
             transform: 'translateY(-100%)',
             minWidth: '100px',
+            backgroundColor: 'var(--card-bg)', // Extra safety for portal
           }}
         >
           <div className="font-medium">{tooltip.value} {tooltip.value === 1 ? 'task' : 'tasks'}</div>
-          <div className="text-slate-400">{tooltip.date}</div>
+          <div className="text-[var(--text-dim)]">{tooltip.date}</div>
         </div>,
         document.body
       )}

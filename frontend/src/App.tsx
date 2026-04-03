@@ -50,7 +50,7 @@ const App: React.FC = () => {
               <Route path="/projects" element={<ProjectList />} />
               <Route path="/feedback" element={<FeedbackPage />} />
               <Route path="/documents" element={<DocumentsPage />} />
-              <Route path="/analysis" element={<AnalysisPage />} />
+              <Route path="/analysis" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><AnalysisPage /></ProtectedRoute>} />
               <Route path="/monitoring" element={<MonitoringOverviewPage />} />
               <Route path="/tasks" element={<MonitoringTasksPage />} />
               <Route path="/attendance" element={<MonitoringAttendancePage />} />
@@ -59,8 +59,8 @@ const App: React.FC = () => {
               <Route path="/my-tasks" element={<InternTasks />} />
               <Route path="/my-attendance" element={<MyAttendance />} />
               <Route path="/manager" element={<ManagerDashboard />} />
-              <Route path="/learning-path" element={<LearningPath />} />
-              <Route path="/performance" element={<PerformanceAnalytics />} />
+              <Route path="/learning-path" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><LearningPath /></ProtectedRoute>} />
+              <Route path="/performance" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><PerformanceAnalytics /></ProtectedRoute>} />
               <Route path="/monitoring/ai-tasks/:internId?" element={<AITaskGenerator />} />
             </Route>
 

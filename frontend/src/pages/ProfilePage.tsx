@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Building, Phone, BookOpen, Award, Settings, Save, X, Shield, Briefcase, Calendar } from 'lucide-react';
+import { User, Mail, Building, Phone, BookOpen, Award, Settings, Save, X, Shield, Briefcase, Calendar, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import Card from '../components/common/Card';
@@ -270,13 +270,23 @@ const ProfilePage: React.FC = () => {
                             <div className="group">
                                 <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Department</label>
                                 <div className="relative">
-                                    <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                                    <input
-                                        type="text"
+                                    <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] group-focus-within:text-purple-400 transition-colors" />
+                                    <select
                                         value={formData.user.department}
                                         onChange={(e) => handleInputChange('user', 'department', e.target.value)}
-                                        className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all hover:border-purple-500/30"
-                                    />
+                                        className="w-full pl-12 pr-10 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all hover:border-purple-500/30 appearance-none cursor-pointer"
+                                    >
+                                        <option value="" disabled>Select Department</option>
+                                        <option value="Web Development">Web Development</option>
+                                        <option value="AI/ML Department">AI/ML Department</option>
+                                        <option value="Data Science">Data Science</option>
+                                        <option value="Cloud & DevOps">Cloud & DevOps</option>
+                                        <option value="Mobile Applications">Mobile Applications</option>
+                                        <option value="Software Engineering">Software Engineering</option>
+                                    </select>
+                                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                                        <ChevronDown size={18} className="text-[var(--text-muted)]" />
+                                    </div>
                                 </div>
                             </div>
                         )}

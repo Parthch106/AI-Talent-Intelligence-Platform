@@ -76,7 +76,7 @@ const Sidebar: React.FC = () => {
                         </div>
                     </div>
                     <div>
-                        <h1 className="text-xl font-heading font-black tracking-tighter bg-gradient-to-r from-[var(--text-main)] via-purple-400 to-[var(--text-main)] bg-clip-text text-transparent uppercase italic">
+                        <h1 className="text-xl font-heading font-black tracking-tighter bg-gradient-to-r from-[var(--text-main)] via-purple-400 to-[var(--text-main)] bg-clip-text text-transparent uppercase">
                             AIMs
                         </h1>
                         <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-500 mt-0.5">Talent Intelligence</p>
@@ -88,10 +88,10 @@ const Sidebar: React.FC = () => {
             <nav className="flex-1 overflow-y-auto py-6 px-3 scrollbar-thin">
                 {/* Main Navigation */}
                 <div className="mb-8">
-                    <p className="px-4 mb-4 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3">
+                    <div className="px-4 mb-4 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3">
                         <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]" />
                         Main Menu
-                    </p>
+                    </div>
                     <ul className="space-y-1.5 px-2">
                         {mainNavItems.map((item) => (
                             <li key={item.path}>
@@ -131,10 +131,10 @@ const Sidebar: React.FC = () => {
                 {/* Admin Navigation */}
                 {filterByRole(adminNavItems).length > 0 && (
                     <div className="mb-8">
-                        <p className="px-4 mb-4 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3">
+                        <div className="px-4 mb-4 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3">
                             <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
                             Analytics
-                        </p>
+                        </div>
                         <ul className="space-y-1.5 px-2">
                             {filterByRole(adminNavItems).map((item) => (
                                 <li key={item.path}>
@@ -170,10 +170,10 @@ const Sidebar: React.FC = () => {
                 {/* Monitoring Navigation */}
                 {filterByRole(monitoringNavItems).length > 0 && (
                     <div className="mb-8">
-                        <p className="px-4 mb-4 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3">
+                        <div className="px-4 mb-4 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3">
                             <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
                             Monitoring
-                        </p>
+                        </div>
                         <ul className="space-y-1.5 px-2">
                             {filterByRole(monitoringNavItems).map((item) => (
                                 <li key={item.path}>
@@ -209,10 +209,10 @@ const Sidebar: React.FC = () => {
                 {/* Intern Navigation */}
                 {filterByRole(internNavItems).length > 0 && (
                     <div className="mb-8">
-                        <p className="px-4 mb-4 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3">
+                        <div className="px-4 mb-4 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3">
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                             My Workspace
-                        </p>
+                        </div>
                         <ul className="space-y-1.5 px-2">
                             {filterByRole(internNavItems).map((item) => (
                                 <li key={item.path}>

@@ -72,7 +72,7 @@ const Card: React.FC<CardProps> = ({
                                 </div>
                             )}
                             <div>
-                                {title && <h3 className="font-heading font-black tracking-tighter text-[var(--text-main)] text-xl uppercase italic leading-none">{title}</h3>}
+                                {title && <h3 className="font-heading font-black tracking-tighter text-[var(--text-main)] text-xl uppercase leading-none">{title}</h3>}
                                 {subtitle && <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-dim)] mt-1.5">{subtitle}</p>}
                             </div>
                         </div>

@@ -1,0 +1,116 @@
+class SkillListView(APIView):
+    """
+    GET /api/analytics/skills/
+    
+    Returns a list of skills. If intern_id is provided, returns skills for that intern.
+    Otherwise, returns all available skills in the system.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        try:
+            intern_id = request.query_params.get('intern_id')
+            if intern_id:
+                from .models import SkillProfile
+                skills = SkillProfile.objects.filter(intern_id=intern_id).values_list('skill_name', flat=True).distinct()
+                skills = sorted(list(skills))
+            else:
+                from apps.analytics.services.learning_path_optimizer import PREREQUISITE_GRAPH
+                skills = sorted(list(PREREQUISITE_GRAPH.keys()))
+                
+            return Response({'skills': skills}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class LLMMilestoneTaskView(APIView):
+    """
+    POST /api/analytics/learning-path/generate-milestone-task/
+    
+    Generates an AI-powered practical task and script for a specific milestone.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+            return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        intern_id = request.data.get('intern_id')
+        milestone_index = request.data.get('milestone_index')
+        skill = request.data.get('skill')
+        goal = request.data.get('goal', 'Technical mastery')
+        basics_only = request.data.get('basics_only', False)
+
+        if intern_id is None or milestone_index is None or not skill:
+            return Response({'error': 'intern_id, milestone_index, and skill are required.'}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            intern = User.objects.get(id=intern_id)
+            from apps.analytics.services.llm_learning_path_generator import get_learning_path_generator
+            generator = get_learning_path_generator()
+            
+            task_data = generator.generate_milestone_task(
+                skill=skill,
+                intern_name=intern.full_name or intern.email,
+                goal_text=goal,
+                basics_only=basics_only
+            )
+            
+            if 'error' in task_data:
+                return Response(task_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+            # Save to path
+            from apps.analytics.services.learning_path_optimizer import save_milestone_task
+            saved = save_milestone_task(intern_id, int(milestone_index), task_data)
+            
+            return Response({
+                'task': task_data,
+                'saved': saved
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"LLMMilestoneTaskView error: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ReviewMilestoneTaskView(APIView):
+    """
+    POST /api/analytics/learning-path/review-milestone-task/
+    
+    Manager approves or rejects/edits the generated milestone task.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+            return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        intern_id = request.data.get('intern_id')
+        milestone_index = request.data.get('milestone_index')
+        action = request.data.get('action') # 'APPROVE', 'REJECT'
+
+        if intern_id is None or milestone_index is None or not action:
+            return Response({'error': 'intern_id, milestone_index, and action are required.'}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from apps.analytics.services.learning_path_optimizer import approve_milestone_task
+            if action == 'APPROVE':
+                result = approve_milestone_task(intern_id, int(milestone_index))
+                return Response(result, status=status.HTTP_200_OK)
+            else:
+                # REJECT logic: clear task_details
+                from apps.analytics.models import LearningPath
+                path = LearningPath.objects.filter(intern_id=intern_id).order_by('-updated_at').first()
+                if path and 0 <= int(milestone_index) < len(path.milestones):
+                    path.milestones[int(milestone_index)]['task_details'] = None
+                    path.save()
+                    return Response({'message': 'Task rejected and cleared.'}, status=status.HTTP_200_OK)
+                return Response({'error': 'Milestone not found.'}, status=status.HTTP_404_NOT_FOUND)
+                
+        except Exception as e:
+            logger.error(f"ReviewMilestoneTaskView error: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

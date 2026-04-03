@@ -44,7 +44,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 </div>
                 
                 <div className="flex flex-col">
-                    <h3 className="text-5xl font-heading font-black tracking-tighter text-[var(--text-main)] italic drop-shadow-2xl">
+                    <h3 className="text-5xl font-heading font-black tracking-tighter text-[var(--text-main)] drop-shadow-2xl">
                         {value}
                     </h3>
                     {subtitle && <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-dim)] mt-2">{subtitle}</p>}

@@ -30,7 +30,6 @@ const Header: React.FC = () => {
         const fetchNotifications = async () => {
             if (!user) return;
             try {
-                setLoadingNotifications(true);
                 const response = await api.get('/notifications/');
                 setNotifications(response.data.notifications || []);
                 setUnreadCount(response.data.unread_count || 0);
@@ -40,20 +39,21 @@ const Header: React.FC = () => {
                     try {
                         const feedbackRes = await api.get('/feedback/unread_count/');
                         const feedbackUnread = feedbackRes.data.unread_count || 0;
-                        // Add feedback count to total
                         setUnreadCount(prev => prev + feedbackUnread);
                     } catch (e) {
-                        // Ignore - feedback count is optional
+                        // Ignore
                     }
                 }
             } catch (err) {
                 console.error('Failed to fetch notifications:', err);
-            } finally {
-                setLoadingNotifications(false);
             }
         };
 
         fetchNotifications();
+        
+        // Polling every 3 minutes
+        const interval = setInterval(fetchNotifications, 180000);
+        return () => clearInterval(interval);
     }, [user]);
 
     const getInitials = () => {
@@ -114,22 +114,28 @@ const Header: React.FC = () => {
         const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
         if (diffInSeconds < 60) return 'Just now';
-        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
-        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
-        return `${Math.floor(diffInSeconds / 86400)} days ago`;
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+        return `${Math.floor(diffInSeconds / 86400)}d ago`;
     };
 
     const getNotificationIcon = (type: string) => {
         switch (type) {
             case 'SUCCESS':
             case 'TASK_COMPLETED':
+            case 'TASK_EVALUATED':
                 return { icon: <CheckCircle size={14} />, color: 'emerald' };
             case 'WARNING':
             case 'ERROR':
                 return { icon: <AlertCircle size={14} />, color: 'red' };
+            case 'TASK_ASSIGNED':
             case 'INTERN_ASSIGNED':
-                return { icon: <Mail size={14} />, color: 'blue' };
+                return { icon: <Zap size={14} />, color: 'blue' };
+            case 'TASK_SUBMITTED':
+            case 'REPORT_UPLOADED':
+                return { icon: <Clock size={14} />, color: 'amber' };
             case 'FEEDBACK_RECEIVED':
+            case 'FEEDBACK_GIVEN':
                 return { icon: <Mail size={14} />, color: 'purple' };
             default:
                 return { icon: <Bell size={14} />, color: 'purple' };
@@ -165,7 +171,7 @@ const Header: React.FC = () => {
                             </div>
                         </div>
                         <div>
-                            <h2 className="text-xl font-heading font-black tracking-tighter text-white uppercase italic">
+                            <h2 className="text-xl font-heading font-black tracking-tighter text-white uppercase">
                                 Welcome to <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">AIMs</span>
                             </h2>
                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mt-0.5">Advanced Intern Management System</p>
@@ -214,7 +220,7 @@ const Header: React.FC = () => {
                         </button>
 
                         {showNotifications && (
-                            <div className="absolute right-0 mt-2 w-80 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-purple-500/10 py-2 animate-scale-in">
+                            <div className="absolute right-0 mt-2 w-80 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-purple-500/10 py-2 animate-scale-in max-h-[calc(100vh-100px)] flex flex-col">
                                 <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
                                     <h3 className="font-semibold text-white">Notifications</h3>
                                     <div className="flex items-center gap-4">
@@ -240,7 +246,7 @@ const Header: React.FC = () => {
                                     </div>
                                 ) : notifications.length > 0 ? (
                                     <>
-                                        <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar flex-1">
                                             {notifications.slice(0, 5).map((notification) => {
                                                 const { icon, color } = getNotificationIcon(notification.type);
                                                 return (
@@ -330,7 +336,7 @@ const Header: React.FC = () => {
                         </button>
 
                         {showUserMenu && (
-                            <div className="absolute right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl py-2 animate-scale-in">
+                            <div className="absolute right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl py-2 animate-scale-in max-h-[calc(100vh-100px)] overflow-y-auto custom-scrollbar">
                                 <div className="px-4 py-3 border-b border-white/5">
                                     <p className="font-medium text-white">{user?.full_name}</p>
                                     <p className="text-xs text-slate-400">{user?.role}</p>

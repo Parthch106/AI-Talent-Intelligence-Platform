@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
+import Modal from '../components/common/Modal';
 
 interface User {
     id: number;
@@ -588,885 +589,733 @@ const ProjectList: React.FC = () => {
             )}
 
             {/* Add Project Modal */}
-            {showAddModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddModal(false)}></div>
-                    <div className="relative bg-[var(--bg-color)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl shadow-purple-500/10 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
-                        {/* Modal Header */}
-                        <div className="sticky top-0 bg-[var(--bg-color)] backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] z-10">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/10">
-                                    <Plus size={18} className="text-purple-600 dark:text-purple-400" />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-bold text-[var(--text-main)]">Create New Project</h2>
-                                    <p className="text-xs text-[var(--text-dim)]">Fill in the project details</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => {
-                                    setShowAddModal(false);
-                                    setAiSuggestedModules([]); // Clear suggested modules on close
-                                }}
-                                className="p-2 hover:bg-[var(--bg-muted)] rounded-xl transition-colors group"
-                            >
-                                <X size={20} className="text-[var(--text-dim)] group-hover:text-[var(--text-main)] transition-colors" />
-                            </button>
+            <Modal
+                isOpen={showAddModal}
+                onClose={() => {
+                    setShowAddModal(false);
+                    setAiSuggestedModules([]);
+                }}
+                title="Create New Project"
+                size="lg"
+                gradient="purple"
+            >
+                <form onSubmit={handleAddProject} className="space-y-5">
+                    {error && (
+                        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
+                            <X size={16} />
+                            {error}
                         </div>
+                    )}
 
-                        <form onSubmit={handleAddProject} className="p-6 space-y-5">
-                            {error && (
-                                <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
-                                    <X size={16} />
-                                    {error}
-                                </div>
-                            )}
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Project Name *</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={newProject.name}
-                                    onChange={e => setNewProject(prev => ({ ...prev, name: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
-                                    placeholder="My Awesome Project"
-                                />
-                            </div>
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description *</label>
-                                <textarea
-                                    required
-                                    value={newProject.description}
-                                    onChange={e => setNewProject(prev => ({ ...prev, description: e.target.value }))}
-                                    rows={3}
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none font-medium"
-                                    placeholder="Describe your project..."
-                                />
-                            </div>
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Status *</label>
-                                <select
-                                    value={newProject.status}
-                                    onChange={e => setNewProject(prev => ({ ...prev, status: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer font-medium"
-                                >
-                                    <option value="PLANNED">Planned</option>
-                                    <option value="IN_PROGRESS">In Progress</option>
-                                    <option value="ON_HOLD">On Hold</option>
-                                    <option value="COMPLETED">Completed</option>
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="group">
-                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Start Date *</label>
-                                    <div className="relative">
-                                        <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                                        <input
-                                            type="date"
-                                            required
-                                            value={newProject.start_date}
-                                            onChange={e => setNewProject(prev => ({ ...prev, start_date: e.target.value }))}
-                                            className="w-full pl-12 pr-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="group">
-                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">End Date</label>
-                                    <div className="relative">
-                                        <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                                        <input
-                                            type="date"
-                                            value={newProject.end_date}
-                                            onChange={e => setNewProject(prev => ({ ...prev, end_date: e.target.value }))}
-                                            className="w-full pl-12 pr-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Repository URL</label>
-                                <div className="relative">
-                                    <ExternalLink size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                                    <input
-                                        type="url"
-                                        placeholder="https://github.com/..."
-                                        value={newProject.repository_url}
-                                        onChange={e => setNewProject(prev => ({ ...prev, repository_url: e.target.value }))}
-                                        className="w-full pl-12 pr-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Tech Stack</label>
-                                <input
-                                    type="text"
-                                    placeholder="React, Node.js, PostgreSQL..."
-                                    value={newProject.tech_stack}
-                                    onChange={e => setNewProject(prev => ({ ...prev, tech_stack: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
-                                />
-                                <p className="text-xs text-[var(--text-muted)] mt-1">Separate technologies with commas</p>
-                            </div>
-
-                            {aiSuggestedModules.length > 0 && (
-                                <div className="group">
-                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-3">
-                                        <span className="flex items-center gap-2">
-                                            <FolderKanban size={16} className="text-purple-600 dark:text-purple-400" />
-                                            AI-Suggested Modules
-                                        </span>
-                                    </label>
-                                    <div className="space-y-3 max-h-48 overflow-y-auto">
-                                        {aiSuggestedModules.map((module, index) => (
-                                            <div key={index} className="bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl p-4">
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <h4 className="font-medium text-[var(--text-main)]">{module.name}</h4>
-                                                    <span className="text-xs bg-purple-500/10 text-purple-600 dark:text-purple-300 px-2 py-1 rounded-lg border border-purple-500/20">
-                                                        {module.estimated_hours} hours
-                                                    </span>
-                                                </div>
-                                                <p className="text-sm text-[var(--text-dim)]">{module.description}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <p className="text-xs text-purple-600 dark:text-purple-400 mt-2 flex items-center gap-1">
-                                        <Sparkles size={12} />
-                                        These modules will be automatically added to your project
-                                    </p>
-                                </div>
-                            )}
-
-                            <div className="flex gap-3 pt-4">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={() => {
-                                        setShowAddModal(false);
-                                        setAiSuggestedModules([]); // Clear suggested modules on cancel
-                                    }}
-                                    fullWidth
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    gradient="purple"
-                                    loading={submitting}
-                                    fullWidth
-                                >
-                                    Create Project
-                                </Button>
-                            </div>
-                        </form>
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Project Name *</label>
+                        <input
+                            type="text"
+                            required
+                            value={newProject.name}
+                            onChange={e => setNewProject(prev => ({ ...prev, name: e.target.value }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
+                            placeholder="My Awesome Project"
+                        />
                     </div>
-                </div>
-            )}
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description *</label>
+                        <textarea
+                            required
+                            value={newProject.description}
+                            onChange={e => setNewProject(prev => ({ ...prev, description: e.target.value }))}
+                            rows={3}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none font-medium"
+                            placeholder="Describe your project..."
+                        />
+                    </div>
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Status *</label>
+                        <select
+                            value={newProject.status}
+                            onChange={e => setNewProject(prev => ({ ...prev, status: e.target.value }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer font-medium"
+                        >
+                            <option value="PLANNED">Planned</option>
+                            <option value="IN_PROGRESS">In Progress</option>
+                            <option value="ON_HOLD">On Hold</option>
+                            <option value="COMPLETED">Completed</option>
+                        </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="group">
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Start Date *</label>
+                            <div className="relative">
+                                <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                                <input
+                                    type="date"
+                                    required
+                                    value={newProject.start_date}
+                                    onChange={e => setNewProject(prev => ({ ...prev, start_date: e.target.value }))}
+                                    className="w-full pl-12 pr-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
+                                />
+                            </div>
+                        </div>
+                        <div className="group">
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">End Date</label>
+                            <div className="relative">
+                                <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                                <input
+                                    type="date"
+                                    value={newProject.end_date}
+                                    onChange={e => setNewProject(prev => ({ ...prev, end_date: e.target.value }))}
+                                    className="w-full pl-12 pr-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Repository URL</label>
+                        <div className="relative">
+                            <ExternalLink size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                            <input
+                                type="url"
+                                placeholder="https://github.com/..."
+                                value={newProject.repository_url}
+                                onChange={e => setNewProject(prev => ({ ...prev, repository_url: e.target.value }))}
+                                className="w-full pl-12 pr-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Tech Stack</label>
+                        <input
+                            type="text"
+                            placeholder="React, Node.js, PostgreSQL..."
+                            value={newProject.tech_stack}
+                            onChange={e => setNewProject(prev => ({ ...prev, tech_stack: e.target.value }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
+                        />
+                        <p className="text-xs text-[var(--text-muted)] mt-1">Separate technologies with commas</p>
+                    </div>
+
+                    {aiSuggestedModules.length > 0 && (
+                        <div className="group">
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-3">
+                                <span className="flex items-center gap-2">
+                                    <FolderKanban size={16} className="text-purple-600 dark:text-purple-400" />
+                                    AI-Suggested Modules
+                                </span>
+                            </label>
+                            <div className="space-y-3 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                                {aiSuggestedModules.map((module, index) => (
+                                    <div key={index} className="bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl p-4">
+                                        <div className="flex items-start justify-between mb-2">
+                                            <h4 className="font-medium text-[var(--text-main)]">{module.name}</h4>
+                                            <span className="text-xs bg-purple-500/10 text-purple-600 dark:text-purple-300 px-2 py-1 rounded-lg border border-purple-500/20">
+                                                {module.estimated_hours} hours
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-[var(--text-dim)]">{module.description}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-xs text-purple-600 dark:text-purple-400 mt-2 flex items-center gap-1">
+                                <Sparkles size={12} />
+                                These modules will be automatically added to your project
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="flex gap-3 pt-4">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                                setShowAddModal(false);
+                                setAiSuggestedModules([]);
+                            }}
+                            fullWidth
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            gradient="purple"
+                            loading={submitting}
+                            fullWidth
+                        >
+                            Create Project
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
 
             {/* Edit Project Modal */}
-            {showEditModal && selectedProject && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowEditModal(false)}></div>
-                    <div className="relative bg-[var(--bg-color)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl shadow-indigo-500/10 w-full max-w-4xl max-h-[90vh] flex flex-col animate-scale-in">
-                        {/* Modal Header */}
-                        <div className="sticky top-0 bg-[var(--bg-color)] backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] z-10 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/10">
-                                    <Edit size={18} className="text-indigo-600 dark:text-indigo-400" />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-bold text-[var(--text-main)]">Edit Project</h2>
-                                    <p className="text-xs text-[var(--text-dim)]">Update project details</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setShowEditModal(false)}
-                                className="p-2 hover:bg-[var(--bg-muted)] rounded-xl transition-colors group"
-                            >
-                                <X size={20} className="text-[var(--text-dim)] group-hover:text-[var(--text-main)] transition-colors" />
-                            </button>
+            <Modal
+                isOpen={showEditModal && !!selectedProject}
+                onClose={() => setShowEditModal(false)}
+                title="Edit Project"
+                size="lg"
+                gradient="purple"
+            >
+                <form onSubmit={handleEditProject} className="space-y-5">
+                    {error && (
+                        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
+                            <X size={16} />
+                            {error}
                         </div>
+                    )}
 
-                        <form onSubmit={handleEditProject} className="p-6 overflow-y-auto flex-1 flex flex-col">
-                            {error && (
-                                <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake mb-4">
-                                    <X size={16} />
-                                    {error}
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1">
-                                <div className="space-y-5">
-                                    <div className="group">
-                                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Project Name *</label>
-                                        <input
-                                            type="text"
-                                            required
-                                            value={editProject.name}
-                                            onChange={e => setEditProject(prev => ({ ...prev, name: e.target.value }))}
-                                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
-                                        />
-                                    </div>
-
-                                    <div className="group">
-                                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description *</label>
-                                        <textarea
-                                            required
-                                            value={editProject.description}
-                                            onChange={e => setEditProject(prev => ({ ...prev, description: e.target.value }))}
-                                            rows={5}
-                                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none font-medium"
-                                        />
-                                    </div>
-
-                                    <div className="group">
-                                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Tech Stack</label>
-                                        <input
-                                            type="text"
-                                            placeholder="React, Node.js, PostgreSQL..."
-                                            value={editProject.tech_stack}
-                                            onChange={e => setEditProject(prev => ({ ...prev, tech_stack: e.target.value }))}
-                                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-5">
-                                    <div className="group">
-                                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Status *</label>
-                                        <select
-                                            value={editProject.status}
-                                            onChange={e => setEditProject(prev => ({ ...prev, status: e.target.value }))}
-                                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer font-medium"
-                                        >
-                                            <option value="PLANNED">Planned</option>
-                                            <option value="IN_PROGRESS">In Progress</option>
-                                            <option value="ON_HOLD">On Hold</option>
-                                            <option value="COMPLETED">Completed</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="group">
-                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Start Date *</label>
-                                            <input
-                                                type="date"
-                                                required
-                                                value={editProject.start_date}
-                                                onChange={e => setEditProject(prev => ({ ...prev, start_date: e.target.value }))}
-                                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
-                                            />
-                                        </div>
-                                        <div className="group">
-                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">End Date</label>
-                                            <input
-                                                type="date"
-                                                value={editProject.end_date}
-                                                onChange={e => setEditProject(prev => ({ ...prev, end_date: e.target.value }))}
-                                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="group">
-                                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Repository URL</label>
-                                        <input
-                                            type="url"
-                                            placeholder="https://github.com/..."
-                                            value={editProject.repository_url}
-                                            onChange={e => setEditProject(prev => ({ ...prev, repository_url: e.target.value }))}
-                                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-[var(--border-color)] shrink-0">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={() => setShowEditModal(false)}
-                                    className="w-32"
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    gradient="indigo"
-                                    loading={submitting}
-                                    className="w-48"
-                                >
-                                    Update Project
-                                </Button>
-                            </div>
-                        </form>
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Project Name *</label>
+                        <input
+                            type="text"
+                            required
+                            value={editProject.name}
+                            onChange={e => setEditProject(prev => ({ ...prev, name: e.target.value }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
+                        />
                     </div>
-                </div>
-            )}
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description *</label>
+                        <textarea
+                            required
+                            value={editProject.description}
+                            onChange={e => setEditProject(prev => ({ ...prev, description: e.target.value }))}
+                            rows={4}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none font-medium"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="group">
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Status *</label>
+                            <select
+                                value={editProject.status}
+                                onChange={e => setEditProject(prev => ({ ...prev, status: e.target.value }))}
+                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer font-medium"
+                            >
+                                <option value="PLANNED">Planned</option>
+                                <option value="IN_PROGRESS">In Progress</option>
+                                <option value="ON_HOLD">On Hold</option>
+                                <option value="COMPLETED">Completed</option>
+                            </select>
+                        </div>
+                        <div className="group">
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Start Date</label>
+                            <input
+                                type="date"
+                                required
+                                value={editProject.start_date || ''}
+                                onChange={e => setEditProject(prev => ({ ...prev, start_date: e.target.value }))}
+                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Repository URL</label>
+                        <input
+                            type="url"
+                            value={editProject.repository_url || ''}
+                            onChange={e => setEditProject(prev => ({ ...prev, repository_url: e.target.value }))}
+                            placeholder="https://github.com/..."
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
+                        />
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setShowEditModal(false)}
+                            fullWidth
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            gradient="purple"
+                            loading={submitting}
+                            fullWidth
+                        >
+                            Save Changes
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
 
             {/* Assign Intern Modal */}
-            {showAssignModal && selectedProject && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAssignModal(false)}></div>
-                    <div className="relative bg-[var(--bg-color)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl shadow-indigo-500/10 w-full max-w-md animate-scale-in">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)]">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/10">
-                                    <UserPlus size={18} className="text-indigo-600 dark:text-indigo-400" />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-bold text-[var(--text-main)]">Assign Intern</h2>
-                                    <p className="text-xs text-[var(--text-dim)]">to {selectedProject.name}</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setShowAssignModal(false)}
-                                className="p-2 hover:bg-[var(--bg-muted)] rounded-xl transition-colors group"
-                            >
-                                <X size={20} className="text-[var(--text-dim)] group-hover:text-[var(--text-main)] transition-colors" />
-                            </button>
+            <Modal
+                isOpen={showAssignModal}
+                onClose={() => setShowAssignModal(false)}
+                title="Assign Intern to Project"
+                size="md"
+                gradient="violet"
+            >
+                <form onSubmit={handleAssignIntern} className="space-y-5">
+                    {error && (
+                        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
+                            <X size={16} />
+                            {error}
                         </div>
+                    )}
 
-                        <form onSubmit={handleAssignIntern} className="p-6 space-y-5">
-                            {error && (
-                                <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
-                                    <X size={16} />
-                                    {error}
-                                </div>
-                            )}
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Select Intern *</label>
-                                <select
-                                    value={assignIntern.intern_id}
-                                    onChange={e => setAssignIntern(prev => ({ ...prev, intern_id: Number(e.target.value) }))}
-                                    required
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer font-medium"
-                                >
-                                    <option value={0}>Choose an intern...</option>
-                                    {interns
-                                        .filter(intern => !selectedProject?.assignments?.some(a => a.intern?.id === intern.id))
-                                        .map((intern) => (
-                                        <option key={intern.id} value={intern.id}>
-                                            {intern.full_name} ({intern.email})
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="group">
-                                <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Role *</label>
-                                <input
-                                    type="text"
-                                    value={assignIntern.role}
-                                    onChange={e => setAssignIntern(prev => ({ ...prev, role: e.target.value }))}
-                                    required
-                                    placeholder="e.g., Frontend Developer"
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
-                                />
-                            </div>
-
-                            <div className="flex gap-3 pt-4">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={() => setShowAssignModal(false)}
-                                    fullWidth
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    gradient="indigo"
-                                    loading={submitting}
-                                    fullWidth
-                                >
-                                    Assign Intern
-                                </Button>
-                            </div>
-                        </form>
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Select Intern *</label>
+                        <select
+                            required
+                            value={assignIntern.intern_id}
+                            onChange={e => setAssignIntern(prev => ({ ...prev, intern_id: Number(e.target.value) }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all appearance-none cursor-pointer font-medium"
+                        >
+                            <option value={0}>Select an intern...</option>
+                            {interns
+                                .filter(intern => !selectedProject?.assignments?.some(a => a.intern?.id === intern.id))
+                                .map(intern => (
+                                <option key={intern.id} value={intern.id}>
+                                    {intern.full_name} ({intern.email})
+                                </option>
+                            ))}
+                        </select>
                     </div>
-                </div>
-            )}
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Role in Project *</label>
+                        <input
+                            type="text"
+                            required
+                            value={assignIntern.role}
+                            onChange={e => setAssignIntern(prev => ({ ...prev, role: e.target.value }))}
+                            placeholder="e.g. Frontend Developer"
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-medium"
+                        />
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setShowAssignModal(false)}
+                            fullWidth
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            gradient="purple"
+                            loading={submitting}
+                            fullWidth
+                        >
+                            Assign Intern
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
 
             {/* Project Detail Modal */}
-            {showDetailModal && selectedProject && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDetailModal(false)}></div>
-                    <div className="relative bg-[var(--bg-color)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl shadow-purple-500/10 w-full max-w-5xl max-h-[90vh] flex flex-col animate-scale-in">
-                        {/* Modal Header */}
-                        <div className="sticky top-0 bg-[var(--bg-color)] backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] z-10 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/10">
-                                    <FolderKanban size={18} className="text-purple-600 dark:text-purple-400" />
+            <Modal
+                isOpen={showDetailModal && !!selectedProject}
+                onClose={() => setShowDetailModal(false)}
+                title={selectedProject?.name || 'Project Details'}
+                size="2xl"
+                gradient="purple"
+            >
+                {selectedProject && (
+                    <div className="space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-6">
+                                {/* Project Info */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-4 bg-[var(--bg-muted)] rounded-xl border border-transparent hover:border-[var(--border-color)] transition-all">
+                                        <p className="text-xs text-[var(--text-dim)] mb-1">Status</p>
+                                        {getStatusBadge(selectedProject.status)}
+                                    </div>
+                                    <div className="p-4 bg-[var(--bg-muted)] rounded-xl border border-transparent hover:border-[var(--border-color)] transition-all">
+                                        <p className="text-xs text-[var(--text-dim)] mb-1">Mentor</p>
+                                        <p className="text-sm font-medium text-[var(--text-main)] truncate">{selectedProject.mentor?.full_name || 'Unassigned'}</p>
+                                    </div>
+                                    <div className="p-4 bg-[var(--bg-muted)] rounded-xl border border-transparent hover:border-[var(--border-color)] transition-all">
+                                        <p className="text-xs text-[var(--text-dim)] mb-1">Start Date</p>
+                                        <p className="text-sm font-medium text-[var(--text-main)]">{selectedProject.start_date ? new Date(selectedProject.start_date).toLocaleDateString() : 'Not set'}</p>
+                                    </div>
+                                    <div className="p-4 bg-[var(--bg-muted)] rounded-xl border border-transparent hover:border-[var(--border-color)] transition-all">
+                                        <p className="text-xs text-[var(--text-dim)] mb-1">End Date</p>
+                                        <p className="text-sm font-medium text-[var(--text-main)]">{selectedProject.end_date ? new Date(selectedProject.end_date).toLocaleDateString() : 'Not set'}</p>
+                                    </div>
                                 </div>
+
+                                {/* Description */}
                                 <div>
-                                    <h2 className="text-lg font-bold text-[var(--text-main)]">{selectedProject.name}</h2>
-                                    <p className="text-xs text-[var(--text-dim)]">Project Details</p>
+                                    <h3 className="text-sm font-semibold text-[var(--text-main)] mb-2">Description</h3>
+                                    <p className="text-sm text-[var(--text-dim)] bg-[var(--bg-muted)] p-5 rounded-xl border border-transparent">
+                                        {selectedProject.description || 'No description provided'}
+                                    </p>
+                                </div>
+
+                                {/* Tech Stack */}
+                                {selectedProject.tech_stack && selectedProject.tech_stack.length > 0 && (
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-[var(--text-main)] mb-2">Tech Stack</h3>
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedProject.tech_stack.map((tech, index) => (
+                                                <span key={index} className="px-3 py-1.5 text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-300 rounded-lg border border-purple-500/20 shadow-sm">
+                                                    {tech}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Repository */}
+                                {selectedProject.repository_url && (
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-[var(--text-main)] mb-2">Repository</h3>
+                                        <a
+                                            href={selectedProject.repository_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors p-4 bg-[var(--bg-muted)] rounded-xl border border-purple-500/10 hover:border-purple-500/30 group"
+                                        >
+                                            <ExternalLink size={16} className="text-purple-500 group-hover:text-purple-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                                            <span className="truncate">{selectedProject.repository_url}</span>
+                                        </a>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-6">
+                                {/* Assigned Interns */}
+                                <div className="bg-[var(--card-bg)] rounded-xl border border-[var(--border-color)] p-5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                                            <Users size={16} className="text-indigo-400" />    
+                                            Assigned Interns ({selectedProject.assignments?.length || 0})
+                                        </h3>
+                                        {showAddButton && (
+                                            <button
+                                                onClick={() => {
+                                                    setShowDetailModal(false);
+                                                    openAssignModal(selectedProject);
+                                                }}
+                                                className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors bg-purple-500/10 px-2 py-1 rounded-md"
+                                            >
+                                                <UserPlus size={12} />
+                                                Add Intern
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="overflow-y-auto max-h-[220px] pr-2 custom-scrollbar">
+                                        {selectedProject.assignments && selectedProject.assignments.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {selectedProject.assignments.map((assignment) => (
+                                                    <div key={assignment.id} className="flex items-center justify-between p-3 bg-[var(--bg-muted)] hover:bg-[var(--bg-color)] rounded-xl border border-transparent hover:border-indigo-500/20 transition-colors">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 bg-indigo-500/20 rounded-full flex items-center justify-center border border-indigo-500/30">
+                                                                <span className="text-xs font-bold text-indigo-600 dark:text-indigo-300">
+                                                                    {assignment.intern?.full_name?.charAt(0) || '?'}
+                                                                </span>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-medium text-[var(--text-main)]">{assignment.intern?.full_name || 'Unknown'}</p>
+                                                                <p className="text-xs text-[var(--text-dim)] mt-0.5">{assignment.role || 'No role'}</p>
+                                                            </div>
+                                                        </div>
+                                                        <Badge variant={assignment.status === 'ACTIVE' ? 'success' : 'warning'}>
+                                                            {assignment.status}
+                                                        </Badge>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="py-6 flex flex-col items-center text-center text-[var(--text-muted)] bg-[var(--bg-muted)] rounded-xl">
+                                                <Users size={20} className="mb-2 opacity-50 text-indigo-400" />
+                                                <p className="text-sm">No interns assigned</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Modules */}
+                                <div className="bg-[var(--card-bg)] rounded-xl border border-[var(--border-color)] p-5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                                            <LayoutGrid size={16} className="text-pink-400" />
+                                            Modules ({projectModules.length})
+                                        </h3>
+                                        {showAddButton && (
+                                            <button
+                                                onClick={() => {
+                                                    document.getElementById('module-name-input')?.focus();
+                                                }}
+                                                className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors bg-purple-500/10 px-2 py-1 rounded-md"
+                                            >
+                                                <Plus size={12} />
+                                                Add Module
+                                            </button>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Add Module Form */}
+                                    {showAddButton && (
+                                        <div className="mb-4 p-4 bg-[var(--bg-muted)] border border-pink-500/10 rounded-xl">
+                                            <p className="text-xs font-medium text-[var(--text-dim)] mb-3 flex items-center gap-1.5"><Plus size={12} className="text-pink-400"/> New Module</p>
+                                            <div className="space-y-3">
+                                                <input
+                                                    id="module-name-input"
+                                                    type="text"
+                                                    value={newModule.name}
+                                                    onChange={e => setNewModule(prev => ({ ...prev, name: e.target.value }))}
+                                                    placeholder="Module name"
+                                                    className="w-full px-3 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-pink-500/50"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={newModule.description}
+                                                    onChange={e => setNewModule(prev => ({ ...prev, description: e.target.value }))}
+                                                    placeholder="Module description (optional)"
+                                                    className="w-full px-3 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-pink-500/50"
+                                                />
+                                                <Button
+                                                    onClick={handleAddModule}
+                                                    gradient="purple"
+                                                    size="sm"
+                                                    loading={submitting}
+                                                    disabled={!newModule.name}
+                                                    fullWidth
+                                                >
+                                                    Save Module
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="overflow-y-auto max-h-[220px] pr-2 custom-scrollbar">
+                                        {projectModules.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {projectModules.map((module: any) => (
+                                                    <div key={module.id} className="p-3 bg-[var(--bg-muted)] hover:bg-[var(--bg-color)] rounded-xl border border-transparent hover:border-pink-500/20 transition-colors">
+                                                        <div className="flex items-center justify-between">
+                                                            <div>
+                                                                <p className="text-sm font-medium text-[var(--text-main)]">{module.name}</p>
+                                                                <p className="text-xs text-[var(--text-dim)] mt-1">{module.description || 'No description'}</p>
+                                                            </div>
+                                                            <span className="text-xs font-medium bg-[var(--bg-color)] px-2 py-1 rounded text-[var(--text-muted)]">Ord: {module.order || 0}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="py-6 flex flex-col items-center text-center text-[var(--text-muted)] bg-[var(--bg-muted)] rounded-xl">
+                                                <LayoutGrid size={20} className="mb-2 opacity-50 text-pink-400" />
+                                                <p className="text-sm">No modules created</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => setShowDetailModal(false)}
-                                className="p-2 hover:bg-[var(--bg-muted)] rounded-xl transition-colors group"
-                            >
-                                <X size={20} className="text-[var(--text-dim)] group-hover:text-[var(--text-main)] transition-colors" />
-                            </button>
                         </div>
 
-                        <div className="p-6 overflow-y-auto flex-1 flex flex-col">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-1">
-                                <div className="space-y-6">
-                                    {/* Project Info */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="p-4 bg-[var(--bg-muted)] rounded-xl border border-transparent hover:border-[var(--border-color)] transition-all">
-                                            <p className="text-xs text-[var(--text-dim)] mb-1">Status</p>
-                                            {getStatusBadge(selectedProject.status)}
-                                        </div>
-                                        <div className="p-4 bg-[var(--bg-muted)] rounded-xl border border-transparent hover:border-[var(--border-color)] transition-all">
-                                            <p className="text-xs text-[var(--text-dim)] mb-1">Mentor</p>
-                                            <p className="text-sm font-medium text-[var(--text-main)] truncate">{selectedProject.mentor?.full_name || 'Unassigned'}</p>
-                                        </div>
-                                        <div className="p-4 bg-[var(--bg-muted)] rounded-xl border border-transparent hover:border-[var(--border-color)] transition-all">
-                                            <p className="text-xs text-[var(--text-dim)] mb-1">Start Date</p>
-                                            <p className="text-sm font-medium text-[var(--text-main)]">{selectedProject.start_date ? new Date(selectedProject.start_date).toLocaleDateString() : 'Not set'}</p>
-                                        </div>
-                                        <div className="p-4 bg-[var(--bg-muted)] rounded-xl border border-transparent hover:border-[var(--border-color)] transition-all">
-                                            <p className="text-xs text-[var(--text-dim)] mb-1">End Date</p>
-                                            <p className="text-sm font-medium text-[var(--text-main)]">{selectedProject.end_date ? new Date(selectedProject.end_date).toLocaleDateString() : 'Not set'}</p>
-                                        </div>
-                                    </div>
+                        {/* Actions */}
+                        {showAddButton && (
+                            <div className="flex justify-end gap-3 pt-6 border-t border-[var(--border-color)]">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setShowDetailModal(false)}
+                                    className="w-32"
+                                >
+                                    Close
+                                </Button>
+                                <Button
+                                    gradient="purple"
+                                    onClick={() => {
+                                        setShowDetailModal(false);
+                                        openEditModal(selectedProject);
+                                    }}
+                                    className="w-48"
+                                    icon={<Edit size={16} />}
+                                >
+                                    Edit Project
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </Modal>
 
-                                    {/* Description */}
-                                    <div>
-                                        <h3 className="text-sm font-semibold text-[var(--text-main)] mb-2">Description</h3>
-                                        <p className="text-sm text-[var(--text-dim)] bg-[var(--bg-muted)] p-5 rounded-xl border border-transparent">
-                                            {selectedProject.description || 'No description provided'}
+            {/* AI Input Modal */}
+            <Modal
+                isOpen={showAIInputModal}
+                onClose={() => setShowAIInputModal(false)}
+                title="AI Project Suggestions"
+                size="md"
+                gradient="purple"
+            >
+                <div className="space-y-6">
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-main)] mb-2">
+                            Project Description (Optional)
+                        </label>
+                        <textarea
+                            value={aiInput.description}
+                            onChange={(e) => setAiInput(prev => ({ ...prev, description: e.target.value }))}
+                            placeholder="Describe the type of project you want suggestions for..."
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
+                            rows={3}
+                        />
+                        <p className="text-xs text-[var(--text-dim)] mt-1">
+                            E.g., "Build a task management app" or "Create a data visualization dashboard"
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-main)] mb-2">
+                            Required Skills (Optional)
+                        </label>
+                        <input
+                            type="text"
+                            value={aiInput.skills}
+                            onChange={(e) => setAiInput(prev => ({ ...prev, skills: e.target.value }))}
+                            placeholder="Enter skills separated by commas..."
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                        />
+                        <p className="text-xs text-[var(--text-dim)] mt-1">
+                            E.g., "React, Node.js, Python" or "HTML, CSS, JavaScript"
+                        </p>
+                    </div>
+
+                    <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                        <div className="flex items-start gap-3">
+                            <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center mt-0.5">
+                                <span className="text-white text-xs font-bold">i</span>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                                    How it works
+                                </h4>
+                                <p className="text-xs text-blue-700 dark:text-blue-300">
+                                    AI will generate project suggestions based on your department ({user?.department || 'Web Development'}).
+                                    Providing description or skills will make suggestions more tailored to your needs.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--border-color)]">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setShowAIInputModal(false)}
+                            fullWidth
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleGenerateAISuggestions}
+                            gradient="purple"
+                            disabled={generatingAISuggestions}
+                            fullWidth
+                        >
+                            {generatingAISuggestions ? 'Generating...' : 'Generate Suggestions'}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* AI Project Suggestions Modal */}
+            <Modal
+                isOpen={showAISuggestionsModal}
+                onClose={() => setShowAISuggestionsModal(false)}
+                title="AI Project Suggestions"
+                size="2xl"
+                gradient="purple"
+            >
+                <div className="space-y-6">
+                    {aiSuggestions.length === 0 ? (
+                        <div className="text-center py-12">
+                            <Sparkles size={48} className="mx-auto mb-4 text-[var(--text-muted)] opacity-20" />
+                            <h3 className="text-lg font-medium text-[var(--text-main)] mb-2">No suggestions available</h3>
+                            <p className="text-[var(--text-dim)]">Try generating new suggestions</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {aiSuggestions.map((suggestion, index) => (
+                                <Card key={index} hover className="group h-auto">
+                                    <div className="p-6 h-full flex flex-col">
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center">
+                                                    <FolderKanban size={20} className="text-purple-600 dark:text-purple-400" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h3 className="font-semibold text-[var(--text-main)] mb-1 leading-tight">
+                                                        {suggestion.name}
+                                                    </h3>
+                                                    {getDifficultyBadge(suggestion.difficulty)}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <p className="text-sm text-[var(--text-dim)] mb-4 line-clamp-3">
+                                            "{suggestion.description}"
                                         </p>
-                                    </div>
 
-                                    {/* Tech Stack */}
-                                    {selectedProject.tech_stack && selectedProject.tech_stack.length > 0 && (
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-[var(--text-main)] mb-2">Tech Stack</h3>
+                                        <div className="space-y-4 flex-1">
+                                            <div className="flex items-center gap-2 text-sm text-[var(--text-dim)] font-medium">
+                                                <Clock size={14} className="text-purple-500" />
+                                                <span>{suggestion.estimated_duration} weeks</span>
+                                            </div>
+
                                             <div className="flex flex-wrap gap-2">
-                                                {selectedProject.tech_stack.map((tech, index) => (
-                                                    <span key={index} className="px-3 py-1.5 text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-300 rounded-lg border border-purple-500/20 shadow-sm">
+                                                {suggestion.tech_stack.slice(0, 3).map((tech, techIndex) => (
+                                                    <span key={techIndex} className="px-2 py-1 text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-300 rounded border border-purple-500/20 uppercase tracking-tight">
                                                         {tech}
                                                     </span>
                                                 ))}
                                             </div>
-                                        </div>
-                                    )}
 
-                                    {/* Repository */}
-                                    {selectedProject.repository_url && (
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-[var(--text-main)] mb-2">Repository</h3>
-                                            <a
-                                                href={selectedProject.repository_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors p-4 bg-[var(--bg-muted)] rounded-xl border border-purple-500/10 hover:border-purple-500/30 group"
+                                            <div className="space-y-2">
+                                                <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider">Learning Objectives:</h4>
+                                                <ul className="text-xs text-[var(--text-dim)] space-y-1">
+                                                    {suggestion.learning_objectives.slice(0, 2).map((objective, objIndex) => (
+                                                        <li key={objIndex} className="flex items-start gap-2">
+                                                            <div className="w-1 h-1 bg-purple-500 rounded-full mt-1.5 shrink-0" />
+                                                            <span>{objective}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-6 mt-auto">
+                                            <Button
+                                                size="sm"
+                                                gradient="purple"
+                                                fullWidth
+                                                onClick={() => handleCreateProjectFromSuggestion(suggestion)}
                                             >
-                                                <ExternalLink size={16} className="text-purple-500 group-hover:text-purple-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                                                <span className="truncate">{selectedProject.repository_url}</span>
-                                            </a>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="space-y-6">
-                                    {/* Assigned Interns */}
-                                    <div className="bg-[var(--card-bg)] rounded-xl border border-[var(--border-color)] p-5">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h3 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
-                                                <Users size={16} className="text-indigo-400" />    
-                                                Assigned Interns ({selectedProject.assignments?.length || 0})
-                                            </h3>
-                                            {showAddButton && (
-                                                <button
-                                                    onClick={() => {
-                                                        setShowDetailModal(false);
-                                                        openAssignModal(selectedProject);
-                                                    }}
-                                                    className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors bg-purple-500/10 px-2 py-1 rounded-md"
-                                                >
-                                                    <UserPlus size={12} />
-                                                    Add Intern
-                                                </button>
-                                            )}
-                                        </div>
-                                        <div className="overflow-y-auto max-h-[220px] pr-2 custom-scrollbar">
-                                            {selectedProject.assignments && selectedProject.assignments.length > 0 ? (
-                                                <div className="space-y-2">
-                                                    {selectedProject.assignments.map((assignment) => (
-                                                        <div key={assignment.id} className="flex items-center justify-between p-3 bg-[var(--bg-muted)] hover:bg-[var(--bg-color)] rounded-xl border border-transparent hover:border-indigo-500/20 transition-colors">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-8 h-8 bg-indigo-500/20 rounded-full flex items-center justify-center border border-indigo-500/30">
-                                                                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-300">
-                                                                        {assignment.intern?.full_name?.charAt(0) || '?'}
-                                                                    </span>
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-sm font-medium text-[var(--text-main)]">{assignment.intern?.full_name || 'Unknown'}</p>
-                                                                    <p className="text-xs text-[var(--text-dim)] mt-0.5">{assignment.role || 'No role'}</p>
-                                                                </div>
-                                                            </div>
-                                                            <Badge variant={assignment.status === 'ACTIVE' ? 'success' : 'warning'}>
-                                                                {assignment.status}
-                                                            </Badge>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="py-6 flex flex-col items-center text-center text-[var(--text-muted)] bg-[var(--bg-muted)] rounded-xl">
-                                                    <Users size={20} className="mb-2 opacity-50 text-indigo-400" />
-                                                    <p className="text-sm">No interns assigned</p>
-                                                </div>
-                                            )}
+                                                Use This Idea
+                                            </Button>
                                         </div>
                                     </div>
-
-                                    {/* Modules */}
-                                    <div className="bg-[var(--card-bg)] rounded-xl border border-[var(--border-color)] p-5">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h3 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
-                                                <LayoutGrid size={16} className="text-pink-400" />
-                                                Modules ({projectModules.length})
-                                            </h3>
-                                            {showAddButton && (
-                                                <button
-                                                    onClick={() => {
-                                                        document.getElementById('module-name-input')?.focus();
-                                                    }}
-                                                    className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors bg-purple-500/10 px-2 py-1 rounded-md"
-                                                >
-                                                    <Plus size={12} />
-                                                    Add Module
-                                                </button>
-                                            )}
-                                        </div>
-                                        
-                                        {/* Add Module Form */}
-                                        {showAddButton && (
-                                            <div className="mb-4 p-4 bg-[var(--bg-muted)] border border-pink-500/10 rounded-xl">
-                                                <p className="text-xs font-medium text-[var(--text-dim)] mb-3 flex items-center gap-1.5"><Plus size={12} className="text-pink-400"/> New Module</p>
-                                                <div className="space-y-3">
-                                                    <input
-                                                        id="module-name-input"
-                                                        type="text"
-                                                        value={newModule.name}
-                                                        onChange={e => setNewModule(prev => ({ ...prev, name: e.target.value }))}
-                                                        placeholder="Module name"
-                                                        className="w-full px-3 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-pink-500/50"
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={newModule.description}
-                                                        onChange={e => setNewModule(prev => ({ ...prev, description: e.target.value }))}
-                                                        placeholder="Module description (optional)"
-                                                        className="w-full px-3 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-pink-500/50"
-                                                    />
-                                                    <Button
-                                                        onClick={handleAddModule}
-                                                        gradient="purple"
-                                                        size="sm"
-                                                        loading={submitting}
-                                                        disabled={!newModule.name}
-                                                        fullWidth
-                                                    >
-                                                        Save Module
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <div className="overflow-y-auto max-h-[220px] pr-2 custom-scrollbar">
-                                            {projectModules.length > 0 ? (
-                                                <div className="space-y-2">
-                                                    {projectModules.map((module: any) => (
-                                                        <div key={module.id} className="p-3 bg-[var(--bg-muted)] hover:bg-[var(--bg-color)] rounded-xl border border-transparent hover:border-pink-500/20 transition-colors">
-                                                            <div className="flex items-center justify-between">
-                                                                <div>
-                                                                    <p className="text-sm font-medium text-[var(--text-main)]">{module.name}</p>
-                                                                    <p className="text-xs text-[var(--text-dim)] mt-1">{module.description || 'No description'}</p>
-                                                                </div>
-                                                                <span className="text-xs font-medium bg-[var(--bg-color)] px-2 py-1 rounded text-[var(--text-muted)]">Ord: {module.order || 0}</span>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="py-6 flex flex-col items-center text-center text-[var(--text-muted)] bg-[var(--bg-muted)] rounded-xl">
-                                                    <LayoutGrid size={20} className="mb-2 opacity-50 text-pink-400" />
-                                                    <p className="text-sm">No modules created</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            {showAddButton && (
-                                <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-[var(--border-color)] shrink-0">
-                                    <Button
-                                        variant="ghost"
-                                        onClick={() => setShowDetailModal(false)}
-                                        className="w-32"
-                                    >
-                                        Close
-                                    </Button>
-                                    <Button
-                                        gradient="purple"
-                                        onClick={() => {
-                                            setShowDetailModal(false);
-                                            openEditModal(selectedProject);
-                                        }}
-                                        className="w-48"
-                                        icon={<Edit size={16} />}
-                                    >
-                                        Edit Project
-                                    </Button>
-                                </div>
-                            )}
+                                </Card>
+                            ))}
                         </div>
+                    )}
+
+                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--border-color)]">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setShowAISuggestionsModal(false)}
+                            className="w-32"
+                        >
+                            Close
+                        </Button>
                     </div>
                 </div>
-            )}
+            </Modal>
 
-            {/* AI Input Modal */}
-            {showAIInputModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in backdrop-blur-sm bg-black/20">
-                    <div className="bg-[var(--bg-primary)] rounded-2xl shadow-2xl border border-[var(--border-color)] w-full max-w-lg max-h-[90vh] overflow-hidden">
-                        <div className="flex items-center justify-between p-6 border-b border-[var(--border-color)]">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-purple-500/10 rounded-xl">
-                                    <Sparkles size={24} className="text-purple-600 dark:text-purple-400" />
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl font-bold text-[var(--text-main)]">AI Project Suggestions</h2>
-                                    <p className="text-[var(--text-dim)]">Provide optional details for better suggestions</p>
-                                </div>
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setShowAIInputModal(false)}
-                                icon={<X size={20} />}
-                            />
-                        </div>
-
-                        <div className="p-6 space-y-6">
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--text-main)] mb-2">
-                                    Project Description (Optional)
-                                </label>
-                                <textarea
-                                    value={aiInput.description}
-                                    onChange={(e) => setAiInput(prev => ({ ...prev, description: e.target.value }))}
-                                    placeholder="Describe the type of project you want suggestions for..."
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 resize-none"
-                                    rows={3}
-                                />
-                                <p className="text-xs text-[var(--text-dim)] mt-1">
-                                    E.g., "Build a task management app" or "Create a data visualization dashboard"
-                                </p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--text-main)] mb-2">
-                                    Required Skills (Optional)
-                                </label>
-                                <input
-                                    type="text"
-                                    value={aiInput.skills}
-                                    onChange={(e) => setAiInput(prev => ({ ...prev, skills: e.target.value }))}
-                                    placeholder="Enter skills separated by commas..."
-                                    className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500"
-                                />
-                                <p className="text-xs text-[var(--text-dim)] mt-1">
-                                    E.g., "React, Node.js, Python" or "HTML, CSS, JavaScript"
-                                </p>
-                            </div>
-
-                            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center mt-0.5">
-                                        <span className="text-white text-xs font-bold">i</span>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
-                                            How it works
-                                        </h4>
-                                        <p className="text-xs text-blue-700 dark:text-blue-300">
-                                            AI will generate project suggestions based on your department ({user?.department || 'Web Development'}).
-                                            Providing description or skills will make suggestions more tailored to your needs.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-end gap-3 p-6 border-t border-[var(--border-color)]">
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowAIInputModal(false)}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={handleGenerateAISuggestions}
-                                gradient="purple"
-                                disabled={generatingAISuggestions}
-                            >
-                                {generatingAISuggestions ? 'Generating...' : 'Generate Suggestions'}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* AI Project Suggestions Modal */}
-            {showAISuggestionsModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in backdrop-blur-sm bg-black/20">
-                    <div className="bg-[var(--bg-primary)] rounded-2xl shadow-2xl border border-[var(--border-color)] w-full max-w-6xl max-h-[90vh] overflow-hidden">
-                        <div className="flex items-center justify-between p-6 border-b border-[var(--border-color)]">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-purple-500/10 rounded-xl">
-                                    <Sparkles size={24} className="text-purple-600 dark:text-purple-400" />
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl font-bold text-[var(--text-main)]">AI Project Suggestions</h2>
-                                    <p className="text-[var(--text-dim)]">AI-generated project ideas tailored for your department</p>
-                                </div>
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setShowAISuggestionsModal(false)}
-                                icon={<X size={20} />}
-                            />
-                        </div>
-
-                        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-                            {aiSuggestions.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <Sparkles size={48} className="mx-auto mb-4 text-[var(--text-muted)]" />
-                                    <h3 className="text-lg font-medium text-[var(--text-main)] mb-2">No suggestions available</h3>
-                                    <p className="text-[var(--text-dim)]">Try generating new suggestions</p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {aiSuggestions.map((suggestion, index) => (
-                                        <Card key={index} hover className="group">
-                                            <div className="p-6">
-                                                <div className="flex items-start justify-between mb-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="p-2 bg-purple-500/10 rounded-xl">
-                                                            <FolderKanban size={20} className="text-purple-600 dark:text-purple-400" />
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <h3 className="font-semibold text-[var(--text-main)] mb-1">
-                                                                {suggestion.name}
-                                                            </h3>
-                                                            {getDifficultyBadge(suggestion.difficulty)}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <p className="text-sm text-[var(--text-dim)] mb-4 line-clamp-3">
-                                                    {suggestion.description}
-                                                </p>
-
-                                                <div className="space-y-3 mb-4">
-                                                    <div className="flex items-center gap-2 text-sm text-[var(--text-dim)]">
-                                                        <Clock size={14} />
-                                                        <span>{suggestion.estimated_duration} weeks</span>
-                                                    </div>
-
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {suggestion.tech_stack.slice(0, 2).map((tech, techIndex) => (
-                                                            <span key={techIndex} className="px-2 py-1 text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-300 rounded-lg">
-                                                                {tech}
-                                                            </span>
-                                                        ))}
-                                                        {suggestion.tech_stack.length > 2 && (
-                                                            <span className="px-2 py-1 text-xs font-medium bg-[var(--bg-muted)] text-[var(--text-dim)] rounded-lg">
-                                                                +{suggestion.tech_stack.length - 2} more
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-2 mb-4">
-                                                    <h4 className="text-sm font-medium text-[var(--text-main)]">Key Learning Objectives:</h4>
-                                                    <ul className="text-xs text-[var(--text-dim)] space-y-1">
-                                                        {suggestion.learning_objectives.slice(0, 2).map((objective, objIndex) => (
-                                                            <li key={objIndex} className="flex items-start gap-1">
-                                                                <span className="text-purple-500 mt-0.5">•</span>
-                                                                <span>{objective}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-
-                                                {suggestion.modules && suggestion.modules.length > 0 && (
-                                                    <div className="space-y-2 mb-4">
-                                                        <h4 className="text-sm font-medium text-[var(--text-main)]">Project Modules:</h4>
-                                                        <div className="space-y-1">
-                                                            {suggestion.modules.slice(0, 3).map((module, moduleIndex) => (
-                                                                <div key={moduleIndex} className="text-xs bg-[var(--bg-muted)] p-2 rounded-lg">
-                                                                    <div className="font-medium text-[var(--text-main)]">{module.name}</div>
-                                                                    <div className="text-[var(--text-dim)] mt-1">{module.description}</div>
-                                                                    <div className="text-purple-600 dark:text-purple-400 mt-1">
-                                                                        Est. {module.estimated_hours} hours
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                            {suggestion.modules.length > 3 && (
-                                                                <div className="text-xs text-[var(--text-dim)] text-center">
-                                                                    +{suggestion.modules.length - 3} more modules
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="flex-1"
-                                                        onClick={() => handleCreateProjectFromSuggestion(suggestion)}
-                                                    >
-                                                        Use This Idea
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </Card>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex items-center justify-end gap-3 p-6 border-t border-[var(--border-color)]">
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowAISuggestionsModal(false)}
-                            >
-                                Close
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

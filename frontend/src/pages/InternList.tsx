@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
+import Modal from '../components/common/Modal';
 
 interface InternProfile {
     id: number;
@@ -13,6 +14,7 @@ interface InternProfile {
         email: string;
         full_name: string;
         role: string;
+        department?: string;
     };
     university: string;
     phone_number: string;
@@ -115,8 +117,14 @@ const InternList: React.FC = () => {
             // Fetch projects assigned to this intern
             let projects: any[] = [];
             try {
-                const projectsResponse = await api.get(`/projects/intern/${intern.user.id}/`);
-                projects = projectsResponse.data || [];
+                const projectsResponse = await api.get(`/projects/assignments/?intern_id=${intern.user.id}`);
+                const assignments = Array.isArray(projectsResponse.data) ? projectsResponse.data : (projectsResponse.data?.results || []);
+                projects = assignments.map((a: any) => ({
+                    id: a.id,
+                    name: a.project?.name || 'Unknown Project',
+                    status: a.status,
+                    role: a.role
+                }));
             } catch (e) {
                 console.error('Error fetching projects:', e);
             }
@@ -124,17 +132,27 @@ const InternList: React.FC = () => {
             // Fetch tasks for this intern
             let tasks: any[] = [];
             try {
-                const tasksResponse = await api.get(`/analytics/intern-tasks/${intern.user.id}/`);
-                tasks = tasksResponse.data || [];
+                const tasksResponse = await api.get(`/analytics/tasks/?intern_id=${intern.user.id}`);
+                tasks = tasksResponse.data?.tasks || [];
             } catch (e) {
                 console.error('Error fetching tasks:', e);
             }
             
-            // Fetch performance stats
-            let performanceStats = { attendance_rate: 0, average_rating: 0 };
+            // Fetch performance stats and skills
+            let performanceStats = { attendance_rate: 0, average_rating: 0, skills: [] as string[] };
             try {
-                const perfResponse = await api.get(`/analytics/intern/${intern.user.id}/performance-summary/`);
-                performanceStats = perfResponse.data || { attendance_rate: 0, average_rating: 0 };
+                const perfResponse = await api.get(`/analytics/performance/dashboard/${intern.user.id}/`);
+                const data = perfResponse.data;
+                const metrics = data?.metrics;
+                if (metrics) {
+                    performanceStats.attendance_rate = Math.round((metrics.engagement || 0) * 100);
+                    performanceStats.average_rating = metrics.avg_quality || 0;
+                }
+                
+                // Extract skills from learning path if available
+                if (data?.learning_path?.milestones) {
+                    performanceStats.skills = data.learning_path.milestones.map((m: any) => m.skill || m.area).filter(Boolean);
+                }
             } catch (e) {
                 console.error('Error fetching performance:', e);
             }
@@ -146,12 +164,12 @@ const InternList: React.FC = () => {
                     email: intern.user.email,
                     full_name: intern.user.full_name,
                     role: intern.user.role,
-                    department: profile.university || ''
+                    department: intern.user.department || profile.university || ''
                 },
                 university: profile.university || intern.university || '',
                 phone_number: profile.phone_number || intern.phone_number || '',
                 status: profile.status || intern.status || 'ACTIVE',
-                skills: profile.skills || intern.skills || [],
+                skills: performanceStats.skills.length > 0 ? performanceStats.skills : (profile.skills || intern.skills || []),
                 gpa: profile.gpa,
                 graduation_year: profile.graduation_year,
                 github_profile: profile.github_profile,
@@ -163,12 +181,12 @@ const InternList: React.FC = () => {
             });
         } catch (err) {
             console.error('Error fetching intern profile:', err);
-            // Fallback to basic data
+            // Fallback to basic data using provided intern object
             setSelectedIntern({
                 id: intern.id,
                 user: {
                     ...intern.user,
-                    department: intern.university || user?.department || ''
+                    department: intern.user.department || intern.university || user?.department || ''
                 },
                 university: intern.university,
                 phone_number: intern.phone_number,
@@ -510,237 +528,221 @@ const InternList: React.FC = () => {
             </div>
 
             {/* Add Intern Modal */}
-            {showAddModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowAddModal(false)}></div>
-                    <div className="relative bg-[var(--card-bg)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl shadow-purple-500/20 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
-                        {/* Modal Header */}
-                        <div className="sticky top-0 bg-[var(--card-bg)] backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] z-10">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl flex items-center justify-center">
-                                    <UserPlus size={18} className="text-purple-400" />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-bold text-[var(--text-main)]">
-                                        {isManager ? 'Add Existing Intern' : 'Add New Intern'}
-                                    </h2>
-                                    <p className="text-xs text-[var(--text-muted)]">
-                                        {isManager
-                                            ? 'Select an intern from your department'
-                                            : 'Fill in the details below'
-                                        }
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setShowAddModal(false)}
-                                className="p-2 hover:bg-[var(--bg-muted)] rounded-xl transition-colors group"
-                            >
-                                <X size={20} className="text-[var(--text-muted)] group-hover:text-[var(--text-main)] transition-colors" />
-                            </button>
+            <Modal
+                isOpen={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                title={isManager ? 'Add Existing Intern' : 'Add New Intern'}
+                size="lg"
+                gradient="purple"
+            >
+                <form onSubmit={handleAddIntern} className="space-y-6">
+                    {error && (
+                        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
+                            <X size={16} />
+                            {error}
                         </div>
+                    )}
 
-                        <form onSubmit={handleAddIntern} className="p-6 space-y-6">
-                            {error && (
-                                <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
-                                    <X size={16} />
-                                    {error}
-                                </div>
-                            )}
+                    {isManager ? (
+                        // Manager: Show dropdown of available interns
+                        <div className="space-y-4">
+                            <h4 className="text-sm font-semibold text-[var(--text-dim)] flex items-center gap-2">
+                                <div className="w-1 h-4 bg-gradient-to-b from-purple-400 to-pink-400 rounded-full"></div>
+                                Select Intern
+                            </h4>
 
-                            {isManager ? (
-                                // Manager: Show dropdown of available interns
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-semibold text-[var(--text-dim)] flex items-center gap-2">
-                                        <div className="w-1 h-4 bg-gradient-to-b from-purple-400 to-pink-400 rounded-full"></div>
-                                        Select Intern
-                                    </h4>
-
-                                    {availableInterns.length === 0 ? (
-                                        <div className="text-center py-8">
-                                            <div className="w-16 h-16 mx-auto mb-4 bg-[var(--bg-muted)] rounded-full flex items-center justify-center">
-                                                <UserPlus size={24} className="text-[var(--text-muted)]" />
-                                            </div>
-                                            <h3 className="text-lg font-medium text-[var(--text-main)] mb-2">No interns available</h3>
-                                            <p className="text-[var(--text-dim)]">All interns in your department have already been added</p>
-                                        </div>
-                                    ) : (
-                                        <div className="group">
-                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">
-                                                Available Interns
-                                            </label>
-                                            <select
-                                                value={selectedInternId}
-                                                onChange={(e) => setSelectedInternId(Number(e.target.value) || '')}
-                                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                                required
-                                            >
-                                                <option value="">Select an intern...</option>
-                                                {availableInterns.map((intern) => (
-                                                    <option key={intern.id} value={intern.id}>
-                                                        {intern.full_name} ({intern.email})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
+                            {availableInterns.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <div className="w-16 h-16 mx-auto mb-4 bg-[var(--bg-muted)] rounded-full flex items-center justify-center">
+                                        <UserPlus size={24} className="text-[var(--text-muted)]" />
+                                    </div>
+                                    <h3 className="text-lg font-medium text-[var(--text-main)] mb-2">No interns available</h3>
+                                    <p className="text-[var(--text-dim)]">All interns in your department have already been added</p>
                                 </div>
                             ) : (
-                                // Admin: Show full form to create new intern
-                                <>
-                                    {/* User Information Section */}
-                                    <div className="space-y-4">
-                                        <h4 className="text-sm font-semibold text-[var(--text-dim)] flex items-center gap-2">
-                                            <div className="w-1 h-4 bg-gradient-to-b from-purple-400 to-pink-400 rounded-full"></div>
-                                            User Information
-                                        </h4>
-
-                                        <div className="group">
-                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Full Name *</label>
-                                            <input
-                                                type="text"
-                                                required
-                                                value={newIntern.user.full_name}
-                                                onChange={e => setNewIntern(prev => ({
-                                                    ...prev,
-                                                    user: { ...prev.user, full_name: e.target.value }
-                                                }))}
-                                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                                placeholder="John Doe"
-                                            />
-                                        </div>
-
-                                        <div className="group">
-                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Email *</label>
-                                            <div className="relative">
-                                                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                                                <input
-                                                    type="email"
-                                                    required
-                                                    value={newIntern.user.email}
-                                                    onChange={e => setNewIntern(prev => ({
-                                                        ...prev,
-                                                        user: { ...prev.user, email: e.target.value }
-                                                    }))}
-                                                    className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                                    placeholder="john@example.com"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="group">
-                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Password *</label>
-                                            <input
-                                                type="password"
-                                                required
-                                                minLength={8}
-                                                value={newIntern.user.password}
-                                                onChange={e => setNewIntern(prev => ({
-                                                    ...prev,
-                                                    user: { ...prev.user, password: e.target.value }
-                                                }))}
-                                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                                placeholder="••••••••"
-                                            />
-                                            <p className="text-xs text-[var(--text-muted)] mt-1">Minimum 8 characters</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Profile Information Section */}
-                                    <div className="space-y-4 pt-4 border-t border-[var(--border-color)]">
-                                        <h4 className="text-sm font-semibold text-[var(--text-dim)] flex items-center gap-2">
-                                            <div className="w-1 h-4 bg-gradient-to-b from-indigo-400 to-purple-400 rounded-full"></div>
-                                            Profile Information
-                                        </h4>
-
-                                        <div className="group">
-                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">University</label>
-                                            <div className="relative">
-                                                <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                                                <input
-                                                    type="text"
-                                                    value={newIntern.profile.university}
-                                                    onChange={e => setNewIntern(prev => ({
-                                                        ...prev,
-                                                        profile: { ...prev.profile, university: e.target.value }
-                                                    }))}
-                                                    className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                                    placeholder="Stanford University"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="group">
-                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Phone Number</label>
-                                            <div className="relative">
-                                                <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                                                <input
-                                                    type="text"
-                                                    value={newIntern.profile.phone_number}
-                                                    onChange={e => setNewIntern(prev => ({
-                                                        ...prev,
-                                                        profile: { ...prev.profile, phone_number: e.target.value }
-                                                    }))}
-                                                    className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                                    placeholder="+1 (555) 000-0000"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="group">
-                                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Skills</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Python, JavaScript, React..."
-                                                value={newIntern.profile.skills.join(', ')}
-                                                onChange={handleSkillChange}
-                                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                                            />
-                                            <p className="text-xs text-[var(--text-muted)] mt-1">Separate skills with commas</p>
-                                        </div>
-                                    </div>
-                                </>
+                                <div className="group">
+                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">
+                                        Available Interns
+                                    </label>
+                                    <select
+                                        value={selectedInternId}
+                                        onChange={(e) => setSelectedInternId(Number(e.target.value) || '')}
+                                        className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                        required
+                                    >
+                                        <option value="">Select an intern...</option>
+                                        {availableInterns.map((intern) => (
+                                            <option key={intern.id} value={intern.id}>
+                                                {intern.full_name} ({intern.email})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             )}
+                        </div>
+                    ) : (
+                        // Admin: Show create intern form
+                        <>
+                            <div className="space-y-4">
+                                <h4 className="text-sm font-semibold text-[var(--text-dim)] flex items-center gap-2">
+                                    <div className="w-1 h-4 bg-gradient-to-b from-purple-400 to-pink-400 rounded-full"></div>
+                                    Basic Information
+                                </h4>
 
-                            {/* Actions */}
-                            <div className="flex gap-3 pt-4">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={() => setShowAddModal(false)}
-                                    fullWidth
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    gradient="purple"
-                                    loading={submitting}
-                                    disabled={isManager && availableInterns.length === 0}
-                                    fullWidth
-                                >
-                                    {isManager ? 'Add Intern' : 'Create Intern'}
-                                </Button>
+                                <div className="group">
+                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Full Name *</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={newIntern.user.full_name}
+                                        onChange={e => setNewIntern(prev => ({
+                                            ...prev,
+                                            user: { ...prev.user, full_name: e.target.value }
+                                        }))}
+                                        className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                        placeholder="John Doe"
+                                    />
+                                </div>
+
+                                <div className="group">
+                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Email *</label>
+                                    <div className="relative">
+                                        <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                                        <input
+                                            type="email"
+                                            required
+                                            value={newIntern.user.email}
+                                            onChange={e => setNewIntern(prev => ({
+                                                ...prev,
+                                                user: { ...prev.user, email: e.target.value }
+                                            }))}
+                                            className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                            placeholder="john@example.com"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="group">
+                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Password *</label>
+                                    <input
+                                        type="password"
+                                        required
+                                        minLength={8}
+                                        value={newIntern.user.password}
+                                        onChange={e => setNewIntern(prev => ({
+                                            ...prev,
+                                            user: { ...prev.user, password: e.target.value }
+                                        }))}
+                                        className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                        placeholder="••••••••"
+                                    />
+                                    <p className="text-xs text-[var(--text-muted)] mt-1">Minimum 8 characters</p>
+                                </div>
                             </div>
-                        </form>
+
+                            {/* Profile Information Section */}
+                            <div className="space-y-4 pt-4 border-t border-[var(--border-color)]">
+                                <h4 className="text-sm font-semibold text-[var(--text-dim)] flex items-center gap-2">
+                                    <div className="w-1 h-4 bg-gradient-to-b from-indigo-400 to-purple-400 rounded-full"></div>
+                                    Profile Information
+                                </h4>
+
+                                <div className="group">
+                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">University</label>
+                                    <div className="relative">
+                                        <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                                        <input
+                                            type="text"
+                                            value={newIntern.profile.university}
+                                            onChange={e => setNewIntern(prev => ({
+                                                ...prev,
+                                                profile: { ...prev.profile, university: e.target.value }
+                                            }))}
+                                            className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                            placeholder="Stanford University"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="group">
+                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Phone Number</label>
+                                    <div className="relative">
+                                        <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                                        <input
+                                            type="text"
+                                            value={newIntern.profile.phone_number}
+                                            onChange={e => setNewIntern(prev => ({
+                                                ...prev,
+                                                profile: { ...prev.profile, phone_number: e.target.value }
+                                            }))}
+                                            className="w-full pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                            placeholder="+1 (555) 000-0000"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="group">
+                                    <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Skills</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Python, JavaScript, React..."
+                                        value={newIntern.profile.skills.join(', ')}
+                                        onChange={handleSkillChange}
+                                        className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+                                    />
+                                    <p className="text-xs text-[var(--text-muted)] mt-1">Separate skills with commas</p>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-4">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setShowAddModal(false)}
+                            fullWidth
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            gradient="purple"
+                            loading={submitting}
+                            disabled={isManager && availableInterns.length === 0}
+                            fullWidth
+                        >
+                            {isManager ? 'Add Intern' : 'Create Intern'}
+                        </Button>
                     </div>
-                </div>
-            )}
+                </form>
+            </Modal>
 
             {/* View Profile Modal */}
-            {showProfileModal && selectedIntern && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowProfileModal(false)}></div>
-                    <div className="relative bg-[var(--card-bg)] backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl shadow-purple-500/20 w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-scale-in flex flex-col">
-                        {/* Modal Header */}
-                        <div className="sticky top-0 bg-[var(--card-bg)] backdrop-blur-xl flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] z-10 shrink-0">
-                            <div className="flex items-center gap-4">
+            <Modal
+                isOpen={showProfileModal}
+                onClose={() => setShowProfileModal(false)}
+                title={selectedIntern ? selectedIntern.user?.full_name : 'Loading Profile...'}
+                size="2xl"
+                gradient="blue"
+            >
+                <div className="space-y-8">
+                    {profileLoading ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-4">
+                            <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+                            <p className="text-[var(--text-dim)] animate-pulse font-medium">Fetching detailed insights...</p>
+                        </div>
+                    ) : selectedIntern ? (
+                        <>
+                            {/* Header-like Profile Info */}
+                            <div className="flex items-center gap-4 mb-4">
                                 <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
                                     {getInitials(selectedIntern.user?.full_name || '')}
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-bold text-[var(--text-main)] flex items-center gap-3">
-                                        {selectedIntern.user?.full_name || 'N/A'}
+                                        {selectedIntern.user?.full_name}
                                         {getStatusBadge(selectedIntern.status)}
                                     </h2>
                                     <p className="text-sm text-[var(--text-muted)] mt-1 flex items-center gap-4">
@@ -749,16 +751,7 @@ const InternList: React.FC = () => {
                                     </p>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => setShowProfileModal(false)}
-                                className="p-2 hover:bg-[var(--bg-muted)] rounded-xl transition-colors group"
-                            >
-                                <X size={20} className="text-[var(--text-muted)] group-hover:text-[var(--text-main)] transition-colors" />
-                            </button>
-                        </div>
-                        
-                        {/* Modal Content */}
-                        <div className="p-6 overflow-y-auto flex-1 bg-[var(--bg-color)]/50 space-y-8">
+
                             {/* Stats Cards */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <Card className="p-4 flex flex-col items-center justify-center text-center bg-gradient-to-br from-purple-500/5 to-transparent border-purple-500/10">
@@ -766,7 +759,7 @@ const InternList: React.FC = () => {
                                         <Star className="text-purple-400" size={20} />
                                     </div>
                                     <div className="text-2xl font-bold text-[var(--text-main)]">
-                                        {selectedIntern.average_rating ? selectedIntern.average_rating.toFixed(1) : 'N/A'}
+                                        {selectedIntern.average_rating !== undefined ? selectedIntern.average_rating.toFixed(1) : 'N/A'}
                                     </div>
                                     <div className="text-xs text-[var(--text-dim)] uppercase tracking-wider font-semibold mt-1">Avg Rating</div>
                                 </Card>
@@ -775,7 +768,7 @@ const InternList: React.FC = () => {
                                         <Clock className="text-blue-400" size={20} />
                                     </div>
                                     <div className="text-2xl font-bold text-[var(--text-main)]">
-                                        {selectedIntern.attendance_rate ? `${selectedIntern.attendance_rate}%` : 'N/A'}
+                                        {selectedIntern.attendance_rate !== undefined ? `${selectedIntern.attendance_rate}%` : 'N/A'}
                                     </div>
                                     <div className="text-xs text-[var(--text-dim)] uppercase tracking-wider font-semibold mt-1">Attendance</div>
                                 </Card>
@@ -867,7 +860,7 @@ const InternList: React.FC = () => {
                                                 ))}
                                             </div>
                                         ) : (
-                                            <p className="text-sm text-[var(--text-dim)] italic">No skills listed</p>
+                                            <p className="text-sm text-[var(--text-dim)]">No skills listed</p>
                                         )}
                                     </Card>
                                 </div>
@@ -926,10 +919,14 @@ const InternList: React.FC = () => {
                                     </Card>
                                 </div>
                             </div>
+                        </>
+                    ) : (
+                        <div className="text-center py-12">
+                            <p className="text-[var(--text-dim)]">Failed to load intern data. Please try again.</p>
                         </div>
-                    </div>
+                    )}
                 </div>
-            )}
+            </Modal>
         </div>
     );
 };

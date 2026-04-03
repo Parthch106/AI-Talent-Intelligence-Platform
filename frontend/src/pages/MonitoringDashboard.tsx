@@ -7,7 +7,7 @@ import {
     OverviewTab, TasksTab, AttendanceTab,
     PerformanceTab, WeeklyReportsTab
 } from '../components/monitoring';
-import { Home, Target, Calendar, TrendingUp, FileText, CheckCircle, ChevronDown } from 'lucide-react';
+import { Home, Target, Calendar, TrendingUp, FileText, CheckCircle, ChevronDown, X, Plus } from 'lucide-react';
 
 // Types
 interface Task {
@@ -66,6 +66,9 @@ interface PerformanceMetric {
     dropout_risk_score: number;
     full_time_readiness_score: number;
     promotion_probability: number;
+    // Added for dashboard compatibility
+    performance_status?: string;
+    reasoning?: string;
 }
 
 interface Intern {
@@ -96,6 +99,9 @@ const MonitoringDashboard: React.FC = () => {
     const [showInternDropdown, setShowInternDropdown] = useState(false);
     const [projects, setProjects] = useState<{id: number; project: {id: number, name: string}; intern: {full_name: string}}[]>([]);
     const [modules, setModules] = useState<{id: number; name: string}[]>([]);
+    const [availableSkills, setAvailableSkills] = useState<string[]>([]);
+    const [skillSearch, setSkillSearch] = useState('');
+    const [showSkillDropdown, setShowSkillDropdown] = useState(false);
     
     // Filtering states shared between tabs
     const [monthFilter, setMonthFilter] = useState<number | 'all'>(new Date().getMonth() + 1);
@@ -138,6 +144,7 @@ const MonitoringDashboard: React.FC = () => {
         } else if (user?.role === 'INTERN') {
             // For interns, fetch data directly
             fetchData();
+            fetchAvailableSkills(user.id);
         }
     }, [user?.role]);
 
@@ -149,6 +156,7 @@ const MonitoringDashboard: React.FC = () => {
                 setSelectedIntern(interns[0].id);
             } else if (selectedIntern) {
                 fetchData();
+                fetchAvailableSkills(selectedIntern);
             }
         } else if (user?.role === 'INTERN') {
             // For interns, always fetch data
@@ -171,6 +179,16 @@ const MonitoringDashboard: React.FC = () => {
             } catch (err) {
                 console.error('Error fetching interns:', err);
             }
+        }
+    };
+
+    const fetchAvailableSkills = async (internId?: number): Promise<void> => {
+        try {
+            const params = internId ? { intern_id: internId } : {};
+            const response = await axios.get('/analytics/skills/', { params });
+            setAvailableSkills(response.data.skills || []);
+        } catch (err) {
+            console.error('Error fetching skills:', err);
         }
     };
     
@@ -222,12 +240,31 @@ const MonitoringDashboard: React.FC = () => {
             const [tasksRes, attendanceRes, performanceRes, reportsRes] = await Promise.all([
                 axios.get('/analytics/tasks/', { params: { intern_id: targetId } }),
                 axios.get('/analytics/attendance/', { params: { intern_id: targetId } }),
-                axios.get('/analytics/performance/', { params: { intern_id: targetId } }),
+                axios.get(`/analytics/performance/dashboard/${targetId}/?all_time=true`),
                 axios.get('/analytics/weekly-reports/', { params: { intern_id: targetId } })
             ]);
             const tasks = Array.isArray(tasksRes.data.tasks) ? tasksRes.data.tasks : [];
             const attendance = Array.isArray(attendanceRes.data.attendance) ? attendanceRes.data.attendance : [];
-            const performance = Array.isArray(performanceRes.data.performance_metrics) ? performanceRes.data.performance_metrics[0] || null : null;
+            
+            // Map dashboard data to PerformanceMetric structure
+            const dashboardData = performanceRes.data;
+            const performance: PerformanceMetric | null = dashboardData ? {
+                overall_performance_score: (dashboardData.performance_score || 0) * 100,
+                productivity_score: (dashboardData.metrics?.completion_rate || 0) * 100,
+                quality_score: (dashboardData.metrics?.quality_score || 0) * 100,
+                engagement_score: (dashboardData.metrics?.engagement || 0) * 100,
+                growth_score: (dashboardData.metrics?.growth_velocity || 0) * 100,
+                task_completion_rate: (dashboardData.metrics?.completion_rate || 0) * 100,
+                attendance_rate: (dashboardData.metrics?.engagement || 0) * 100,
+                dropout_risk: dashboardData.performance_status === 'High Risk' ? 'HIGH' : 
+                             dashboardData.performance_status === 'Struggling' ? 'MEDIUM' : 'LOW',
+                dropout_risk_score: (dashboardData.metrics?.dropout_risk || 0) * 100,
+                full_time_readiness_score: (dashboardData.performance_score || 0) * 100,
+                promotion_probability: (dashboardData.performance_score || 0) * 100,
+                performance_status: dashboardData.performance_status,
+                reasoning: dashboardData.reasoning
+            } : null;
+
             const weeklyReports = Array.isArray(reportsRes.data.weekly_reports) ? reportsRes.data.weekly_reports : [];
 
             setTasks(tasks);
@@ -380,13 +417,30 @@ const MonitoringDashboard: React.FC = () => {
         return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     };
 
+    const toggleSkill = (skill: string) => {
+        setTaskForm(prev => {
+            const exists = prev.skills_required.includes(skill);
+            if (exists) {
+                return { ...prev, skills_required: prev.skills_required.filter(s => s !== skill) };
+            } else {
+                return { ...prev, skills_required: [...prev.skills_required, skill] };
+            }
+        });
+        setSkillSearch('');
+    };
+
+    const filteredSkills = availableSkills.filter(skill => 
+        skill.toLowerCase().includes(skillSearch.toLowerCase()) &&
+        !taskForm.skills_required.includes(skill)
+    );
+
     return (
         <div className="min-h-screen animate-fade-in overflow-visible">
             {/* Header */}
             <div className="bg-[var(--card-bg)] px-8 py-8 backdrop-blur-3xl border-b border-[var(--border-color)] overflow-visible z-30 relative mb-8 rounded-[2rem] mx-6 mt-6 glass-card">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 overflow-visible">
                     <div>
-                        <h1 className="text-4xl font-heading font-black tracking-tighter text-[var(--text-main)] uppercase italic leading-none mb-3">
+                        <h1 className="text-4xl font-heading font-black tracking-tighter text-[var(--text-main)] uppercase leading-none mb-3">
                             Internship <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monitoring</span>
                         </h1>
                         <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--text-dim)]">Operation: Talent Intelligence • Status: Active</p>
@@ -596,14 +650,63 @@ const MonitoringDashboard: React.FC = () => {
                         </div>
                     )}
                     <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Skills Developed (comma-separated)</label>
-                        <input
-                            type="text"
-                            placeholder="e.g., Python, Django, React"
-                            value={taskForm.skills_required.join(', ')}
-                            onChange={(e) => setTaskForm({ ...taskForm, skills_required: e.target.value.split(',').map(s => s.trim()).filter(s => s) })}
-                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                        />
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Skills Developed (Select from list)</label>
+                        <div className="min-h-[44px] p-1.5 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl flex flex-wrap gap-2 focus-within:border-purple-500 transition-all">
+                            {taskForm.skills_required.map(skill => (
+                                <span key={skill} className="flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg text-sm group animate-scale-in">
+                                    {skill}
+                                    <button 
+                                        type="button"
+                                        onClick={() => toggleSkill(skill)}
+                                        className="hover:text-white transition-colors"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </span>
+                            ))}
+                            <div className="flex-1 min-w-[120px] relative">
+                                <input
+                                    type="text"
+                                    placeholder={taskForm.skills_required.length === 0 ? "Search skills..." : ""}
+                                    value={skillSearch}
+                                    onChange={(e) => {
+                                        setSkillSearch(e.target.value);
+                                        setShowSkillDropdown(true);
+                                    }}
+                                    onFocus={() => setShowSkillDropdown(true)}
+                                    className="w-full bg-transparent border-none outline-none text-[var(--text-main)] placeholder-[var(--text-dim)] py-1"
+                                />
+                                {showSkillDropdown && (skillSearch || filteredSkills.length > 0) && (
+                                    <>
+                                        <div 
+                                            className="fixed inset-0 z-[100]" 
+                                            onClick={() => setShowSkillDropdown(false)}
+                                        />
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--bg-muted)] backdrop-blur-xl border border-[var(--border-color)] rounded-xl shadow-2xl z-[101] max-h-[200px] overflow-y-auto custom-scrollbar animate-scale-in">
+                                            {filteredSkills.length > 0 ? (
+                                                <div className="p-1">
+                                                    {filteredSkills.map(skill => (
+                                                        <button
+                                                            key={skill}
+                                                            type="button"
+                                                            onClick={() => toggleSkill(skill)}
+                                                            className="w-full flex items-center justify-between p-2 hover:bg-purple-500/10 rounded-lg text-sm text-left text-[var(--text-dim)] hover:text-[var(--text-main)] transition-colors"
+                                                        >
+                                                            {skill}
+                                                            <Plus size={14} className="opacity-50" />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ) : skillSearch && (
+                                                <div className="p-4 text-center text-[var(--text-muted)] text-sm">
+                                                    No matching skills found
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Due Date</label>

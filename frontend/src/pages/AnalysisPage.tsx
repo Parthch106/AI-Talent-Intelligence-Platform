@@ -684,7 +684,7 @@ const AnalysisPage: React.FC = () => {
                                             {skill.category && <span className="text-[10px] px-1.5 py-0.5 bg-slate-700 rounded text-slate-400">{skill.category}</span>}
                                         </div>
                                     ))}
-                                    {intelligence.structured_resume.skills.length === 0 && <p className="text-slate-500 italic">No skills extracted</p>}
+                                    {intelligence.structured_resume.skills.length === 0 && <p className="text-slate-500">No skills extracted</p>}
                                 </div>
                             </Card>
 
@@ -722,7 +722,7 @@ const AnalysisPage: React.FC = () => {
                                             )}
                                         </div>
                                     ))}
-                                    {intelligence.structured_resume.experience.length === 0 && <p className="text-slate-500 italic">No experience record found</p>}
+                                    {intelligence.structured_resume.experience.length === 0 && <p className="text-slate-500">No experience record found</p>}
                                 </div>
                             </Card>
 
@@ -756,7 +756,7 @@ const AnalysisPage: React.FC = () => {
                                                 </div>
                                             </div>
                                         ))}
-                                        {intelligence.structured_resume.projects.length === 0 && <p className="text-slate-500 italic">No projects found</p>}
+                                        {intelligence.structured_resume.projects.length === 0 && <p className="text-slate-500">No projects found</p>}
                                     </div>
                                 </Card>
 
@@ -798,7 +798,7 @@ const AnalysisPage: React.FC = () => {
                                         )}
 
                                         {intelligence.structured_resume.education.length === 0 && intelligence.structured_resume.certifications.length === 0 && (
-                                            <p className="text-slate-500 italic">No education records found</p>
+                                            <p className="text-slate-500">No education records found</p>
                                         )}
                                     </div>
                                 </Card>
