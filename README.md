@@ -279,6 +279,6 @@ npm run lint     # Run ESLint
 
 ### 🌟 Star this project if you find it useful!
 
-Made with ❤️ by **CSU Internship Program**
+Made with ❤️ by **PARTH CHAUHAN**
 
 </div>
