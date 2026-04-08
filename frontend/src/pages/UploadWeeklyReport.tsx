@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Card, Button, Badge, Modal } from '../components/common';
 import {
     FileText, Upload, CheckCircle, Clock, AlertTriangle,
-    ChevronRight, FileUp, Calendar, Target, TrendingUp, BookOpen
+    ChevronRight, FileUp, Calendar, Target, TrendingUp, BookOpen, Trash2, Eye
 } from 'lucide-react';
 
 interface WeeklyReport {
@@ -18,13 +18,23 @@ interface WeeklyReport {
     challenges: string;
     learnings: string;
     next_week_goals: string;
-    self_rating: number | null;
     is_submitted: boolean;
-    pdf_report?: string;
+    pdf_url?: string;
+    status_mismatch?: boolean;
 }
 
 const UploadWeeklyReport: React.FC = () => {
     const { user } = useAuth();
+    
+    // Helper to get full PDF URL
+    const getFullPdfUrl = (url: string | null | undefined) => {
+        if (!url) return '#';
+        if (url.startsWith('http')) return url;
+        const base = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8000`;
+        const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
+        return `${cleanBase}${url}`;
+    };
+
     const [reports, setReports] = useState<WeeklyReport[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [showModal, setShowModal] = useState(false);
@@ -89,6 +99,27 @@ const UploadWeeklyReport: React.FC = () => {
         } catch (err: any) {
             console.error('Error submitting report:', err);
             setError(err.response?.data?.error || 'Failed to submit report. Please try again.');
+        }
+        setLoading(false);
+    };
+
+    const handleDeleteReport = async (reportId: number) => {
+        if (!window.confirm('Are you sure you want to delete this report? This action cannot be undone.')) {
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+        try {
+            await axios.delete('/analytics/weekly-reports/', {
+                data: { report_id: reportId }
+            });
+            setSuccess('Report deleted successfully');
+            fetchReports();
+            setTimeout(() => setSuccess(''), 5000);
+        } catch (err: any) {
+            console.error('Error deleting report:', err);
+            setError(err.response?.data?.error || 'Failed to delete report');
         }
         setLoading(false);
     };
@@ -240,31 +271,46 @@ const UploadWeeklyReport: React.FC = () => {
                                         </div>
                                     </div>
 
+                                    {report.is_submitted && !report.status_mismatch && (
+                                        <div className="mt-3 flex items-center gap-2 text-emerald-400 bg-emerald-500/5 px-3 py-2 rounded-lg border border-emerald-500/10">
+                                            <CheckCircle size={16} />
+                                            <span className="text-xs font-bold uppercase tracking-wider">Data Synchronized</span>
+                                        </div>
+                                    )}
+
                                     {report.is_submitted && report.accomplishments && (
                                         <div className="pt-3 border-t border-[var(--border-color)]">
                                             <p className="text-sm text-[var(--text-dim)] line-clamp-2">
                                                 {report.accomplishments}
                                             </p>
-                                            {report.self_rating && (
-                                                <div className="flex items-center gap-2 mt-2">
-                                                    <span className="text-sm text-[var(--text-muted)]">Self Rating:</span>
-                                                    <div className="flex items-center gap-1">
-                                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
-                                                            <span
-                                                                key={star}
-                                                                className={`text-sm ${star <= report.self_rating! ? 'text-amber-400' : 'text-[var(--border-color)] opacity-50'}`}
-                                                            >
-                                                                ★
-                                                            </span>
-                                                        ))}
-                                                        <span className="text-[var(--text-main)] ml-1">{report.self_rating}/10</span>
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                     )}
                                 </div>
-                                <ChevronRight size={20} className="text-[var(--text-muted)]" />
+                                <div className="flex items-center gap-2">
+                                    {report.pdf_url && (
+                                        <a
+                                            href={getFullPdfUrl(report.pdf_url)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 rounded-lg transition-colors border border-purple-500/20"
+                                            onClick={(e) => e.stopPropagation()}
+                                            title="View PDF"
+                                        >
+                                            <Eye size={16} />
+                                        </a>
+                                    )}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10 border-red-500/20"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteReport(report.id);
+                                        }}
+                                        icon={<Trash2 size={16} />}
+                                    />
+                                    <ChevronRight size={20} className="text-[var(--text-muted)]" />
+                                </div>
                             </div>
                         </Card>
                     ))

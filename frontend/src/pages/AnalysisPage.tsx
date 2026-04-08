@@ -207,20 +207,29 @@ const AnalysisPage: React.FC = () => {
         setSuccessMessage('');
         try {
             // First, trigger the computation
-            await api.post(`/analytics/intelligence/compute/${internId}/`, {
+            const response = await api.post(`/analytics/intelligence/compute/${internId}/`, {
                 job_role: selectedJobRole
             });
+            
+            // Immediately update with data from POST to show results on cards faster
+            if (response.data) {
+                // If the response follows the expected format or partially matches
+                setIntelligence(prev => ({
+                    ...prev,
+                    ...response.data,
+                    // Ensure scores are prioritized from the response
+                    scores: response.data.scores || prev?.scores
+                }));
+            }
+            
             setSuccessMessage('Intelligence computed successfully!');
             
-            // Then fetch fresh data from GET endpoint to get complete response 
-            // including resume_document and structured_resume
+            // Then fetch complete fresh data from GET endpoint (bypass cache with timestamp)
             try {
-                const fetchResponse = await api.get(`/analytics/intelligence/?intern_id=${internId}&job_role=${selectedJobRole}`);
+                const fetchResponse = await api.get(`/analytics/intelligence/?intern_id=${internId}&job_role=${selectedJobRole}&_t=${Date.now()}`);
                 setIntelligence(fetchResponse.data);
             } catch (fetchError) {
-                // If GET fails, try using the POST response as fallback
-                console.warn('Failed to fetch fresh data, using compute response');
-                // The POST response doesn't have all fields, but at least scores will show
+                console.warn('Failed to fetch complete fresh data, using compute response as fallback');
             }
         } catch (err: any) {
             console.error('Compute Intelligence Error:', err);

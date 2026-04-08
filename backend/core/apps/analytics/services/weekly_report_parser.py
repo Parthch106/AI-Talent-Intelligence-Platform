@@ -12,8 +12,11 @@ Supports multiple formats including the standard format:
 """
 
 import re
+import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class WeeklyReportParser:
@@ -30,13 +33,13 @@ class WeeklyReportParser:
     
     # Patterns for intern name
     INTERN_NAME_PATTERN = re.compile(
-        r'Intern\s*Name[:\s]*([A-Za-z\s]+)',
+        r'(?:Intern(?:\s*Name)?|INTERN)[:\s]*(?:\n|\s)*([A-Za-z\s\.\,\-]+?)(?=\s+DATE|[\n\r]|$)',
         re.IGNORECASE
     )
     
     # Patterns for project title
     PROJECT_TITLE_PATTERN = re.compile(
-        r'Project\s*Title[:\s]*([A-Za-z0-9\s]+)',
+        r'(?:Project(?:\s*Title)?|PROJECT)[:\s]*(?:\n|\s)*([A-Za-z0-9\s\-\._\&]+?)(?=\s+[\n\r]|$)',
         re.IGNORECASE
     )
     
@@ -46,20 +49,32 @@ class WeeklyReportParser:
         re.IGNORECASE | re.DOTALL
     )
     
+    # Standard delimiters for sections (labels) - used with lookahead
+    DELIM = r'(?:I\.|II\.|III\.|IV\.|V\.|VI\.|VII\.|V\.\s*KEY|Problems?\s*Faced|Tasks?\s*In\s*Progress|InProgress|Ongoing|Ongoing\s*Development|Challenges?|Blocked|Impediments|Blockers|Solutions?\s*Found|Learnings?|Next\s*day|Plans?\s*for\s*Tomorrow|Tomorrow|Rating|SELF\s*EVALUATION|Next\s*Week\s*Goals|FOR\s*NEXT\s*PERIOD)[:\s\*\-\)]*(?:\n|$)'
+
     # Section patterns
     SECTIONS = {
         'tasks_completed': [
-            r'(?:Tasks?\s*Completed|Completed\s*Tasks?|Accomplishments?)[:\s]*(.*?)(?=(?:Problems?\s*Faced|Challenges?|Difficulties?|Issues?)[:\s]*(?:\n|$))',
-            r'(?:Tasks?\s*Completed\s*Today|Today['']?s\s*Tasks?)[:\s]*(.*?)(?=(?:Problems?\s*Faced|Challenges?)[:\s]*(?:\n|$))',
+            r'COMPLETED\s*TASKS[:\s\*\-\)]*(.*?)(?=(?:' + DELIM + ')|\Z)',
+            r'(?:I\.\s*)?(?:Tasks?\s*Completed|Completed\s*Tasks?|Accomplishments?|ACCOMPLISHMENTS)[:\s\*\-\)]*(.*?)(?=(?:' + DELIM + ')|\Z)',
+        ],
+        'tasks_in_progress': [
+            r'(?:II\.\s*)?(?:Tasks?\s*(?:In\s*Progress|InProgress|Ongoing)|InProgress|Tasks?\s*Started|Ongoing\s*(?:Development|Tasks?))[:\s\*\-\)]*(.*?)(?=(?:' + DELIM + ')|\Z)',
+        ],
+        'tasks_blocked': [
+            r'(?:III\.\s*)?(?:Tasks?\s*Blocked|Blocked|Blocked\s*Tasks?|Impediments|Blockers|IMPEDIMENTS)[:\s\*\-\)]*(.*?)(?=(?:' + DELIM + ')|\Z)',
         ],
         'challenges': [
-            r'(?:Problems?\s*Faced|Challenges?|Difficulties?|Issues?)[:\s]*(.*?)(?=(?:Solutions?\s*Found|Learnings?|Next\s*day|Plans?\s*for\s*Tomorrow|Tomorrow)[:\s]*(?:\n|$))',
+            r'(?:IV\.\s*)?(?:Problems?\s*Faced|Challenges?|Difficulties?|Issues?|CHALLENGES)[:\s\*\-\)]*(.*?)(?=(?:' + DELIM + ')|\Z)',
+            r'V\.\s*KEY\s*Challenges\s*ENCOUNTERED[:\s\*\-\)]*(.*?)(?=(?:' + DELIM + ')|\Z)',
         ],
         'learnings': [
-            r'(?:Solutions?\s*Found|Learnings?|What\s+(?:I|we)\s+learned)[:\s]*(.*?)(?=(?:Plans?\s*for\s*Tomorrow|Tomorrow|Upcoming)[:\s]*(?:\n|$))',
+            r'(?:V\.\s*)?(?:Solutions?\s*Found|Learnings?|What\s+(?:I|we)\s+learned|KEY\s*LEARNINGS)[:\s\*\-\)]*(.*?)(?=(?:' + DELIM + ')|\Z)',
+            r'V\.\s*KEY\s*Learnings[:\s\*\-\)]*(.*?)(?=(?:' + DELIM + ')|\Z)',
         ],
         'next_week_goals': [
-            r'(?:Plans?\s*(?:for\s*)?Tomorrow|Tomorrow['']?s\s*Plans?|Upcoming\s*Tasks?|Next\s*Week)[:\s]*(.*?)(?=\n\n|\Z)',
+            r'(?:VI\.\s*)?(?:Plans?\s*(?:for\s*)?Tomorrow|Tomorrow[\']?s\s*Plans?|Upcoming\s*Tasks?|Next\s*Week|Goals?\s*for\s*Next\s*Week|STRATEGIC\s*GOALS)[:\s\*\-\)]*(.*?)(?=(?:' + DELIM + ')|\Z)',
+            r'V\.\s*KEY\s*Next\s*Week\s*Goals\s*FOR\s*NEXT\s*PERIOD[:\s\*\-\)]*(.*?)(?=(?:' + DELIM + ')|\Z)',
         ],
     }
     
@@ -87,13 +102,27 @@ class WeeklyReportParser:
             'intern_name': self._extract_intern_name(text),
             'project_title': self._extract_project_title(text),
             'date': self._extract_date(text),
-            'tasks_completed': self._extract_tasks_completed(text),
+            'tasks_completed_count': 0, # Will be set by extraction
+            'tasks_in_progress': self._extract_section(text, 'tasks_in_progress'),
+            'tasks_blocked': self._extract_section(text, 'tasks_blocked'),
             'challenges': self._extract_section(text, 'challenges'),
             'learnings': self._extract_section(text, 'learnings'),
             'next_week_goals': self._extract_section(text, 'next_week_goals'),
-            'self_rating': None,  # Will be calculated or left blank
             'raw_text': text[:2000] if len(text) > 2000 else text,
         }
+        
+        # Extract tasks and count
+        tasks_text = self._extract_tasks_completed(text)
+        result['tasks_completed'] = tasks_text
+        
+        # Simple count based on newlines or bullet points if present, or just use 1 if text exists
+        if tasks_text:
+            items = [t for t in tasks_text.split('\n') if t.strip()]
+            result['tasks_completed_count'] = len(items) if items else 1
+        
+        # Set compatibility fields
+        result['tasks_in_progress_count'] = 1 if result['tasks_in_progress'] else 0
+        result['tasks_blocked_count'] = 1 if result['tasks_blocked'] else 0
         
         # Set week dates from extracted date
         if result['date']:
@@ -108,9 +137,13 @@ class WeeklyReportParser:
     
     def _clean_text(self, text: str) -> str:
         """Clean and normalize text."""
+        # Remove specialized page headers/footers from the Professional format
+        text = re.sub(r'AI TALENT INTELLIGENCE PLATFORM.*?PRIVATE & CONFIDENTIAL', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'Weekly Internship Performance Report.*?Page \d+ of \d+', '', text, flags=re.IGNORECASE)
+        
         # Remove excessive whitespace
         text = re.sub(r'\n{3,}', '\n\n', text)
-        # Remove page numbers
+        # Remove page numbers and other artifacts
         text = re.sub(r'\n\s*\d+\s*\n', '\n', text)
         # Normalize dates
         text = re.sub(r'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})', r'\1/\2/\3', text)
@@ -126,10 +159,11 @@ class WeeklyReportParser:
             'date': '',
             'tasks_completed': '',
             'tasks_completed_count': 0,
+            'tasks_in_progress': 0,
+            'tasks_blocked': 0,
             'challenges': '',
             'learnings': '',
             'next_week_goals': '',
-            'self_rating': None,
             'raw_text': '',
         }
     
@@ -172,8 +206,9 @@ class WeeklyReportParser:
             match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
             if match:
                 section_text = match.group(1).strip()
-                # Extract numbered tasks
-                task_items = re.findall(r'(\d+)[\.\)]\s*(.+?)(?=\d+[\.\)]|$)', section_text, re.IGNORECASE | re.DOTALL)
+                # Extract numbered tasks (e.g., 1., 1), or just 1 followed by space)
+                # Look for numbers at the start or preceded by whitespace
+                task_items = re.findall(r'(?:^|\s+)(\d+)[\.\)]?[\s\t]+(.+?)(?=\s+\d+[\.\)]?[\s\t]+|$)', section_text, re.IGNORECASE | re.DOTALL)
                 
                 if task_items:
                     for num, task in task_items:
@@ -181,7 +216,7 @@ class WeeklyReportParser:
                         task = re.sub(r'\n+', ' ', task)  # Replace newlines with spaces
                         task = re.sub(r'\s+', ' ', task)   # Normalize spaces
                         if len(task) > 3:
-                            tasks.append(task)
+                            tasks.append(f"{num}. {task}")
                     break
                 else:
                     # If no numbered tasks, return the section as-is
@@ -207,6 +242,7 @@ class WeeklyReportParser:
         return ''
 
 
+
 def extract_text_from_pdf(pdf_file) -> str:
     """
     Extract text from a PDF file.
@@ -218,6 +254,23 @@ def extract_text_from_pdf(pdf_file) -> str:
         Extracted text from the PDF
     """
     try:
+        # Try using pdfplumber (Usually better layout preservation)
+        import pdfplumber
+        
+        with pdfplumber.open(pdf_file) as pdf:
+            text = ''
+            for page in pdf.pages:
+                text += page.extract_text() + '\n'
+            
+            # If text extraction was successful, return it
+            if text.strip():
+                return text.strip()
+    
+    except Exception:
+        # Fallback to PyPDF2 if pdfplumber fails or is not available
+        pass
+
+    try:
         # Try using PyPDF2
         import PyPDF2
         
@@ -227,20 +280,7 @@ def extract_text_from_pdf(pdf_file) -> str:
             text += page.extract_text() + '\n'
         return text.strip()
     
-    except ImportError:
-        pass
-    
-    try:
-        # Try using pdfplumber
-        import pdfplumber
-        
-        with pdfplumber.open(pdf_file) as pdf:
-            text = ''
-            for page in pdf.pages:
-                text += page.extract_text() + '\n'
-        return text.strip()
-    
-    except ImportError:
+    except Exception:
         pass
     
     # Fallback: return empty string if no PDF library available
@@ -250,16 +290,21 @@ def extract_text_from_pdf(pdf_file) -> str:
 def parse_weekly_report(pdf_file) -> Dict[str, Any]:
     """
     Parse a weekly report PDF file and extract structured data.
-    
-    Args:
-        pdf_file: Django UploadedFile object containing the PDF
-        
-    Returns:
-        Dictionary containing parsed weekly report data
+    Uses LLM parsing as primary and Regex as fallback.
     """
     # Extract text from PDF
     text = extract_text_from_pdf(pdf_file)
     
-    # Parse the extracted text
-    parser = WeeklyReportParser()
-    return parser.parse(text)
+    if not text or len(text.strip()) < 20:
+        return WeeklyReportParser()._empty_result()
+
+    # Try LLM Parser First
+    try:
+        from .llm_weekly_report_parser import llm_weekly_report_parser
+        logger.info("Using LLM-based weekly report parser")
+        return llm_weekly_report_parser.parse(text)
+    except Exception as e:
+        logger.warning(f"LLM parsing failed, falling back to regex: {e}")
+        # Fallback to Regex Parser
+        parser = WeeklyReportParser()
+        return parser.parse(text)

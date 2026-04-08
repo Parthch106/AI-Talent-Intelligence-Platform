@@ -269,38 +269,53 @@ const Dashboard: React.FC = () => {
                     <div className="space-y-3">
                         {alerts.length > 0 ? (
                             alerts.map((alert, i) => (
-                                <div key={i} className={`p-4 rounded-xl border ${
-                                    alert.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20' :
-                                    alert.type === 'error' ? 'bg-red-500/10 border-red-500/20' :
-                                    'bg-blue-500/10 border-blue-500/20'
-                                }`}>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className={`w-2 h-2 rounded-full animate-pulse ${
-                                            alert.type === 'warning' ? 'bg-amber-500' :
-                                            alert.type === 'error' ? 'bg-red-500' :
-                                            'bg-blue-500'
-                                        }`}></div>
-                                        <span className={`text-sm font-medium ${
-                                            alert.type === 'warning' ? 'text-amber-400' :
-                                            alert.type === 'error' ? 'text-red-400' :
-                                            'text-blue-400'
-                                        }`}>
-                                            {alert.title}
-                                        </span>
+                                <div 
+                                    key={i} 
+                                    className={`p-4 rounded-xl border transition-all ${alert.link ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]' : ''} ${
+                                        alert.type === 'critical' ? 'bg-red-500/10 border-red-500/20 group hover:border-red-500/40' :
+                                        alert.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20 group hover:border-amber-500/40' :
+                                        alert.type === 'insight' ? 'bg-indigo-500/10 border-indigo-500/20 group hover:border-indigo-500/40' :
+                                        'bg-blue-500/10 border-blue-500/20 group hover:border-blue-500/40'
+                                    }`}
+                                    onClick={() => alert.link && navigate(alert.link)}
+                                >
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-2 h-2 rounded-full animate-pulse ${
+                                                alert.type === 'critical' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' :
+                                                alert.type === 'warning' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' :
+                                                alert.type === 'insight' ? 'bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.5)]' :
+                                                'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]'
+                                            }`}></div>
+                                            <span className={`text-xs font-black uppercase tracking-widest ${
+                                                alert.type === 'critical' ? 'text-red-400' :
+                                                alert.type === 'warning' ? 'text-amber-400' :
+                                                alert.type === 'insight' ? 'text-indigo-400' :
+                                                'text-blue-400'
+                                            }`}>
+                                                {alert.title}
+                                            </span>
+                                        </div>
+                                        {alert.link && <ArrowRight size={12} className="text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" />}
                                     </div>
-                                    <p className="text-sm text-[var(--text-dim)]">
+                                    <p className="text-sm font-bold text-[var(--text-main)] italic leading-tight mb-1">
                                         {alert.message}
                                     </p>
+                                    {alert.link && (
+                                        <span className="text-[10px] font-black uppercase tracking-tighter text-purple-400/60 group-hover:text-purple-400 transition-colors">
+                                            Take Action &gt;
+                                        </span>
+                                    )}
                                 </div>
                             ))
                         ) : (
-                            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                                    <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">All Clear</span>
+                            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col items-center justify-center py-8 text-center">
+                                <div className="p-3 bg-emerald-500/20 rounded-full mb-3">
+                                    <CheckCircle2 size={24} className="text-emerald-400" />
                                 </div>
-                                <p className="text-sm text-[var(--text-dim)]">
-                                    No alerts at this time.
+                                <h4 className="text-sm font-black uppercase tracking-widest text-emerald-400 mb-1">All Clear</h4>
+                                <p className="text-xs font-bold text-[var(--text-dim)] uppercase tracking-tighter">
+                                    No immediate alerts at this time.
                                 </p>
                             </div>
                         )}

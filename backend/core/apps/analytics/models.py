@@ -217,13 +217,6 @@ class WeeklyReport(models.Model):
         help_text="Goals for next week"
     )
     
-    # Self Assessment
-    self_rating = models.FloatField(
-        null=True,
-        blank=True,
-        help_text="Self rating (1-5)"
-    )
-    
     # Mentor Review
     mentor_comments = models.TextField(blank=True)
     mentor_rating = models.FloatField(
@@ -231,7 +224,7 @@ class WeeklyReport(models.Model):
         blank=True,
         help_text="Mentor rating (1-5)"
     )
-    
+
     # Submission Status
     is_submitted = models.BooleanField(default=False)
     submitted_at = models.DateTimeField(null=True, blank=True)

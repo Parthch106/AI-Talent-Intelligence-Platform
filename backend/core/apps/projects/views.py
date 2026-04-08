@@ -93,6 +93,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         num_suggestions = request.data.get('num_suggestions', 3)
         description = request.data.get('description', '')
         skills = request.data.get('skills', '')
+        duration = request.data.get('duration', '3 months')
 
         if not department:
             return Response(
@@ -108,7 +109,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 num_suggestions=num_suggestions,
                 include_modules=True,
                 description=description,
-                skills=skills
+                skills=skills,
+                duration=duration
             )
 
             if 'error' in result:
@@ -256,15 +258,19 @@ class ProjectModuleViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         project_id = self.request.query_params.get('project_id')
+        intern_id = self.request.query_params.get('intern_id')
 
         qs = ProjectModule.objects.all()
         if project_id:
             qs = qs.filter(project_id=project_id)
+        
+        if intern_id:
+            qs = qs.filter(project__assignments__intern_id=intern_id)
 
         if user.role == 'INTERN':
             # Modules for projects they are assigned to
-            return qs.filter(project__assignments__intern=user)
+            return qs.filter(project__assignments__intern=user).distinct()
         elif user.role == 'MANAGER':
             # Modules for projects they mentor
-            return qs.filter(project__mentor=user)
-        return qs
+            return qs.filter(project__mentor=user).distinct()
+        return qs.distinct()

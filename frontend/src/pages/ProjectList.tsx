@@ -6,6 +6,8 @@ import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 interface User {
     id: number;
@@ -89,7 +91,8 @@ const ProjectList: React.FC = () => {
     const [generatingAISuggestions, setGeneratingAISuggestions] = useState(false);
     const [aiInput, setAiInput] = useState({
         description: '',
-        skills: ''
+        skills: '',
+        duration: '3 months'
     });
     const [aiSuggestedModules, setAiSuggestedModules] = useState<any[]>([]);
 
@@ -334,7 +337,8 @@ const ProjectList: React.FC = () => {
             const requestData: any = {
                 department: department,
                 experience_level: 'BEGINNER',
-                num_suggestions: 1  // Reduced to avoid token limits
+                num_suggestions: 1,  // Reduced to avoid token limits
+                duration: aiInput.duration
             };
 
             // Add optional fields if provided
@@ -356,7 +360,7 @@ const ProjectList: React.FC = () => {
             setShowAISuggestionsModal(true);
 
             // Reset input for next use
-            setAiInput({ description: '', skills: '' });
+            setAiInput({ description: '', skills: '', duration: '3 months' });
         } catch (err: any) {
             console.error('AI suggestion error:', err);
             setError(err.response?.data?.error || 'Failed to generate AI suggestions');
@@ -649,25 +653,39 @@ const ProjectList: React.FC = () => {
                         <div className="group">
                             <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Start Date *</label>
                             <div className="relative">
-                                <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                                <input
-                                    type="date"
+                                <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] z-10" />
+                                <DatePicker
+                                    selected={newProject.start_date ? new Date(newProject.start_date) : null}
+                                    onChange={(date: Date | null) => {
+                                        if (date) {
+                                            const formattedDate = date.toISOString().split('T')[0];
+                                            setNewProject(prev => ({ ...prev, start_date: formattedDate }));
+                                        }
+                                    }}
+                                    dateFormat="yyyy-MM-dd"
+                                    className="datepicker-input"
+                                    placeholderText="Select start date"
                                     required
-                                    value={newProject.start_date}
-                                    onChange={e => setNewProject(prev => ({ ...prev, start_date: e.target.value }))}
-                                    className="w-full pl-12 pr-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
                                 />
                             </div>
                         </div>
                         <div className="group">
                             <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">End Date</label>
                             <div className="relative">
-                                <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                                <input
-                                    type="date"
-                                    value={newProject.end_date}
-                                    onChange={e => setNewProject(prev => ({ ...prev, end_date: e.target.value }))}
-                                    className="w-full pl-12 pr-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
+                                <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] z-10" />
+                                <DatePicker
+                                    selected={newProject.end_date ? new Date(newProject.end_date) : null}
+                                    onChange={(date: Date | null) => {
+                                        if (date) {
+                                            const formattedDate = date.toISOString().split('T')[0];
+                                            setNewProject(prev => ({ ...prev, end_date: formattedDate }));
+                                        } else {
+                                            setNewProject(prev => ({ ...prev, end_date: '' }));
+                                        }
+                                    }}
+                                    dateFormat="yyyy-MM-dd"
+                                    className="datepicker-input"
+                                    placeholderText="Select end date"
                                 />
                             </div>
                         </div>
@@ -804,13 +822,41 @@ const ProjectList: React.FC = () => {
                             </select>
                         </div>
                         <div className="group">
-                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Start Date</label>
-                            <input
-                                type="date"
-                                required
-                                value={editProject.start_date || ''}
-                                onChange={e => setEditProject(prev => ({ ...prev, start_date: e.target.value }))}
-                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
+                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Start Date *</label>
+                            <div className="relative">
+                                <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] z-10" />
+                                <DatePicker
+                                    selected={editProject.start_date ? new Date(editProject.start_date) : null}
+                                    onChange={(date: Date | null) => {
+                                        if (date) {
+                                            const formattedDate = date.toISOString().split('T')[0];
+                                            setEditProject(prev => ({ ...prev, start_date: formattedDate }));
+                                        }
+                                    }}
+                                    dateFormat="yyyy-MM-dd"
+                                    className="datepicker-input"
+                                    required
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="group">
+                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">End Date</label>
+                        <div className="relative">
+                            <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] z-10" />
+                            <DatePicker
+                                selected={editProject.end_date ? new Date(editProject.end_date) : null}
+                                onChange={(date: Date | null) => {
+                                    if (date) {
+                                        const formattedDate = date.toISOString().split('T')[0];
+                                        setEditProject(prev => ({ ...prev, end_date: formattedDate }));
+                                    } else {
+                                        setEditProject(prev => ({ ...prev, end_date: '' }));
+                                    }
+                                }}
+                                dateFormat="yyyy-MM-dd"
+                                className="datepicker-input"
                             />
                         </div>
                     </div>
@@ -1184,6 +1230,22 @@ const ProjectList: React.FC = () => {
                         <p className="text-xs text-[var(--text-dim)] mt-1">
                             E.g., "React, Node.js, Python" or "HTML, CSS, JavaScript"
                         </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-main)] mb-2">
+                            Project Duration
+                        </label>
+                        <select
+                            value={aiInput.duration}
+                            onChange={(e) => setAiInput(prev => ({ ...prev, duration: e.target.value }))}
+                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
+                        >
+                            <option value="1 month">1 Month</option>
+                            <option value="2 months">2 Months</option>
+                            <option value="3 months">3 Months</option>
+                            <option value="6 months">6 Months</option>
+                        </select>
                     </div>
 
                     <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">

@@ -22,31 +22,31 @@ const Sidebar: React.FC = () => {
 
     const mainNavItems: NavItem[] = [
         { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
-        { name: 'Profile', path: '/profile', icon: <User size={20} /> },
-        { name: 'Interns', path: '/interns', icon: <Users size={20} /> },
-        { name: 'Projects', path: '/projects', icon: <FolderKanban size={20} /> },
-        { name: 'Feedback', path: '/feedback', icon: <MessageSquare size={20} /> },
-        { name: 'Documents', path: '/documents', icon: <FileText size={20} /> },
+        { name: 'Profile', path: '/account/profile', icon: <User size={20} /> },
+        { name: 'Interns', path: '/directory/interns', icon: <Users size={20} /> },
+        { name: 'Projects', path: '/directory/projects', icon: <FolderKanban size={20} /> },
+        { name: 'Feedback', path: '/directory/feedback', icon: <MessageSquare size={20} /> },
+        { name: 'Documents', path: '/directory/documents', icon: <FileText size={20} /> },
     ];
 
     const adminNavItems: NavItem[] = [
-        { name: 'Analysis', path: '/analysis', icon: <Brain size={20} />, roles: ['ADMIN', 'MANAGER'] },
-        { name: 'Learning Path', path: '/learning-path', icon: <BookOpen size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
-        { name: 'Performance', path: '/performance', icon: <Activity size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
+        { name: 'Analysis', path: '/analytics/skill-intelligence', icon: <Brain size={20} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Learning Path', path: '/analytics/learning-paths', icon: <BookOpen size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
+        { name: 'Performance', path: '/analytics/performance', icon: <Activity size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
     ];
 
     // Monitoring sub-pages (separate pages, not tabs)
     const monitoringNavItems: NavItem[] = [
-        { name: 'Overview', path: '/monitoring', icon: <Home size={18} />, roles: ['ADMIN', 'MANAGER'] },
-        { name: 'Tasks', path: '/tasks', icon: <CheckSquare size={18} />, roles: ['ADMIN', 'MANAGER'] },
-        { name: 'Attendance', path: '/attendance', icon: <Calendar size={18} />, roles: ['ADMIN', 'MANAGER'] },
-        { name: 'Reports', path: '/reports', icon: <ReportIcon size={18} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Overview', path: '/management/overview', icon: <Home size={18} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Tasks', path: '/management/tasks', icon: <CheckSquare size={18} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Attendance', path: '/management/attendance', icon: <Calendar size={18} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Reports', path: '/management/reports', icon: <ReportIcon size={18} />, roles: ['ADMIN', 'MANAGER'] },
     ];
 
     const internNavItems: NavItem[] = [
-        { name: 'Upload Report', path: '/upload-report', icon: <Upload size={20} />, roles: ['INTERN'] },
-        { name: 'My Tasks', path: '/my-tasks', icon: <Target size={20} />, roles: ['INTERN'] },
-        { name: 'My Attendance', path: '/my-attendance', icon: <Monitor size={20} />, roles: ['INTERN'] },
+        { name: 'Upload Report', path: '/workspace/submit-report', icon: <Upload size={20} />, roles: ['INTERN'] },
+        { name: 'My Tasks', path: '/workspace/my-tasks', icon: <Target size={20} />, roles: ['INTERN'] },
+        { name: 'My Attendance', path: '/workspace/my-attendance', icon: <Monitor size={20} />, roles: ['INTERN'] },
     ];
 
     const isActive = (path: string) => {

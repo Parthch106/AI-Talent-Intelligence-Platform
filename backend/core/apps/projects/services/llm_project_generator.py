@@ -6,6 +6,8 @@ import os
 import json
 import logging
 import requests
+import random
+import uuid
 from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -54,7 +56,8 @@ class LLMProjectGenerator:
         num_suggestions: int = 3,
         include_modules: bool = True,
         description: str = "",
-        skills: str = ""
+        skills: str = "",
+        duration: str = "3 months"
     ) -> Dict[str, Any]:
         """
         Generate project suggestions based on department and experience level.
@@ -64,19 +67,26 @@ class LLMProjectGenerator:
             experience_level: Intern's experience level (BEGINNER, INTERMEDIATE, ADVANCED)
             num_suggestions: Number of project suggestions to generate
             include_modules: Whether to include detailed module breakdown
+            description: Optional detailed project description
+            skills: Optional comma-separated skills
+            duration: Target project duration (default: 3 months)
             
         Returns:
             Dictionary containing project suggestions with modules
         """
-        logger.info(f"LLMProjectGenerator: Generating project suggestions for {department} ({experience_level})")
+        logger.info(f"LLMProjectGenerator: Generating project suggestions for {department} ({experience_level}) for {duration}")
         
+        random_seed = str(uuid.uuid4())[:8]
+
         prompt = self._build_context_prompt(
             department=department,
             experience_level=experience_level,
             num_suggestions=num_suggestions,
             include_modules=include_modules,
             description=description,
-            skills=skills
+            skills=skills,
+            duration=duration,
+            random_seed=random_seed
         )
         
         try:
@@ -92,7 +102,7 @@ class LLMProjectGenerator:
                     {"role": "user", "content": prompt}
                 ],
                 "max_tokens": 2000,
-                "temperature": 0.4
+                "temperature": 0.7
             }
             
             response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=60)
@@ -137,9 +147,11 @@ class LLMProjectGenerator:
         num_suggestions: int,
         include_modules: bool,
         description: str = "",
-        skills: str = ""
+        skills: str = "",
+        duration: str = "3 months",
+        random_seed: str = ""
     ) -> str:
-        """Build a detailed prompt with department context."""
+        """Build the prompt for the LLM."""
         
         # Map experience level to intern level
         level_mapping = {
@@ -148,41 +160,68 @@ class LLMProjectGenerator:
             "ADVANCED": "advanced"
         }
         intern_level = level_mapping.get(experience_level, "beginner")
-        
-        prompt = f"""Generate {num_suggestions} project suggestion(s) for {department} interns.
+        # Calculate actual weeks from duration string
+        weeks = 4  # default 1 month
+        if "month" in duration.lower():
+            try:
+                months = int(''.join(filter(str.isdigit, duration.split("month")[0])))
+                weeks = months * 4
+            except:
+                weeks = 12
+        elif "week" in duration.lower():
+            try:
+                weeks = int(''.join(filter(str.isdigit, duration)))
+            except:
+                weeks = 4
 
-Requirements:
-- 2-4 weeks duration
-- Practical {department} skills
-- 2-3 modules max per project"""
+        # Determine module count based on duration
+        if weeks <= 4:
+            module_count = 2
+        elif weeks <= 8:
+            module_count = 3
+        else:
+            module_count = 4
+
+        prompt = f"""You are a Senior Software Architect. Generate {num_suggestions} substantive, product-focused project suggestion(s) for {department} interns.
+Randomness Seed: {random_seed}
+
+Target Duration: {duration} ({weeks} weeks)
+Difficulty: Moderate Engineering Complexity (Score: 3/5)
+
+Engineering Guidelines:
+- The project output MUST be a concrete product.
+- Modules should be logical components of the product lifecycle.
+- Provide exactly {module_count} engineering modules for a {weeks}-week project.
+- BE ULTRA-CONCISE: Each description must be UNDER 10 words.
+- Set "estimated_duration" to {weeks} in the JSON.
+- Use simple JSON keys.
+
+Intern Level: {experience_level} in {department}.
+"""
 
         # Add optional context if provided
         if description or skills:
-            prompt += f"\nContext: {description or ''} {skills or ''}".strip()
+            prompt += f"Specific Context: {description or ''} {skills or ''}\n"
 
-        prompt += """
-
-Return ONLY valid JSON:
-{
+        prompt += f"""
+Return ONLY a valid JSON object:
+{{
   "projects": [
-    {
-      "name": "Project Name",
-      "description": "Brief description",
-      "estimated_duration": 3,
-      "difficulty": 2,
-      "tech_stack": ["Tech1", "Tech2"],
-      "learning_objectives": ["Learn X", "Learn Y"],
-      "business_value": "Business value",
+    {{
+      "name": "Project Name Here",
+      "description": "One sentence product description.",
+      "estimated_duration": {weeks},
+      "difficulty": 3,
+      "tech_stack": ["Tech1", "Tech2", "Tech3"],
+      "learning_objectives": ["Objective 1", "Objective 2"],
+      "business_value": "One sentence business value.",
       "modules": [
-        {
-          "name": "Module Name",
-          "description": "Brief description",
-          "estimated_hours": 4
-        }
+        {{"name": "Module Name", "description": "Under 10 words.", "estimated_hours": 20}}
       ]
-    }
+    }}
   ]
-}"""
+}}"""
+
         
         return prompt
     
@@ -224,18 +263,11 @@ Return ONLY valid JSON:
                         # Remove any extra text before/after braces
                         json_str = re.sub(r'.*(\{.*\}).*', r'\1', json_str, flags=re.DOTALL)
                         try:
-                            result = json.loads(json_str)
-                        except json.JSONDecodeError:
-                            # Try to find and extract just the JSON part
-                            start_idx = content.find('{')
-                            end_idx = content.rfind('}') + 1
-                            if start_idx != -1 and end_idx > start_idx:
-                                try:
-                                    result = json.loads(content[start_idx:end_idx])
-                                except json.JSONDecodeError:
-                                    raise ValueError("No valid JSON found in response")
-                            else:
-                                raise ValueError("No valid JSON found in response")
+                            # Final attempt: repair and try again
+                            repaired = self._repair_json(json_str)
+                            result = json.loads(repaired)
+                        except:
+                            raise ValueError("No valid JSON found in response")
                 else:
                     raise ValueError("No JSON found in response")
 
@@ -250,9 +282,39 @@ Return ONLY valid JSON:
             return result
 
         except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f"Failed to parse LLM response: {e}")
-            logger.error(f"Response content: {content[:500]}...")
-            return {"error": "Failed to parse project suggestions", "projects": []}
+            # Last ditch effort: simple repair
+            try:
+                repaired = self._repair_json(content)
+                return json.loads(repaired)
+            except:
+                logger.error(f"Failed to parse LLM response: {e}")
+                logger.error(f"Response content: {content[:1000]}...")
+                return {"error": "Failed to parse project suggestions", "projects": []}
+
+    def _repair_json(self, json_str: str) -> str:
+        """Attempt to repair common JSON truncation issues."""
+        json_str = json_str.strip()
+        
+        # If it doesn't even start with {, we can't fix it
+        if not json_str.startswith('{'):
+            return json_str
+            
+        stack = []
+        mapping = {'{': '}', '[': ']'}
+        
+        for char in json_str:
+            if char in mapping:
+                stack.append(char)
+            elif char in mapping.values():
+                if stack and mapping[stack[-1]] == char:
+                    stack.pop()
+        
+        # Close open items in reverse order
+        while stack:
+            opening = stack.pop()
+            json_str += mapping[opening]
+            
+        return json_str
     
     def review_project(
         self,
@@ -330,62 +392,72 @@ Return JSON:
         """Provide fallback project suggestions when LLM fails."""
         logger.info(f"Using fallback suggestions for {department}")
 
-        # Base suggestions by department
-        suggestions = {
-            "Web Development": {
-                "name": "Personal Portfolio Website",
-                "description": "Create a responsive personal portfolio website showcasing projects and skills",
-                "tech_stack": ["HTML", "CSS", "JavaScript", "React"],
-                "learning_objectives": ["Learn responsive design", "Master CSS frameworks", "Implement React components"],
-                "business_value": "Builds personal brand and demonstrates web development skills",
-                "modules": [
-                    {"name": "Setup & Design", "description": "Project setup and UI design", "estimated_hours": 8},
-                    {"name": "Frontend Development", "description": "Implement responsive frontend", "estimated_hours": 12},
-                    {"name": "Deployment", "description": "Deploy to hosting platform", "estimated_hours": 4}
-                ]
-            },
-            "Data Science": {
-                "name": "Data Analysis Dashboard",
-                "description": "Build a dashboard for analyzing and visualizing datasets",
-                "tech_stack": ["Python", "Pandas", "Matplotlib", "Streamlit"],
-                "learning_objectives": ["Learn data manipulation", "Master visualization techniques", "Build interactive dashboards"],
-                "business_value": "Develops data analysis and presentation skills",
-                "modules": [
-                    {"name": "Data Processing", "description": "Clean and process datasets", "estimated_hours": 10},
-                    {"name": "Visualization", "description": "Create charts and graphs", "estimated_hours": 8},
-                    {"name": "Dashboard", "description": "Build interactive dashboard", "estimated_hours": 6}
-                ]
-            }
-        }
-
-        # Default fallback
-        default_suggestion = {
-            "name": "Task Management App",
-            "description": "Build a simple task management application",
-            "tech_stack": ["HTML", "CSS", "JavaScript"],
-            "learning_objectives": ["Learn web development basics", "Practice JavaScript programming"],
-            "business_value": "Develops fundamental programming and project management skills",
-            "modules": [
-                {"name": "UI Design", "description": "Design the user interface", "estimated_hours": 6},
-                {"name": "Core Functionality", "description": "Implement task management features", "estimated_hours": 10},
-                {"name": "Testing", "description": "Test and refine the application", "estimated_hours": 4}
+        # Expanded fallback library for variety
+        library = {
+            "Web Development": [
+                {
+                    "name": "Internal Asset Management System",
+                    "description": "A dashboard for tracking hardware and software licenses across teams.",
+                    "tech_stack": ["React", "Node.js", "PostgreSQL"],
+                },
+                {
+                    "name": "Customer Support Portal",
+                    "description": "A ticketing and knowledge base system for client interactions.",
+                    "tech_stack": ["Next.js", "TailwindCSS", "Supabase"],
+                },
+                {
+                    "name": "Team Collaboration Tool",
+                    "description": "A real-time workspace with shared tasks and documentation.",
+                    "tech_stack": ["React", "Firebase", "Socket.io"],
+                }
+            ],
+            "Data Science": [
+                {
+                    "name": "Predictive Maintenance Engine",
+                    "description": "Analyze sensor data to predict equipment failure before it happens.",
+                    "tech_stack": ["Python", "Pandas", "Scikit-Learn"],
+                },
+                {
+                    "name": "Sentiment Analysis Dashboard",
+                    "description": "Process social media feeds to measure brand perception in real-time.",
+                    "tech_stack": ["Python", "NLTK", "Power BI"],
+                },
+                {
+                    "name": "Supply Chain Optimizer",
+                    "description": "Optimize logistics routes and inventory levels using historical data.",
+                    "tech_stack": ["Python", "NumPy", "Gurobi"],
+                }
             ]
         }
 
-        suggestion = suggestions.get(department, default_suggestion)
+        default_library = [
+            {
+                "name": f"Comprehensive {department} Solution",
+                "description": f"An end-to-end {department} product tailored for enterprise needs.",
+                "tech_stack": ["Python", "React", "Cloud Services"],
+            }
+        ]
+
+        options = library.get(department, default_library)
+        selected = random.choice(options)
 
         return {
             "projects": [{
-                "name": suggestion["name"],
-                "description": suggestion["description"],
-                "estimated_duration": 3,
-                "difficulty": 2,
-                "tech_stack": suggestion["tech_stack"],
-                "learning_objectives": suggestion["learning_objectives"],
-                "business_value": suggestion["business_value"],
-                "modules": suggestion["modules"]
+                "name": selected["name"],
+                "description": selected["description"],
+                "estimated_duration": 12,
+                "difficulty": 3,
+                "tech_stack": selected["tech_stack"],
+                "learning_objectives": ["System Architecture", "Deployment Pipeline", "Core Logic Design"],
+                "business_value": "Accelerates internal workflows and improves data visibility.",
+                "modules": [
+                    {"name": "Architecture & Data Modeling", "description": "Defining relational schemas.", "estimated_hours": 24},
+                    {"name": "Core API & Service Layer", "description": "Implementing backend services.", "estimated_hours": 32},
+                    {"name": "Core UI & Business Logic", "description": "Building components and workflows.", "estimated_hours": 48},
+                    {"name": "Testing & Deployment", "description": "System verification and cloud setup.", "estimated_hours": 24}
+                ]
             }],
-            "summary": f"Fallback suggestion for {department} department"
+            "summary": f"Randomized {department} fallback"
         }
 
 

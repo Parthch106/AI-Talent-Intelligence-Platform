@@ -999,7 +999,6 @@ class WeeklyReportView(APIView):
                 'challenges': report.challenges,
                 'learnings': report.learnings,
                 'next_week_goals': report.next_week_goals,
-                'self_rating': report.self_rating,
                 'is_submitted': report.is_submitted,
                 'submitted_at': report.submitted_at,
                 'is_reviewed': report.is_reviewed,
@@ -1063,44 +1062,67 @@ class WeeklyReportView(APIView):
 
         # Get task data from form or parsed data
         # Note: parsed_data.tasks_completed is the text of tasks, not a count
-        parsed_tasks_text = parsed_data.get('tasks_completed', '')
+        # Safely cast to str in case parser returns integers
+        parsed_tasks_text = str(parsed_data.get('tasks_completed', '') or '')
+        parsed_in_progress_text = str(parsed_data.get('tasks_in_progress', '') or '')
+        parsed_blocked_text = str(parsed_data.get('tasks_blocked', '') or '')
         
-        # For parsed data, use accomplishments for task text and count tasks
+        # For accomplishments, use parsed tasks text or form data
         accomplishments = parsed_tasks_text or report_data.get('accomplishments', '')
         
         # Count tasks from parsed text
+        def count_tasks(text):
+            if not text: return 0
+            # Count numbered tasks (1., 2, 1), etc.) or bulleted tasks (-, *)
+            # Also count lines if the parser already cleaned it into a list
+            matches = re.findall(r'(?m)^(?:\d+[\.\)]?|[\-\*])\s+\w+', text)
+            if matches:
+                return len(matches)
+            
+            # Fallback: count non-empty lines if they seem like tasks
+            lines = [l for l in text.split('\n') if len(l.strip()) > 10]
+            return len(lines)
+
         if parsed_tasks_text:
-            # Count numbered tasks (1., 2., etc.)
-            tasks_completed = len(re.findall(r'\d+[\.\)]', parsed_tasks_text))
-            # Ensure at least 0
-            tasks_completed = max(tasks_completed, 0)
+            tasks_completed = count_tasks(parsed_tasks_text)
         else:
-            tasks_completed = int(report_data.get('tasks_completed', 0))
-        
-        tasks_in_progress = int(report_data.get('tasks_in_progress', parsed_data.get('tasks_in_progress', 0)))
-        tasks_blocked = int(report_data.get('tasks_blocked', parsed_data.get('tasks_blocked', 0)))
+            try:
+                tasks_completed = int(report_data.get('tasks_completed', 0))
+            except (ValueError, TypeError):
+                tasks_completed = 0
+            
+        if parsed_in_progress_text:
+            tasks_in_progress = count_tasks(parsed_in_progress_text)
+        else:
+            try:
+                tasks_in_progress = int(report_data.get('tasks_in_progress', 0))
+            except (ValueError, TypeError):
+                tasks_in_progress = 0
+                
+        if parsed_blocked_text:
+            tasks_blocked = count_tasks(parsed_blocked_text)
+        else:
+            try:
+                tasks_blocked = int(report_data.get('tasks_blocked', 0))
+            except (ValueError, TypeError):
+                tasks_blocked = 0
+
         challenges = report_data.get('challenges', parsed_data.get('challenges', ''))
         learnings = report_data.get('learnings', parsed_data.get('learnings', ''))
         next_week_goals = report_data.get('next_week_goals', parsed_data.get('next_week_goals', ''))
-        
-        # Handle self_rating safely - can be None from parsed data
-        parsed_rating = parsed_data.get('self_rating')
-        form_rating = report_data.get('self_rating')
-        self_rating = None
-        if form_rating:
-            try:
-                self_rating = float(form_rating)
-            except (ValueError, TypeError):
-                pass
-        elif parsed_rating is not None:
-            try:
-                self_rating = float(parsed_rating)
-            except (ValueError, TypeError):
-                pass
 
         # Reset file position for saving
         if hasattr(pdf_file, 'seek'):
             pdf_file.seek(0)
+
+        # Get actual task counts from DB for this week
+        actual_counts = self._get_actual_task_counts(intern.id, week_start_date, week_end_date)
+        
+        # Priority: Database counts for official report records
+        # as requested ("have to be same as db to mention in report")
+        final_completed = actual_counts['completed']
+        final_in_progress = actual_counts['in_progress']
+        final_blocked = actual_counts['blocked']
 
         report, created = WeeklyReport.objects.update_or_create(
             intern=intern,
@@ -1108,14 +1130,13 @@ class WeeklyReportView(APIView):
             defaults={
                 'week_end_date': week_end_date,
                 'pdf_report': pdf_file,
-                'tasks_completed': tasks_completed,
-                'tasks_in_progress': tasks_in_progress,
-                'tasks_blocked': tasks_blocked,
+                'tasks_completed': final_completed,
+                'tasks_in_progress': final_in_progress,
+                'tasks_blocked': final_blocked,
                 'accomplishments': accomplishments,
                 'challenges': challenges,
                 'learnings': learnings,
                 'next_week_goals': next_week_goals,
-                'self_rating': self_rating if self_rating and self_rating > 0 else None,
                 'is_submitted': True,
                 'submitted_at': timezone.now(),
             }
@@ -1135,9 +1156,52 @@ class WeeklyReportView(APIView):
                 'challenges': report.challenges[:100] if report.challenges else '',
                 'learnings': report.learnings[:100] if report.learnings else '',
                 'next_week_goals': report.next_week_goals[:100] if report.next_week_goals else '',
-                'self_rating': report.self_rating,
             }
         }, status=status.HTTP_201_CREATED)
+
+    def delete(self, request):
+        """Delete a weekly report."""
+        user = request.user
+        report_id = request.data.get('report_id') or request.query_params.get('report_id')
+
+        if not report_id:
+            return Response(
+                {'error': 'Report ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            report = WeeklyReport.objects.get(id=report_id)
+        except WeeklyReport.DoesNotExist:
+            return Response(
+                {'error': 'Weekly report not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Permission check:
+        # Intern can delete only their own.
+        # Manager/Admin can delete any.
+        if user.role == User.Role.INTERN and report.intern_id != user.id:
+            return Response(
+                {'error': 'Permission denied: Cannot delete other users reports'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # If manager, check if intern belongs to them
+        if user.role == User.Role.MANAGER:
+            is_valid, error_response = validate_manager_access(user, report.intern_id)
+            if not is_valid:
+                return error_response
+
+        # Delete the associated PDF file if it exists
+        if report.pdf_report:
+            report.pdf_report.delete(save=False)
+            
+        report.delete()
+
+        return Response({
+            'message': 'Weekly report deleted successfully'
+        }, status=status.HTTP_200_OK)
 
 
 class PerformanceMetricsView(APIView):

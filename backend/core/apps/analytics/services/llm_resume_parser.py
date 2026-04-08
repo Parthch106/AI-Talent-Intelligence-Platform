@@ -304,6 +304,7 @@ def llm_parsed_to_resume_section(parsed: Dict) -> Dict[str, Any]:
         all_skills.extend(cat_skills)
     
     result["skills"] = all_skills
+    result["raw_skills"] = skills  # Preserve categories for TalentIntelligenceService
     
     # Safely join skills (ensure all are lists)
     prog_langs = safe_list(skills.get("programming_languages"))

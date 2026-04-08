@@ -7,7 +7,7 @@ from datetime import timedelta
 from .models import Notification, SystemActivity
 from apps.accounts.models import User
 from apps.projects.models import ProjectAssignment
-from apps.analytics.models import TaskTracking, PerformanceMetrics
+from apps.analytics.models import TaskTracking, PerformanceMetrics, WeeklyReport
 import logging
 
 logger = logging.getLogger(__name__)
@@ -263,52 +263,102 @@ class DashboardNotificationsView(APIView):
     def get(self, request):
         """Get dashboard notifications and alerts for the current user."""
         user = request.user
+        now = timezone.now()
         alerts = []
         unread_count = Notification.objects.filter(user=user, is_read=False).count()
 
-        # Generate alerts based on user role
-        if str(user.role) == str(User.Role.ADMIN):
-            # System-wide alerts
-            total_interns = User.objects.filter(role=User.Role.INTERN).count()
-            total_managers = User.objects.filter(role=User.Role.MANAGER).count()
+        # 1. Overdue Tasks Check (Admin/Manager see department/all, Intern sees own)
+        overdue_tasks_qs = TaskTracking.objects.filter(
+            due_date__lt=now,
+            status__in=['ASSIGNED', 'IN_PROGRESS', 'REWORK']
+        )
+
+        if user.role == 'INTERN':
+            my_overdue = overdue_tasks_qs.filter(intern=user)
+            for task in my_overdue[:3]:
+                alerts.append({
+                    'id': f'overdue_{task.id}',
+                    'type': 'critical',
+                    'title': 'Task Overdue',
+                    'message': f'Task "{task.title}" is past its deadline.',
+                    'link': '/workspace/my-tasks'
+                })
+        else:
+            dept_overdue = overdue_tasks_qs
+            if user.role == 'MANAGER':
+                dept_overdue = dept_overdue.filter(intern__department=user.department)
             
-            alerts.append({
-                'type': 'info',
-                'title': 'System Overview',
-                'message': f'{total_interns} interns and {total_managers} managers active',
-            })
+            for task in dept_overdue[:3]:
+                alerts.append({
+                    'id': f'overdue_{task.id}',
+                    'type': 'critical',
+                    'title': 'Overdue Task Alert',
+                    'message': f'{task.intern.full_name}\'s task "{task.title}" is past due.',
+                    'link': f'/management/tasks?internId={task.intern_id}'
+                })
+
+        # 2. Status Mismatches (Compare Weekly Reports vs DB)
+        if user.role in ['ADMIN', 'MANAGER']:
+            # Check most recent reports in the last 14 days
+            recent_reports = WeeklyReport.objects.filter(
+                submitted_at__gte=now - timedelta(days=14)
+            )
+            if user.role == 'MANAGER':
+                recent_reports = recent_reports.filter(intern__department=user.department)
             
-        elif str(user.role) == str(User.Role.MANAGER):
-            # Manager alerts - interns in their department
-            interns = User.objects.filter(role=User.Role.INTERN, department=user.department)
-            
-            for intern in interns[:3]:
-                # Check for pending tasks
-                pending_tasks = TaskTracking.objects.filter(
-                    intern=intern,
-                    status__in=['ASSIGNED', 'IN_PROGRESS']
+            for report in recent_reports[:5]:
+                # Simple check: compare tasks_completed in report vs database
+                db_completed = TaskTracking.objects.filter(
+                    intern=report.intern,
+                    status='COMPLETED',
+                    completed_at__range=(report.week_start_date, report.week_end_date + timedelta(days=1))
                 ).count()
                 
-                if pending_tasks > 0:
+                if report.tasks_completed != db_completed:
                     alerts.append({
+                        'id': f'mismatch_{report.id}',
                         'type': 'warning',
-                        'title': 'Pending Tasks',
-                        'message': f'{intern.full_name} has {pending_tasks} pending tasks',
+                        'title': 'Status Mismatch',
+                        'message': f'Data mismatch detected for {report.intern.full_name}\'s week {report.week_start_date}.',
+                        'link': f'/management/reports?internId={report.intern_id}'
                     })
-                    
-        else:  # INTERN
-            # Intern alerts
-            pending_tasks = TaskTracking.objects.filter(
-                intern=user,
-                status__in=['ASSIGNED', 'IN_PROGRESS']
-            ).count()
-            
-            if pending_tasks > 0:
-                alerts.append({
-                    'type': 'info',
-                    'title': 'Pending Tasks',
-                    'message': f'You have {pending_tasks} tasks awaiting completion',
-                })
+
+        # 3. Missing Weekly Report (If it's Friday or later)
+        # Weekday 4 = Friday
+        if now.weekday() >= 4:
+            current_week_start = (now - timedelta(days=now.weekday())).date()
+            if user.role == 'INTERN':
+                has_report = WeeklyReport.objects.filter(
+                    intern=user, 
+                    week_start_date=current_week_start
+                ).exists()
+                if not has_report:
+                    alerts.append({
+                        'id': f'missing_report_{current_week_start}',
+                        'type': 'warning',
+                        'title': 'Report Due Soon',
+                        'message': 'Don\'t forget to stage and upload your weekly report before the weekend.',
+                        'link': '/workspace/submit-report'
+                    })
+
+        # 4. Burnout/Risk Signals (Insights)
+        risk_metrics = PerformanceMetrics.objects.filter(
+            period_end__gte=now - timedelta(days=7),
+            dropout_risk__in=['MEDIUM', 'HIGH']
+        )
+        if user.role == 'INTERN':
+            risk_metrics = risk_metrics.filter(intern=user)
+        elif user.role == 'MANAGER':
+            risk_metrics = risk_metrics.filter(intern__department=user.department)
+        
+        for metric in risk_metrics[:2]:
+            alerts.append({
+                'id': f'risk_{metric.id}',
+                'type': 'insight',
+                'title': 'Performance Insight',
+                'message': f'Engagement risk detected for {metric.intern.full_name if user.role != "INTERN" else "your profile"}.',
+                'link': '/analytics/performance' if user.role != "INTERN" else '/my-tasks'
+            })
 
         return Response({
             'alerts': alerts,

@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def create_notification(user, notification_type, title, message):
+def create_notification(user, notification_type, title, message, link=None):
     """
     Helper function to create a notification.
     """
@@ -20,6 +20,7 @@ def create_notification(user, notification_type, title, message):
             notification_type=notification_type,
             title=title,
             message=message,
+            link=link
         )
         logger.info(f"Created notification: {title} for user {user.email}")
         return notification
@@ -34,7 +35,8 @@ def notify_intern_assignment(intern, project, mentor):
         user=intern,
         notification_type='INTERN_ASSIGNED',
         title='New Project Assignment',
-        message=f'You have been assigned to project "{project.title}" by {mentor.full_name}.',
+        message=f'You have been assigned to project "{project.name}" by {mentor.full_name}.',
+        link='/directory/projects'
     )
 
 
@@ -46,6 +48,7 @@ def notify_task_completed(intern, task, completed_by=None):
         notification_type='TASK_COMPLETED',
         title='Task Completed',
         message=f'{completed_by_name} completed task: "{task.title}".',
+        link='/workspace/my-tasks'
     )
 
 
@@ -56,6 +59,7 @@ def notify_task_assigned(intern, task, assigned_by):
         notification_type='TASK_ASSIGNED',
         title='New Task Assigned',
         message=f'You have been assigned a new task: "{task.title}" by {assigned_by.full_name}.',
+        link='/workspace/my-tasks'
     )
 
 
@@ -71,6 +75,7 @@ def notify_task_submitted(task, intern):
             notification_type='TASK_SUBMITTED',
             title='Task Submitted',
             message=f'{intern.full_name} has submitted task: "{task.title}" for review.',
+            link=f'/management/tasks?internId={intern.id}'
         )
 
 
@@ -82,6 +87,7 @@ def notify_task_evaluated(task, intern, manager, status_type):
         notification_type='TASK_EVALUATED',
         title=f'Task {verb.capitalize()}',
         message=f'Your task "{task.title}" has been {verb} by {manager.full_name}.',
+        link='/workspace/my-tasks'
     )
 
 
@@ -96,6 +102,7 @@ def notify_report_uploaded(report, intern):
             notification_type='REPORT_UPLOADED',
             title='Weekly Report Uploaded',
             message=f'{intern.full_name} has uploaded a new weekly report for {report.week_start_date}.',
+            link=f'/management/reports?internId={intern.id}'
         )
 
 # Signal receivers
@@ -139,6 +146,7 @@ def notify_manager_new_intern(intern, department):
             notification_type='INTERN_ASSIGNED',
             title='New Intern Joined',
             message=f'{intern.full_name} has joined your department.',
+            link=f'/directory/interns?internId={intern.id}'
         )
 
 
@@ -149,4 +157,5 @@ def notify_feedback_received(intern, feedback_type, from_user):
         notification_type='FEEDBACK_RECEIVED',
         title='New Feedback Received',
         message=f'You received new {feedback_type} feedback from {from_user.full_name}.',
+        link='/directory/feedback'
     )

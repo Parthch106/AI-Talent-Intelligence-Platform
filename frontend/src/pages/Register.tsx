@@ -46,7 +46,7 @@ const Register: React.FC = () => {
             if (response.status === 201) {
                 setSuccess(true);
                 setTimeout(() => {
-                    navigate('/login');
+                    navigate('/auth/login');
                 }, 3000);
             }
         } catch (err: any) {

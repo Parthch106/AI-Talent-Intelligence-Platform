@@ -25,7 +25,7 @@ const Layout: React.FC = () => {
                             <button
                                 onClick={() => {
                                     toast.dismiss(t.id);
-                                    navigate('/profile');
+                                    navigate('/account/profile');
                                 }}
                                 className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[10px] font-bold transition-all shadow-lg whitespace-nowrap"
                             >

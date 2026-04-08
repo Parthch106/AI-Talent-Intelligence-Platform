@@ -26,7 +26,8 @@ interface AITaskSuggestion {
 }
 
 const AITaskGenerator: React.FC = () => {
-    const { internId: urlInternId } = useParams();
+    const { internId: urlInternIdParam } = useParams();
+    const urlInternId = urlInternIdParam && !urlInternIdParam.startsWith(':') ? parseInt(urlInternIdParam) : null;
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -35,7 +36,7 @@ const AITaskGenerator: React.FC = () => {
     const { selectedInternId: contextInternId, setSelectedInternId, interns } = useMonitoring();
     
     // States
-    const [selectedIntern, setSelectedInternLocal] = useState<number | null>(urlInternId ? parseInt(urlInternId) : contextInternId);
+    const [selectedIntern, setSelectedInternLocal] = useState<number | null>(urlInternId ? urlInternId : contextInternId);
     const [internDetails, setInternDetails] = useState<any>(null);
     
     const [projects, setProjects] = useState<{id: number; name: string}[]>([]);
@@ -54,14 +55,15 @@ const AITaskGenerator: React.FC = () => {
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [editValues, setEditValues] = useState<{title: string, description: string}>({title: '', description: ''});
 
-    // Sync local selectedIntern with global context or URL param
+    // Sync local selectedIntern with URL param OR context
     useEffect(() => {
         if (urlInternId) {
-            setSelectedInternLocal(parseInt(urlInternId));
-        } else if (contextInternId) {
+            setSelectedInternLocal(urlInternId);
+        } else if (contextInternId && !urlInternIdParam) {
+            // Only sync from context if there's no ID in the URL at all
             setSelectedInternLocal(contextInternId);
         }
-    }, [urlInternId, contextInternId]);
+    }, [urlInternId, contextInternId, urlInternIdParam]);
 
     // Update global context when local selection changes
     useEffect(() => {
@@ -110,14 +112,19 @@ const AITaskGenerator: React.FC = () => {
         }
         const fetchModules = async () => {
             try {
-                const res = await axios.get('/projects/modules/', { params: { project_id: selectedProject } });
+                const res = await axios.get('/projects/modules/', { 
+                    params: { 
+                        project_id: selectedProject,
+                        intern_id: selectedIntern 
+                    } 
+                });
                 setModules(res.data.results || res.data);
             } catch (err) {
                 console.error("Error fetching modules", err);
             }
         };
         fetchModules();
-    }, [selectedProject]);
+    }, [selectedProject, selectedIntern]);
 
     // Set selected project from URL parameter
     useEffect(() => {
@@ -130,6 +137,19 @@ const AITaskGenerator: React.FC = () => {
             }
         }
     }, [searchParams, projects]);
+
+    const handleInternChange = (id: number | null) => {
+        setSelectedInternLocal(id);
+        setSelectedProject(null);
+        setModules([]);
+        setSelectedModule(null);
+        
+        if (id) {
+            navigate(`/tools/ai-task-generator/${id}`, { replace: true });
+        } else {
+            navigate('/tools/ai-task-generator', { replace: true });
+        }
+    };
 
     const generateTasks = async () => {
         if (!selectedIntern) {
@@ -269,7 +289,7 @@ const AITaskGenerator: React.FC = () => {
                                         <div className="relative">
                                             <select 
                                                 value={selectedIntern || ''}
-                                                onChange={(e) => setSelectedInternLocal(e.target.value ? parseInt(e.target.value) : null)}
+                                                onChange={(e) => handleInternChange(e.target.value ? parseInt(e.target.value) : null)}
                                                 className="w-full bg-[var(--bg-color)] border border-[var(--border-color)] rounded-2xl px-4 py-3.5 text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all cursor-pointer appearance-none hover:bg-[var(--card-bg)]"
                                             >
                                                 <option value="" className="bg-[var(--bg-color)] text-[var(--text-main)]">Select Candidate...</option>

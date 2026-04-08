@@ -155,7 +155,7 @@ const Header: React.FC = () => {
 
     const handleLogout = () => {
         logout();
-        navigate('/login');
+        navigate('/auth/login');
     };
 
     return (
@@ -186,7 +186,7 @@ const Header: React.FC = () => {
                 <div className="flex items-center gap-3">
                     {/* Quick Actions */}
                     <button
-                        onClick={() => navigate('/profile')}
+                        onClick={() => navigate('/account/profile')}
                         className="p-2.5 text-slate-400 hover:text-[var(--text-main)] hover:bg-white/5 rounded-xl transition-all duration-300 border border-transparent hover:border-white/10"
                     >
                         <Settings size={18} />
@@ -296,7 +296,7 @@ const Header: React.FC = () => {
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setShowNotifications(false);
-                                                    navigate('/notifications');
+                                                    navigate('/account/notifications');
                                                 }}
                                                 className="flex-1 text-center py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-white transition-all bg-white/5 hover:bg-white/10 rounded-lg border border-transparent hover:border-white/10"
                                             >
@@ -344,7 +344,7 @@ const Header: React.FC = () => {
                                 <button
                                     onClick={() => {
                                         setShowUserMenu(false);
-                                        navigate('/profile');
+                                        navigate('/account/profile');
                                     }}
                                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 text-slate-300 hover:text-white transition-colors"
                                 >

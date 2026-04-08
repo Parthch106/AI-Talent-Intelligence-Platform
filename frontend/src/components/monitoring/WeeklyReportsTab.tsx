@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, FileText, CheckCircle, Clock, AlertTriangle, ChevronRight, Download, BarChart2 } from 'lucide-react';
+import { Plus, FileText, CheckCircle, Clock, AlertTriangle, ChevronRight, Eye, BarChart2 } from 'lucide-react';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
@@ -40,6 +40,15 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
     // Ensure reports is always an array
     const reportsArray = Array.isArray(reports) ? reports : [];
     const [selectedReport, setSelectedReport] = React.useState<WeeklyReport | null>(null);
+
+    // Helper to get full PDF URL
+    const getFullPdfUrl = (url: string | null) => {
+        if (!url) return '#';
+        if (url.startsWith('http')) return url;
+        const base = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8000`;
+        const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
+        return `${cleanBase}${url}`;
+    };
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -94,14 +103,14 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                             </div>
                             {report.pdf_url && (
                                 <a
-                                    href={report.pdf_url}
+                                    href={getFullPdfUrl(report.pdf_url)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 rounded-lg transition-colors border border-purple-500/20"
                                     onClick={(e) => e.stopPropagation()}
                                 >
-                                    <Download size={16} />
-                                    <span className="text-sm font-bold">Download PDF</span>
+                                    <Eye size={16} />
+                                    <span className="text-sm font-bold">View PDF</span>
                                 </a>
                             )}
                             <ChevronRight size={20} className="text-[var(--text-dim)]" />
@@ -126,46 +135,24 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                             </div>
                         )}
 
-                        {report.is_submitted && (
-                            <div className="mt-4 pt-4 border-t border-[var(--border-color)] space-y-3">
-                                {report.accomplishments && (
-                                    <div>
-                                        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1 font-bold">Accomplishments</p>
-                                        <p className="text-sm text-[var(--text-dim)] font-medium leading-relaxed">{report.accomplishments}</p>
-                                    </div>
-                                )}
-                                {report.challenges && (
-                                    <div>
-                                        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1 font-bold">Challenges</p>
-                                        <p className="text-sm text-[var(--text-dim)] font-medium leading-relaxed">{report.challenges}</p>
-                                    </div>
-                                )}
-                                {report.learnings && (
-                                    <div>
-                                        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1 font-bold">Learnings</p>
-                                        <p className="text-sm text-[var(--text-dim)] font-medium leading-relaxed">{report.learnings}</p>
-                                    </div>
-                                )}
-                                {report.next_week_goals && (
-                                    <div>
-                                        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1 font-bold">Next Week Goals</p>
-                                        <p className="text-sm text-[var(--text-dim)] font-medium leading-relaxed">{report.next_week_goals}</p>
-                                    </div>
-                                )}
-                                <div className="flex items-center gap-4 pt-2">
-                                    {report.self_rating && (
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm text-[var(--text-dim)]">Self Rating:</span>
-                                            <span className="font-bold text-[var(--text-main)] bg-[var(--bg-muted)] px-2 py-0.5 rounded-md border border-[var(--border-color)]">{report.self_rating}/10</span>
-                                        </div>
-                                    )}
-                                    {report.submitted_at && (
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm text-[var(--text-dim)]">Submitted:</span>
-                                            <span className="text-sm text-[var(--text-dim)] font-medium">{new Date(report.submitted_at).toLocaleDateString()}</span>
-                                        </div>
-                                    )}
+                        {!report.status_mismatch && report.is_submitted && (
+                            <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                                <div className="flex items-center gap-3 text-emerald-400">
+                                    <CheckCircle size={18} />
+                                    <span className="text-sm font-bold uppercase tracking-tight">Data Synchronized</span>
                                 </div>
+                                <p className="text-[10px] text-emerald-500/60 mt-1 ml-7">System records match the PDF report metrics.</p>
+                            </div>
+                        )}
+
+                        {report.is_submitted && (
+                            <div className="mt-4 pt-4 border-t border-[var(--border-color)] flex items-center gap-4">
+                                {report.submitted_at && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-[var(--text-dim)]">Submitted:</span>
+                                        <span className="text-sm text-[var(--text-dim)] font-medium">{new Date(report.submitted_at).toLocaleDateString()}</span>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </Card>
@@ -278,13 +265,13 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
                         <div className="flex gap-3 pt-2">
                             {selectedReport.pdf_url && (
                                 <a
-                                    href={selectedReport.pdf_url}
+                                    href={getFullPdfUrl(selectedReport.pdf_url)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex w-full items-center justify-center gap-2 px-6 py-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 rounded-xl transition-colors border border-purple-500/20 font-bold"
                                 >
-                                    <Download size={18} />
-                                    Download Original PDF
+                                    <Eye size={18} />
+                                    View Original PDF
                                 </a>
                             )}
                             <Button type="button" onClick={() => setSelectedReport(null)} variant="outline" fullWidth>

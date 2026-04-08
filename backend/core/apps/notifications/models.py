@@ -21,6 +21,9 @@ class Notification(models.Model):
         ('REPORT_UPLOADED', 'Report Uploaded'),
         ('EVALUATION_DUE', 'Evaluation Due'),
         ('DEADLINE_REMINDER', 'Deadline Reminder'),
+        ('STATUS_MISMATCH', 'Status Mismatch'),
+        ('ENGAGEMENT_RISK', 'Engagement Risk'),
+        ('MISSING_REPORT', 'Missing Report'),
         ('SYSTEM', 'System Notification'),
     ]
 
@@ -36,6 +39,7 @@ class Notification(models.Model):
     )
     title = models.CharField(max_length=255)
     message = models.TextField()
+    link = models.CharField(max_length=500, blank=True, null=True)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

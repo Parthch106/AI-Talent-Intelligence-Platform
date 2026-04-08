@@ -9,7 +9,7 @@ const ProtectedRoute: React.FC<{
     const { isAuthenticated, user } = useAuth();
 
     if (!isAuthenticated) {
-        return <Navigate to="/login" replace />;
+        return <Navigate to="/auth/login" replace />;
     }
 
     if (allowedRoles && user && !allowedRoles.includes(user.role)) {

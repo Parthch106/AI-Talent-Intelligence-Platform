@@ -504,3 +504,91 @@
   font-size: 0.85em;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
+
+/* Custom styling for react-datepicker to match the Mission Control theme */
+.react-datepicker {
+  @apply font-sans !important;
+  background-color: var(--bg-muted) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 1.5rem !important;
+  color: var(--text-main) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: var(--glass-blur) !important;
+}
+
+.react-datepicker__header {
+  background-color: var(--bg-muted) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  border-top-left-radius: 1.5rem !important;
+  border-top-right-radius: 1.5rem !important;
+  padding-top: 1rem !important;
+}
+
+.react-datepicker__current-month, 
+.react-datepicker-time__header, 
+.react-datepicker-year-header {
+  color: var(--text-main) !important;
+  font-weight: 700 !important;
+  font-size: 1rem !important;
+  @apply font-heading !important;
+}
+
+.react-datepicker__day-name {
+  color: var(--text-dim) !important;
+}
+
+.react-datepicker__day {
+  color: var(--text-main) !important;
+  border-radius: 0.75rem !important;
+  transition: var(--theme-transition) !important;
+}
+
+.react-datepicker__day:hover {
+  background-color: var(--primary-color) !important;
+  color: white !important;
+  opacity: 0.8 !important;
+}
+
+.react-datepicker__day--selected, 
+.react-datepicker__day--keyboard-selected {
+  background-color: var(--primary-color) !important;
+  color: white !important;
+  font-weight: 700 !important;
+}
+
+.react-datepicker__day--outside-month {
+  color: var(--text-muted) !important;
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: var(--text-muted) !important;
+}
+
+.react-datepicker__triangle {
+  display: none !important;
+}
+
+/* Modal conflict fix: Ensure high z-index */
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}
+
+/* Wrapper to match our input-premium style */
+.datepicker-wrapper {
+  @apply w-full relative;
+}
+
+.datepicker-input {
+  background-color: var(--bg-muted);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  @apply w-full rounded-xl px-4 py-3 pl-12 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium cursor-pointer;
+}
+
+.light .react-datepicker {
+  background-color: var(--sidebar-bg) !important;
+}
+
+.light .react-datepicker__header {
+  background-color: var(--sidebar-bg) !important;
+}
