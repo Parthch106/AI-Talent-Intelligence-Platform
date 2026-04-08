@@ -271,7 +271,7 @@ npm run lint     # Run ESLint
 
 ## 📝 License
 
-> This project is developed for educational purposes as part of the **CSU Internship Program**.
+> This project is developed for educational purposes.
 
 ---
 
