@@ -271,7 +271,7 @@ npm run lint     # Run ESLint
 
 ## 📝 License
 
-> This project is developed for educational purposes as part of the **CSU Internship Program**.
+> This project is developed for educational purposes.
 
 ---
 
@@ -279,6 +279,6 @@ npm run lint     # Run ESLint
 
 ### 🌟 Star this project if you find it useful!
 
-Made with ❤️ by **CSU Internship Program**
+Made with ❤️ by **PARTH CHAUHAN**
 
 </div>
