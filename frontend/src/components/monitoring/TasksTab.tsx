@@ -5,11 +5,13 @@ import {
     AlertTriangle, PlayCircle, Star, Code, Bug, LayoutGrid, 
     List, Sparkles, Wand2, Loader2, MessageSquare, 
     Calendar, Filter, Search, ArrowRight,
-    Layers, Trash2
+    Layers, Trash2, Square, Check, X, Trello
 } from 'lucide-react';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
+import KanbanBoard from '../tasks/KanbanBoard';
+import AIGeneratorPanel from '../tasks/AIGeneratorPanel';
 import axios from '../../api/axios';
 import toast from 'react-hot-toast';
 
@@ -80,11 +82,33 @@ const TasksTab: React.FC<TasksTabProps> = ({
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [projectFilter, setProjectFilter] = useState<number | null>(null);
     const [projects, setProjects] = useState<{id: number; name: string}[]>([]);
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [viewMode, setViewMode] = useState<'grid' | 'list' | 'board'>('grid');
+    const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
     const [currentPage, setCurrentPage] = useState<number>(1);
+    const [showAIPanel, setShowAIPanel] = useState(false);
     const ITEMS_PER_PAGE = 12;
 
     const navigate = useNavigate();
+
+    const toggleTaskSelection = (taskId: number) => {
+        setSelectedTasks(prev => {
+            const next = new Set(prev);
+            if (next.has(taskId)) {
+                next.delete(taskId);
+            } else {
+                next.add(taskId);
+            }
+            return next;
+        });
+    };
+
+    const selectAll = () => {
+        if (selectedTasks.size === paginatedTasks.length) {
+            setSelectedTasks(new Set());
+        } else {
+            setSelectedTasks(new Set(paginatedTasks.map(t => t.id)));
+        }
+    };
 
     React.useEffect(() => {
         fetchProjects();
@@ -267,8 +291,20 @@ const TasksTab: React.FC<TasksTabProps> = ({
     // Sub-components
     const TaskCard = ({ task, idx }: { task: Task, idx: number }) => (
         <div className="group relative bg-[var(--card-bg)] border border-[var(--border-color)] rounded-[32px] overflow-hidden p-8 transition-all duration-500 hover:bg-purple-500/[0.02] hover:border-purple-500/20 hover:shadow-2xl dark:hover:shadow-black/50">
+            {/* Checkbox for bulk selection */}
+            <button
+                onClick={() => toggleTaskSelection(task.id)}
+                className="absolute top-4 left-4 z-10 p-1.5 rounded-lg border transition-all opacity-0 group-hover:opacity-100"
+            >
+                {selectedTasks.has(task.id) ? (
+                    <Check size={16} className="text-purple-400" />
+                ) : (
+                    <Square size={16} className="text-[var(--text-muted)]" />
+                )}
+            </button>
+
             <div className="flex justify-between items-start mb-6">
-                <div className="space-y-2">
+                <div className="space-y-2 ml-6">
                     <span className="text-[9px] font-black font-mono text-[var(--text-muted)] tracking-widest">{task.task_id}</span>
                     <div className="flex gap-2">
                         <Badge variant={getPriorityBadge(task.priority)} size="sm">{task.priority}</Badge>
@@ -312,11 +348,11 @@ const TasksTab: React.FC<TasksTabProps> = ({
             <div className="flex items-center justify-between pt-6 border-t border-[var(--border-color)]">
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--text-dim)]">
-                        <Clock size={12} /> {task.due_date}
+                        <Clock size={12} /> {formatDate(task.due_date)}
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    {task.quality_rating && <Badge variant="warning" size="sm">★{task.quality_rating}</Badge>}
+                    {task.quality_rating && <Badge variant="warning" size="sm">★ {task.quality_rating.toFixed(1)}</Badge>}
                     {(task.status === 'COMPLETED' || task.status === 'SUBMITTED') && (
                         <button 
                             onClick={() => openEvaluationModal(task)}
@@ -333,7 +369,11 @@ const TasksTab: React.FC<TasksTabProps> = ({
     const formatDate = (dateString: string) => {
         try {
             const date = new Date(dateString);
-            return date.toISOString().split('T')[0];
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
         } catch (e) {
             return dateString;
         }
@@ -341,6 +381,18 @@ const TasksTab: React.FC<TasksTabProps> = ({
 
     const TaskListItem = ({ task }: { task: Task }) => (
         <div className="bg-[var(--card-bg)] hover:bg-purple-500/[0.03] border border-[var(--border-color)] hover:border-purple-500/20 rounded-2xl p-4 flex items-center gap-4 transition-all group">
+            {/* Checkbox for bulk selection */}
+            <button
+                onClick={() => toggleTaskSelection(task.id)}
+                className="shrink-0"
+            >
+                {selectedTasks.has(task.id) ? (
+                    <Check size={16} className="text-purple-400" />
+                ) : (
+                    <Square size={16} className="text-[var(--text-muted)]" />
+                )}
+            </button>
+
             {/* ID Column */}
             <div className="w-20 shrink-0 text-[10px] font-mono text-[var(--text-muted)] tracking-tighter truncate">{task.task_id}</div>
             
@@ -420,10 +472,10 @@ const TasksTab: React.FC<TasksTabProps> = ({
                 </div>
                 {canCreate && (
                     <div className="flex flex-wrap gap-4 w-full sm:w-auto">
-                        <button onClick={() => navigate(`/monitoring/ai-tasks/${internId || ''}?project=${projectFilter || ''}`)} className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl dark:shadow-purple-950/20 shadow-purple-500/10">
-                            <Sparkles size={18} /> AI Generator
+                        <button onClick={() => setShowAIPanel(!showAIPanel)} className={`flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all ${showAIPanel ? 'bg-purple-600 text-white' : 'bg-transparent border border-purple-500/50 text-purple-400'}`}>
+                            <Sparkles size={18} className={showAIPanel ? 'text-white' : 'text-purple-400'} /> AI Generator
                         </button>
-                        <button onClick={onAddTask} className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-4 bg-[var(--text-main)] text-[var(--bg-color)] rounded-2xl font-black text-xs uppercase tracking-widest hover:opacity-90 active:scale-[0.98] transition-all">
+                        <button onClick={onAddTask} className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl dark:shadow-purple-950/20 shadow-purple-500/10">
                             <Plus size={18} /> New Task
                         </button>
                     </div>
@@ -431,7 +483,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
             </div>
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-6">
                 {[
                     { id: 'ALL', label: 'Total Tasks', count: monthYearFilteredTasks.length, color: 'slate', icon: Target, glowColor: 'bg-slate-500' },
                     { id: 'ASSIGNED', label: 'Assigned', count: monthYearFilteredTasks.filter(t => t.status === 'ASSIGNED').length, color: 'indigo', icon: Wand2, glowColor: 'bg-indigo-500' },
@@ -439,8 +491,11 @@ const TasksTab: React.FC<TasksTabProps> = ({
                     { id: 'SUBMITTED', label: 'Submitted', count: monthYearFilteredTasks.filter(t => t.status === 'SUBMITTED').length, color: 'yellow', icon: Clock, glowColor: 'bg-yellow-500' },
                     { id: 'COMPLETED', label: 'Completed', count: monthYearFilteredTasks.filter(t => t.status === 'COMPLETED').length, color: 'emerald', icon: CheckCircle, glowColor: 'bg-emerald-500' },
                     { id: 'BLOCKED', label: 'Blocked', count: monthYearFilteredTasks.filter(t => t.status === 'BLOCKED').length, color: 'red', icon: AlertTriangle, glowColor: 'bg-red-500' },
-                ].map((stat) => (
-                    <div key={stat.id} onClick={() => setStatusFilter(stat.id === 'ALL' ? null : (statusFilter === stat.id ? null : stat.id))} className={getStatCardClass(stat.id, stat.color)}>
+                    { id: 'OVERDUE', label: 'Overdue', count: monthYearFilteredTasks.filter(t => t.status !== 'COMPLETED' && new Date(t.due_date) < new Date()).length, color: 'orange', icon: AlertTriangle, glowColor: 'bg-orange-500' },
+                ].map((stat) => {
+                    const isOverdue = stat.id === 'OVERDUE' && stat.count > 0;
+                    return (
+                    <div key={stat.id} onClick={() => setStatusFilter(stat.id === 'ALL' ? null : (statusFilter === stat.id ? null : stat.id))} className={`${getStatCardClass(stat.id, stat.color)} ${isOverdue ? 'ring-1 ring-red-500/50 animate-pulse-ring' : ''}`}>
                         <div className={`absolute top-0 right-0 w-24 h-24 ${stat.glowColor}/10 blur-3xl -mr-8 -mt-8 rounded-full`} />
                         <div className="relative flex flex-col items-center text-center">
                             <stat.icon className="mb-3 text-[var(--text-muted)] transition-colors" size={20} />
@@ -448,7 +503,8 @@ const TasksTab: React.FC<TasksTabProps> = ({
                             <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-dim)] mt-1 whitespace-nowrap">{stat.label}</p>
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Filter Bar */}
@@ -457,6 +513,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
                     <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl p-1 shrink-0">
                         <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-lg' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)]'}`}><LayoutGrid size={18} /></button>
                         <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-lg' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)]'}`}><List size={18} /></button>
+                        <button onClick={() => setViewMode('board')} className={`p-2 rounded-lg transition-all ${viewMode === 'board' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-lg' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)]'}`}><Trello size={18} /></button>
                     </div>
                     <div className="h-6 w-px bg-[var(--border-color)] hidden sm:block" />
                     <div className="flex flex-wrap items-center gap-3">
@@ -496,15 +553,22 @@ const TasksTab: React.FC<TasksTabProps> = ({
                                 <TaskCard key={task.id} task={task} idx={idx} />
                             ))}
                         </div>
-                    ) : (
+                    ) : viewMode === 'list' ? (
                         <div className="space-y-4">
                             {paginatedTasks.map((task) => (
                                 <TaskListItem key={task.id} task={task} />
                             ))}
                         </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <KanbanBoard 
+                                tasks={projectFilteredTasks} 
+                                onStatusChange={handleStatusChange}
+                            />
+                        </div>
                     )}
 
-                    {totalPages > 1 && (
+                    {totalPages > 1 && viewMode !== 'board' && (
                         <div className="flex items-center justify-between pt-10">
                             <p className="text-xs font-bold text-[var(--text-dim)] tracking-widest uppercase">Page <span className="text-[var(--text-main)]">{currentPage}</span> / <span className="text-[var(--text-muted)]">{totalPages}</span></p>
                             <div className="flex gap-4">
@@ -519,6 +583,31 @@ const TasksTab: React.FC<TasksTabProps> = ({
                     <Target size={80} className="text-[var(--text-muted)] opacity-20 mb-8" />
                     <h3 className="text-2xl font-black text-[var(--text-main)] uppercase mb-2">No tasks found</h3>
                     <p className="text-[var(--text-dim)] max-w-sm font-medium">No tasks match your current filter parameters.</p>
+                </div>
+            )}
+
+            {/* Bulk Action Bar */}
+            {selectedTasks.size > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 
+                    flex items-center gap-3 px-6 py-3 
+                    bg-[var(--bg-muted)] border border-purple-500/50 
+                    rounded-2xl shadow-2xl shadow-purple-500/20 animate-slide-up">
+                    <span className="text-sm font-medium text-[var(--text-main)]">{selectedTasks.size} selected</span>
+                    <button 
+                        onClick={() => {
+                            selectedTasks.forEach(id => handleDeleteTask(id));
+                            setSelectedTasks(new Set());
+                        }}
+                        className="px-3 py-1.5 text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all"
+                    >
+                        Delete
+                    </button>
+                    <button 
+                        onClick={() => setSelectedTasks(new Set())}
+                        className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
+                    >
+                        <X size={16} />
+                    </button>
                 </div>
             )}
 
@@ -641,6 +730,16 @@ const TasksTab: React.FC<TasksTabProps> = ({
                     </div>
                 </div>
             </Modal>
+
+            {/* AI Generator Panel */}
+            {showAIPanel && (
+                <AIGeneratorPanel 
+                    internId={internId}
+                    projectFilter={projectFilter}
+                    onClose={() => setShowAIPanel(false)}
+                    onTasksGenerated={onRefresh}
+                />
+            )}
         </div>
     );
 };

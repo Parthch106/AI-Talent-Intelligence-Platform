@@ -52,6 +52,7 @@ const MonitoringTasksPage: React.FC = () => {
     const [heatmapLoading, setHeatmapLoading] = useState<boolean>(false);
     const [filterDate, setFilterDate] = useState<string | null>(null);
     const [showInternDropdown, setShowInternDropdown] = useState(false);
+    const [internSearch, setInternSearch] = useState('');
     const [activeModal, setActiveModal] = useState<string | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
     const [modules, setModules] = useState<any[]>([]);
@@ -251,6 +252,14 @@ const MonitoringTasksPage: React.FC = () => {
         );
     }, [availableSkills, skillSearch, taskForm.skills_required]);
 
+    const filteredInterns = useMemo(() => {
+        if (!internSearch) return interns;
+        return interns.filter(intern => 
+            (intern.full_name?.toLowerCase() || '').includes(internSearch.toLowerCase()) ||
+            (intern.email?.toLowerCase() || '').includes(internSearch.toLowerCase())
+        );
+    }, [interns, internSearch]);
+
     const toggleSkill = (skill: string) => {
         setTaskForm(prev => {
             const exists = prev.skills_required.includes(skill);
@@ -289,19 +298,35 @@ const MonitoringTasksPage: React.FC = () => {
                             {showInternDropdown && (
                                 <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--bg-muted)]/95 backdrop-blur-xl border border-[var(--border-color)] rounded-xl shadow-xl z-[9999] isolate animate-scale-in max-h-[400px] overflow-y-auto custom-scrollbar">
                                     <div className="p-2">
-                                        {interns.map((intern) => (
+                                        <div className="relative mb-2">
+                                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                                            <input
+                                                type="text"
+                                                placeholder="Search interns..."
+                                                value={internSearch}
+                                                onChange={(e) => setInternSearch(e.target.value)}
+                                                className="w-full pl-9 pr-3 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-purple-500"
+                                            />
+                                        </div>
+                                        {filteredInterns.map((intern) => (
                                             <button
                                                 key={intern.id}
                                                 onClick={() => {
                                                     setSelectedIntern(intern.id);
                                                     setShowInternDropdown(false);
+                                                    setInternSearch('');
                                                 }}
                                                 className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${selectedIntern === intern.id ? 'bg-purple-500/20' : 'hover:bg-[var(--bg-muted)]'}`}
                                             >
                                                 <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(intern.full_name || intern.email)} flex items-center justify-center text-[var(--text-main)] font-bold text-xs`}>
                                                     {getInitials(intern.full_name)}
                                                 </div>
-                                                <span className="text-[var(--text-main)] text-sm">{intern.full_name || intern.email}</span>
+                                                <div className="text-left">
+                                                    <p className="text-[var(--text-main)] text-sm">{intern.full_name || intern.email}</p>
+                                                    {intern.department && (
+                                                        <p className="text-xs text-[var(--text-muted)]">{intern.department}</p>
+                                                    )}
+                                                </div>
                                             </button>
                                         ))}
                                     </div>

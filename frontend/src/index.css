@@ -416,6 +416,36 @@
   animation: slide-in-right 0.3s ease-out;
 }
 
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translate(-50%, 100%);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
 .animate-loading-bar {
   animation: loading-bar 3s ease-in-out forwards;
 }
@@ -426,6 +456,32 @@
 
 .animate-glow {
   animation: glow 2s ease-in-out infinite;
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+/* Skeleton Loader */
+.skeleton {
+  @apply bg-[var(--bg-muted)] animate-pulse rounded;
+}
+
+.skeleton-text {
+  @apply h-4 bg-[var(--bg-muted)] animate-pulse rounded;
+}
+
+.skeleton-circle {
+  @apply bg-[var(--bg-muted)] animate-pulse rounded-full;
 }
 
 /* Gradient Background Animation */
