@@ -157,6 +157,29 @@ class AttendanceRecord(models.Model):
     
     # Notes
     notes = models.TextField(blank=True)
+
+    # ── V2 IoT future-proofing ────────────────────────────────────────────────
+    is_late = models.BooleanField(
+        default=False,
+        help_text="True if check-in time was after the standard start time"
+    )
+    SOURCE_CHOICES = [
+        ('MANUAL',     'Manual entry by manager'),
+        ('WEB',        'Web app self check-in'),
+        ('MOBILE',     'Mobile app'),
+        ('IOT_DEVICE', 'IoT biometric device'),
+    ]
+    source = models.CharField(
+        max_length=15,
+        choices=SOURCE_CHOICES,
+        default='MANUAL',
+        help_text="How this attendance record was created"
+    )
+    device_id = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="IoT device identifier (populated only when source=IOT_DEVICE)"
+    )
     
     class Meta:
         unique_together = ['intern', 'date']
@@ -580,6 +603,228 @@ class MonthlyEvaluationReport(models.Model):
     
     def __str__(self):
         return f"Monthly Evaluation: {self.intern.email} - {self.evaluation_month}"
+
+
+# ============================================================================
+# V2 Phase 1 — Career Progression Pipeline Models
+# ============================================================================
+
+
+class EmploymentStage(models.Model):
+    """
+    Records which phase (Phase 1, Phase 2, or Full-Time) an intern is currently in.
+    One open record (phase_end_date=None) per intern at any time.
+    Closing a record (setting phase_end_date) and opening a new one = promotion.
+    """
+
+    PHASE_CHOICES = [
+        ('PHASE_1',   'Phase 1 — Standard Internship (Months 1–6)'),
+        ('PHASE_2',   'Phase 2 — Stipend Internship (Months 7–12)'),
+        ('FULL_TIME', 'Full-Time Employment'),
+    ]
+
+    intern            = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='employment_stages',
+        limit_choices_to={'role': 'INTERN'}
+    )
+    phase             = models.CharField(max_length=20, choices=PHASE_CHOICES)
+    phase_start_date  = models.DateField()
+    phase_end_date    = models.DateField(
+        null=True, blank=True,
+        help_text="Null = currently active phase"
+    )
+
+    # Stipend amount (populated only for PHASE_2 and FULL_TIME)
+    stipend_amount    = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True
+    )
+
+    # Conversion probability at the time of this stage transition
+    conversion_score  = models.FloatField(
+        null=True, blank=True,
+        help_text="ConversionScore.composite_score snapshot at the time of promotion"
+    )
+
+    promoted_by       = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='stage_promotions'
+    )
+    notes             = models.TextField(blank=True)
+    created_at        = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-phase_start_date']
+        verbose_name        = 'Employment Stage'
+        verbose_name_plural = 'Employment Stages'
+
+    def __str__(self):
+        end = self.phase_end_date or 'present'
+        return f"{self.intern.email} — {self.get_phase_display()} ({self.phase_start_date} → {end})"
+
+
+class CertificationCriteria(models.Model):
+    """
+    Admin-configurable pass/fail thresholds for each phase gate.
+    Nullable fields = that metric is not gated for this criteria set.
+    Immutable once used in a CertificationRecord (enforced in clean()).
+    """
+
+    PHASE_CHOICES = [
+        ('PHASE_1', 'Phase 1 Gate'),
+        ('PHASE_2', 'Phase 2 Gate'),
+        ('PPO',     'PPO Certificate'),
+    ]
+
+    phase                 = models.CharField(max_length=10, choices=PHASE_CHOICES)
+
+    # Minimum scores required to pass (null = not evaluated)
+    min_overall_score     = models.FloatField(null=True, blank=True)
+    min_productivity_score = models.FloatField(null=True, blank=True)
+    min_quality_score     = models.FloatField(null=True, blank=True)
+    min_engagement_score  = models.FloatField(null=True, blank=True)
+    min_attendance_pct    = models.FloatField(null=True, blank=True)
+    min_weekly_reports_submitted = models.IntegerField(
+        null=True, blank=True,
+        help_text="Minimum number of weekly reports the intern must have submitted"
+    )
+
+    is_active   = models.BooleanField(
+        default=True,
+        help_text="Only one active criteria set per phase is used for evaluation"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Human-readable explanation of this criteria set"
+    )
+    created_by  = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='created_criteria'
+    )
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name        = 'Certification Criteria'
+        verbose_name_plural = 'Certification Criteria'
+        ordering            = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_phase_display()} Criteria — {'Active' if self.is_active else 'Inactive'} (created {self.created_at.date()})"
+
+
+class PhaseEvaluation(models.Model):
+    """
+    Gate evaluation at the end of Phase 1 or Phase 2.
+    Records the decision (PROMOTE / EXTEND / DECLINE) and a snapshot
+    of scores + criteria at evaluation time so retroactive changes
+    cannot invalidate past decisions.
+    """
+
+    DECISION_CHOICES = [
+        ('PROMOTE', 'Promote to next phase'),
+        ('EXTEND',  'Extend current phase'),
+        ('DECLINE', 'Decline — end internship'),
+    ]
+
+    intern            = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='phase_evaluations',
+        limit_choices_to={'role': 'INTERN'}
+    )
+    employment_stage  = models.ForeignKey(
+        EmploymentStage,
+        on_delete=models.CASCADE,
+        related_name='evaluations'
+    )
+    evaluated_by      = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='evaluations_conducted'
+    )
+    evaluated_at      = models.DateTimeField(auto_now_add=True)
+
+    # Scores at the time of evaluation (snapshots — immutable after save)
+    overall_score         = models.FloatField(default=0.0)
+    productivity_score    = models.FloatField(default=0.0)
+    quality_score         = models.FloatField(default=0.0)
+    engagement_score      = models.FloatField(default=0.0)
+    attendance_pct        = models.FloatField(default=0.0)
+    weekly_reports_submitted = models.IntegerField(default=0)
+
+    # AI recommendation (populated by Celery task — nullable until computed)
+    ai_recommendation         = models.TextField(blank=True)
+    ai_decision_suggestion    = models.CharField(
+        max_length=10,
+        choices=DECISION_CHOICES,
+        blank=True
+    )
+
+    # Manager's final decision
+    decision      = models.CharField(max_length=10, choices=DECISION_CHOICES)
+    manager_notes = models.TextField(blank=True)
+
+    # Frozen copy of the CertificationCriteria used for this evaluation
+    # Stored as JSON so future criteria changes don't affect past evaluations
+    criteria_snapshot = models.JSONField(
+        default=dict,
+        help_text="Snapshot of CertificationCriteria thresholds at evaluation time"
+    )
+    criteria_met      = models.BooleanField(
+        default=False,
+        help_text="True if all active criteria thresholds were met"
+    )
+
+    class Meta:
+        ordering            = ['-evaluated_at']
+        verbose_name        = 'Phase Evaluation'
+        verbose_name_plural = 'Phase Evaluations'
+
+    def __str__(self):
+        return (
+            f"{self.intern.email} — "
+            f"{self.employment_stage.get_phase_display()} — "
+            f"{self.get_decision_display()} ({self.evaluated_at.date()})"
+        )
+
+
+class IoTDevice(models.Model):
+    """
+    Stub model for future IoT biometric device integration.
+    Not yet active — registered here so the DB schema is ready
+    without requiring code changes when IoT hardware arrives.
+    """
+
+    DEVICE_TYPE_CHOICES = [
+        ('FINGERPRINT',  'Fingerprint Scanner'),
+        ('FACE_RECOG',   'Face Recognition Camera'),
+        ('RFID',         'RFID Card Reader'),
+        ('QR_SCANNER',   'QR Code Scanner'),
+    ]
+
+    device_id    = models.CharField(max_length=100, unique=True)
+    device_type  = models.CharField(max_length=20, choices=DEVICE_TYPE_CHOICES)
+    location     = models.CharField(
+        max_length=200, blank=True,
+        help_text="Physical location of the device (e.g., 'Main Entrance', 'Floor 3')"
+    )
+    is_active    = models.BooleanField(default=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    registered_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name        = 'IoT Device'
+        verbose_name_plural = 'IoT Devices'
+
+    def __str__(self):
+        return f"{self.device_id} ({self.get_device_type_display()}) — {'Active' if self.is_active else 'Inactive'}"
 
 
 # ============================================================================

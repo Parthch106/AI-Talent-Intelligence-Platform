@@ -21,6 +21,11 @@ from .models import (
     TaskTemplate,
     LearningPath,
     RLExperienceBuffer,
+    # V2 Phase 1 — Career Progression
+    EmploymentStage,
+    PhaseEvaluation,
+    CertificationCriteria,
+    IoTDevice,
 )
 
 
@@ -180,3 +185,109 @@ class RLExperienceBufferAdmin(admin.ModelAdmin):
     list_filter = ('action', 'done', 'timestamp')
     search_fields = ('intern__full_name', 'intern__email', 'action')
     readonly_fields = ('timestamp',)
+
+
+# ============================================================================
+# V2 Phase 1 — Career Progression Admin
+# ============================================================================
+
+@admin.register(EmploymentStage)
+class EmploymentStageAdmin(admin.ModelAdmin):
+    list_display  = (
+        'intern', 'phase', 'phase_start_date', 'phase_end_date',
+        'stipend_amount', 'conversion_score', 'promoted_by', 'created_at'
+    )
+    list_filter   = ('phase',)
+    search_fields = ('intern__email', 'intern__full_name')
+    readonly_fields = ('created_at',)
+    date_hierarchy  = 'phase_start_date'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('intern', 'promoted_by')
+
+
+@admin.register(CertificationCriteria)
+class CertificationCriteriaAdmin(admin.ModelAdmin):
+    list_display  = (
+        'phase', 'is_active',
+        'min_overall_score', 'min_productivity_score',
+        'min_quality_score', 'min_attendance_pct',
+        'created_by', 'created_at',
+    )
+    list_filter   = ('phase', 'is_active')
+    search_fields = ('description',)
+    readonly_fields = ('created_at', 'created_by')
+    actions   = ['seed_defaults']
+
+    @admin.action(description='Seed default criteria (Phase 1, Phase 2, PPO)')
+    def seed_defaults(self, request, queryset):
+        defaults = [
+            {
+                'phase': 'PHASE_1',
+                'min_overall_score': 75.0,
+                'min_productivity_score': 70.0,
+                'min_quality_score': 70.0,
+                'min_attendance_pct': 60.0,
+                'is_active': True,
+                'description': 'Default Phase 1 gate criteria',
+                'created_by': request.user,
+            },
+            {
+                'phase': 'PHASE_2',
+                'min_overall_score': 75.0,
+                'min_productivity_score': 72.0,
+                'min_quality_score': 72.0,
+                'min_attendance_pct': 65.0,
+                'is_active': True,
+                'description': 'Default Phase 2 gate criteria',
+                'created_by': request.user,
+            },
+            {
+                'phase': 'PPO',
+                'min_overall_score': 80.0,
+                'min_productivity_score': 75.0,
+                'min_quality_score': 75.0,
+                'min_attendance_pct': 70.0,
+                'is_active': True,
+                'description': 'Default PPO certificate criteria',
+                'created_by': request.user,
+            },
+        ]
+        created = 0
+        for d in defaults:
+            _, is_new = CertificationCriteria.objects.get_or_create(
+                phase=d['phase'],
+                is_active=True,
+                defaults=d,
+            )
+            if is_new:
+                created += 1
+        self.message_user(request, f'{created} default criteria set(s) seeded.')
+
+
+@admin.register(PhaseEvaluation)
+class PhaseEvaluationAdmin(admin.ModelAdmin):
+    list_display  = (
+        'intern', 'employment_stage', 'decision', 'criteria_met',
+        'overall_score', 'productivity_score', 'quality_score',
+        'attendance_pct', 'evaluated_by', 'evaluated_at',
+    )
+    list_filter   = ('decision', 'criteria_met')
+    search_fields = ('intern__email', 'intern__full_name')
+    readonly_fields = (
+        'evaluated_at', 'criteria_snapshot', 'criteria_met',
+        'ai_recommendation', 'ai_decision_suggestion',
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'intern', 'employment_stage', 'evaluated_by'
+        )
+
+
+@admin.register(IoTDevice)
+class IoTDeviceAdmin(admin.ModelAdmin):
+    list_display  = ('device_id', 'device_type', 'location', 'is_active', 'last_seen_at', 'registered_at')
+    list_filter   = ('device_type', 'is_active')
+    search_fields = ('device_id', 'location')
+    readonly_fields = ('registered_at',)

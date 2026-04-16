@@ -1,4 +1,5 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import (
     DashboardStatsView,
     InternIntelligenceView,
@@ -40,6 +41,11 @@ from .views import (
     LLMMilestoneTaskView,
     ReviewMilestoneTaskView,
     AIChatBotView,
+    # V2 Phase 1 — Career Progression
+    EmploymentStageViewSet,
+    PhaseEvaluationViewSet,
+    CertificationCriteriaViewSet,
+    CriteriaPreviewView,
 )
 from .views_talent_intelligence import (
     AnalyzeInternView,
@@ -51,17 +57,21 @@ from .views_talent_intelligence import (
     LegacyComputeIntelligenceView,
 )
 
+# ── V2 Phase 1 ViewSet Router ─────────────────────────────────────────────────
+v2_router = DefaultRouter()
+v2_router.register(r'stages',         EmploymentStageViewSet,       basename='employment-stage')
+v2_router.register(r'evaluations',    PhaseEvaluationViewSet,       basename='phase-evaluation')
+v2_router.register(r'admin/criteria', CertificationCriteriaViewSet, basename='certification-criteria')
+
 urlpatterns = [
     # ============================================================================
     # BACKWARD COMPATIBLE ENDPOINTS FOR FRONTEND (USING NEW ML PIPELINE)
     # ============================================================================
-    
-    # Legacy endpoints matching old frontend interface - now using new ML pipeline
+
     path('intelligence/', LegacyIntelligenceView.as_view(), name='intern-intelligence'),
     path('intelligence/compute/', LegacyComputeIntelligenceView.as_view(), name='compute-intelligence'),
     path('intelligence/compute/<int:intern_id>/', LegacyComputeIntelligenceView.as_view(), name='compute-intelligence-detail'),
-    
-    # Other analytics endpoints
+
     path('summary/', DashboardStatsView.as_view(), name='dashboard-summary'),
     path('manager/', ManagerDashboardView.as_view(), name='manager-dashboard'),
     path('admin/', AdminDashboardView.as_view(), name='admin-dashboard'),
@@ -71,30 +81,24 @@ urlpatterns = [
     # PHASE 2 - PART 2: During Internship Monitoring URLs
     # ============================================================================
 
-    # Task Tracking
     path('tasks/', TaskTrackingView.as_view(), name='task-tracking'),
     path('tasks/create/', TaskTrackingView.as_view(), name='task-create'),
     path('tasks/<int:task_id>/update-status/', TaskTrackingView.as_view(), name='task-update-status'),
     path('tasks/<int:task_id>/evaluate/', TaskEvaluationView.as_view(), name='task-evaluate'),
     path('tasks/evaluate/', TaskEvaluationView.as_view(), name='task-evaluate-list'),
 
-    # Attendance
     path('attendance/', AttendanceRecordView.as_view(), name='attendance'),
     path('attendance/mark/', AttendanceRecordView.as_view(), name='attendance-mark'),
     path('attendance/my-attendance/', MyAttendanceView.as_view(), name='my-attendance'),
 
-    # Weekly Reports
     path('weekly-reports/', WeeklyReportView.as_view(), name='weekly-reports'),
     path('weekly-reports/submit/', WeeklyReportView.as_view(), name='weekly-report-submit'),
 
-    # Performance Metrics
     path('performance/', PerformanceMetricsView.as_view(), name='performance-metrics'),
     path('performance/compute/', ComputePerformanceMetricsView.as_view(), name='performance-compute'),
 
-    # Monthly Evaluations
     path('monthly-evaluations/', MonthlyEvaluationView.as_view(), name='monthly-evaluations'),
 
-    # Dashboards
     path('dropout-risk/', DropoutRiskDashboardView.as_view(), name='dropout-risk-dashboard'),
     path('ppo-eligibility/', PPOEligibilityDashboardView.as_view(), name='ppo-eligibility-dashboard'),
 
@@ -102,15 +106,10 @@ urlpatterns = [
     # NEW TALENT INTELLIGENCE SYSTEM URLs
     # ============================================================================
 
-    # Resume Analysis
     path('analyze/', AnalyzeInternView.as_view(), name='analyze-intern'),
     path('analyze-all/', AnalyzeAllInternsView.as_view(), name='analyze-all-interns'),
     path('intern/<int:intern_id>/', GetInternAnalysisView.as_view(), name='get-intern-analysis'),
-    
-    # Job Roles
     path('job-roles/', JobRoleListView.as_view(), name='job-roles'),
-    
-    # Applications
     path('applications/', ApplicationListView.as_view(), name='applications'),
 
     # ============================================================================
@@ -137,7 +136,7 @@ urlpatterns = [
     path('performance/dashboard/<int:intern_id>/', PerformanceDashboardView.as_view(), name='performance-dashboard'),
 
     # ============================================================================
-    # LLM TASK GENERATOR - AI POWERED TASK SUGGESTIONS
+    # LLM TASK GENERATOR
     # ============================================================================
     path('llm/generate-tasks/', LLMTaskSuggestionView.as_view(), name='llm-generate-tasks'),
     path('llm/review-task/', LLMTaskReviewView.as_view(), name='llm-review-task'),
@@ -145,9 +144,19 @@ urlpatterns = [
     path('skills/', SkillListView.as_view(), name='skill-list'),
     path('learning-path/generate-milestone-task/', LLMMilestoneTaskView.as_view(), name='llm-generate-milestone-task'),
     path('learning-path/review-milestone-task/', ReviewMilestoneTaskView.as_view(), name='review-milestone-task'),
-    
+
     # ============================================================================
     # AI PROJECT ASSISTANT CHATBOT
     # ============================================================================
     path('chat/', AIChatBotView.as_view(), name='ai-chat'),
+
+    # ============================================================================
+    # V2 PHASE 1 — CAREER PROGRESSION PIPELINE
+    # ============================================================================
+    # Standalone admin endpoint MUST be registered before the router include
+    # to prevent the router from capturing 'admin/criteria/preview/' as a detail pk.
+    path('admin/criteria/preview/', CriteriaPreviewView.as_view(), name='criteria-preview'),
+
+    # ViewSet routes: stages/, evaluations/, admin/criteria/ + CRUD detail routes
+    path('', include(v2_router.urls)),
 ]

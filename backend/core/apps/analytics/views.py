@@ -2605,3 +2605,256 @@ class AIChatBotView(APIView):
                 {'error': 'Failed to process chat message.', 'detail': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+# ============================================================================
+# V2 Phase 1 — Career Progression Pipeline Views
+# ============================================================================
+
+from rest_framework import viewsets, permissions
+from rest_framework.decorators import action
+from apps.analytics.models import (
+    EmploymentStage,
+    PhaseEvaluation,
+    CertificationCriteria,
+)
+
+
+class IsAdminOnly(permissions.BasePermission):
+    """Only ADMIN role can access."""
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            str(request.user.role) == 'ADMIN'
+        )
+
+
+class IsAdminOrManager(permissions.BasePermission):
+    """ADMIN or MANAGER roles can access."""
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            str(request.user.role) in ('ADMIN', 'MANAGER')
+        )
+
+
+class EmploymentStageViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for EmploymentStage records.
+
+    GET  /api/analytics/stages/                — Intern sees own; Manager/Admin sees all
+    POST /api/analytics/stages/                — Manager/Admin creates
+    PATCH/PUT /api/analytics/stages/{id}/      — Manager/Admin updates
+    DELETE /api/analytics/stages/{id}/         — Admin only
+    """
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        if self.action == 'destroy':
+            return [IsAdminOnly()]
+        return [IsAdminOrManager()]
+
+    def get_queryset(self):
+        user = self.request.user
+        if str(user.role) == 'INTERN':
+            return EmploymentStage.objects.filter(
+                intern=user
+            ).select_related('intern', 'promoted_by')
+        # Manager/Admin see all (manager can filter by intern query param)
+        qs = EmploymentStage.objects.all().select_related('intern', 'promoted_by')
+        intern_id = self.request.query_params.get('intern_id')
+        if intern_id:
+            qs = qs.filter(intern_id=intern_id)
+        return qs
+
+    def get_serializer_class(self):
+        from apps.analytics.serializers import EmploymentStageSerializer
+        return EmploymentStageSerializer
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    @action(detail=True, methods=['patch'], url_path='close')
+    def close_stage(self, request, pk=None):
+        """
+        PATCH /api/analytics/stages/{id}/close/
+        Sets phase_end_date = today, closing the active phase.
+        """
+        from django.utils import timezone
+        stage = self.get_object()
+        if stage.phase_end_date:
+            return Response(
+                {'detail': 'This stage is already closed.'},
+                status=400
+            )
+        stage.phase_end_date = timezone.now().date()
+        stage.save(update_fields=['phase_end_date'])
+        from apps.analytics.serializers import EmploymentStageSerializer
+        return Response(EmploymentStageSerializer(stage).data)
+
+
+class PhaseEvaluationViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for PhaseEvaluation records.
+
+    GET  /api/analytics/evaluations/           — Intern sees own; Manager/Admin sees all
+    POST /api/analytics/evaluations/           — Manager/Admin creates
+    """
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminOrManager()]
+
+    def get_queryset(self):
+        user = self.request.user
+        if str(user.role) == 'INTERN':
+            return PhaseEvaluation.objects.filter(
+                intern=user
+            ).select_related('intern', 'employment_stage', 'evaluated_by')
+        qs = PhaseEvaluation.objects.all().select_related(
+            'intern', 'employment_stage', 'evaluated_by'
+        )
+        intern_id = self.request.query_params.get('intern_id')
+        if intern_id:
+            qs = qs.filter(intern_id=intern_id)
+        return qs
+
+    def get_serializer_class(self):
+        from apps.analytics.serializers import PhaseEvaluationSerializer
+        return PhaseEvaluationSerializer
+
+    def perform_create(self, serializer):
+        """Auto-populate criteria_snapshot from the active CertificationCriteria."""
+        from apps.analytics.serializers import PhaseEvaluationSerializer
+
+        # Get the employment stage from the request data
+        stage_id = self.request.data.get('employment_stage')
+        try:
+            stage = EmploymentStage.objects.get(pk=stage_id)
+            # Determine which phase criteria to snapshot
+            phase_map = {
+                'PHASE_1': 'PHASE_1',
+                'PHASE_2': 'PHASE_2',
+                'FULL_TIME': 'PPO',
+            }
+            criteria_phase = phase_map.get(stage.phase, 'PHASE_1')
+            criteria = CertificationCriteria.objects.filter(
+                phase=criteria_phase, is_active=True
+            ).latest('created_at')
+            snapshot = {
+                'min_overall_score':     criteria.min_overall_score,
+                'min_productivity_score': criteria.min_productivity_score,
+                'min_quality_score':     criteria.min_quality_score,
+                'min_engagement_score':  criteria.min_engagement_score,
+                'min_attendance_pct':    criteria.min_attendance_pct,
+                'min_weekly_reports_submitted': criteria.min_weekly_reports_submitted,
+            }
+        except (EmploymentStage.DoesNotExist, CertificationCriteria.DoesNotExist):
+            snapshot = {}
+
+        # Evaluate criteria_met
+        data = self.request.data
+        checks = [
+            ('min_overall_score',     float(data.get('overall_score', 0))),
+            ('min_productivity_score', float(data.get('productivity_score', 0))),
+            ('min_quality_score',     float(data.get('quality_score', 0))),
+            ('min_engagement_score',  float(data.get('engagement_score', 0))),
+            ('min_attendance_pct',    float(data.get('attendance_pct', 0))),
+        ]
+        criteria_met = all(
+            snapshot.get(key) is None or value >= snapshot.get(key)
+            for key, value in checks
+        )
+
+        serializer.save(
+            criteria_snapshot=snapshot,
+            criteria_met=criteria_met,
+        )
+
+
+class CertificationCriteriaViewSet(viewsets.ModelViewSet):
+    """
+    Admin-only CRUD for CertificationCriteria.
+
+    GET  /api/analytics/admin/criteria/        — list all criteria sets
+    POST /api/analytics/admin/criteria/        — create new criteria set
+    """
+    permission_classes  = [IsAdminOnly]
+    queryset            = CertificationCriteria.objects.all().select_related('created_by')
+
+    def get_serializer_class(self):
+        from apps.analytics.serializers import CertificationCriteriaSerializer
+        return CertificationCriteriaSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class CriteriaPreviewView(APIView):
+    """
+    POST /api/analytics/admin/criteria/preview/
+    Admin submits a set of scores and gets back a pass/fail result
+    against the currently active criteria for a given phase.
+    Does NOT save anything — read-only simulation.
+
+    Request body:
+    {
+        "phase": "PHASE_1",
+        "overall_score": 78.5,
+        "productivity_score": 72.0,
+        "quality_score": 70.5,
+        "engagement_score": 80.0,
+        "attendance_pct": 65.0
+    }
+    """
+    permission_classes = [IsAdminOnly]
+
+    def post(self, request):
+        phase = request.data.get('phase')
+        if not phase:
+            return Response({'detail': 'phase is required.'}, status=400)
+
+        try:
+            criteria = CertificationCriteria.objects.filter(
+                phase=phase, is_active=True
+            ).latest('created_at')
+        except CertificationCriteria.DoesNotExist:
+            return Response(
+                {'detail': f'No active CertificationCriteria found for phase {phase}.'},
+                status=404
+            )
+
+        checks = [
+            ('overall_score',      'min_overall_score'),
+            ('productivity_score', 'min_productivity_score'),
+            ('quality_score',      'min_quality_score'),
+            ('engagement_score',   'min_engagement_score'),
+            ('attendance_pct',     'min_attendance_pct'),
+        ]
+
+        results = []
+        passed = True
+        for score_key, criteria_key in checks:
+            threshold = getattr(criteria, criteria_key, None)
+            value     = float(request.data.get(score_key, 0))
+            if threshold is not None:
+                met = value >= threshold
+                if not met:
+                    passed = False
+                results.append({
+                    'metric':      score_key,
+                    'value':       value,
+                    'threshold':   threshold,
+                    'met':         met,
+                })
+
+        return Response({
+            'phase':          phase,
+            'overall_passed': passed,
+            'checks':         results,
+            'criteria_id':    criteria.pk,
+        })
