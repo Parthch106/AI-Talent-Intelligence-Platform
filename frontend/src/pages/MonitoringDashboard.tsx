@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -7,7 +7,7 @@ import {
     OverviewTab, TasksTab, AttendanceTab,
     PerformanceTab, WeeklyReportsTab
 } from '../components/monitoring';
-import { Home, Target, Calendar, TrendingUp, FileText, CheckCircle, ChevronDown, X, Plus, FileUp, AlertTriangle } from 'lucide-react';
+import { Home, Target, Calendar, TrendingUp, FileText, CheckCircle, ChevronDown, X, Plus, FileUp } from 'lucide-react';
 
 // Types
 interface Task {
@@ -81,6 +81,14 @@ interface Intern {
 type ModalType = 'task' | 'attendance' | 'report' | null;
 
 const MonitoringDashboard: React.FC = () => {
+    const tabs = useMemo(() => [
+        { id: 'overview', label: 'Overview', icon: Home },
+        { id: 'tasks', label: 'Tasks', icon: Target },
+        { id: 'attendance', label: 'Attendance', icon: Calendar },
+        { id: 'performance', label: 'Performance', icon: TrendingUp },
+        { id: 'weekly-reports', label: 'Weekly Reports', icon: FileText },
+    ], []);
+
     const { user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -97,7 +105,7 @@ const MonitoringDashboard: React.FC = () => {
     const [activeModal, setActiveModal] = useState<ModalType>(null);
     const [success, setSuccess] = useState<string>('');
     const [showInternDropdown, setShowInternDropdown] = useState(false);
-    const [projects, setProjects] = useState<{id: number; project: {id: number, name: string}; intern: {full_name: string}}[]>([]);
+    const [projects, setProjects] = useState<{id: number; project: {id: number, name: string}; intern: {id: number, full_name: string}}[]>([]);
     const [modules, setModules] = useState<{id: number; name: string}[]>([]);
     const [availableSkills, setAvailableSkills] = useState<string[]>([]);
     const [skillSearch, setSkillSearch] = useState('');
@@ -107,65 +115,8 @@ const MonitoringDashboard: React.FC = () => {
     const [monthFilter, setMonthFilter] = useState<number | 'all'>(new Date().getMonth() + 1);
     const [yearFilter, setYearFilter] = useState<number | 'all'>(new Date().getFullYear());
 
-    // Form states
-    const [taskForm, setTaskForm] = useState({
-        title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] as string[],
-    });
-    const [attendanceForm, setAttendanceForm] = useState({
-        date: new Date().toISOString().split('T')[0], status: 'PRESENT', check_in_time: '', check_out_time: '', notes: '',
-    });
-    const [_reportForm, _setReportForm] = useState({
-        week_start_date: '', week_end_date: '', tasks_completed: 0, tasks_in_progress: 0, tasks_blocked: 0,
-        accomplishments: '', challenges: '', learnings: '', next_week_goals: '', self_rating: 5,
-    });
-    const [pdfFile, setPdfFile] = useState<File | null>(null);
-
-    const tabs = [
-        { id: 'overview', label: 'Overview', icon: Home },
-        { id: 'tasks', label: 'Tasks', icon: Target },
-        { id: 'attendance', label: 'Attendance', icon: Calendar },
-        { id: 'performance', label: 'Performance', icon: TrendingUp },
-        { id: 'weekly-reports', label: 'Weekly Reports', icon: FileText },
-    ];
-
-    useEffect(() => {
-        const path = location.pathname.split('/').pop();
-        if (path && tabs.some(t => t.id === path)) {
-            setActiveTab(path);
-        } else {
-            setActiveTab('overview');
-        }
-    }, [location.pathname]);
-
-    // Fetch interns when page loads (for managers/admins)
-    useEffect(() => {
-        if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
-            fetchInterns();
-        } else if (user?.role === 'INTERN') {
-            // For interns, fetch data directly
-            fetchData();
-            fetchAvailableSkills(user.id);
-        }
-    }, [user?.role]);
-
-    // Fetch data when tab changes or selectedIntern is set - with proper chaining
-    useEffect(() => {
-        // For managers, ensure an intern is selected
-        if ((user?.role === 'ADMIN' || user?.role === 'MANAGER')) {
-            if (interns.length > 0 && !selectedIntern) {
-                setSelectedIntern(interns[0].id);
-            } else if (selectedIntern) {
-                fetchData();
-                fetchAvailableSkills(selectedIntern);
-            }
-        } else if (user?.role === 'INTERN') {
-            // For interns, always fetch data
-            fetchData();
-        }
-    }, [selectedIntern, activeTab, user?.role, interns]);
-
     // API Functions
-    const fetchInterns = async (): Promise<void> => {
+    const fetchInterns = useCallback(async (): Promise<void> => {
         if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
             try {
                 const response = await axios.get('/accounts/users/', {
@@ -180,9 +131,9 @@ const MonitoringDashboard: React.FC = () => {
                 console.error('Error fetching interns:', err);
             }
         }
-    };
+    }, [user?.role, user?.department, selectedIntern]);
 
-    const fetchAvailableSkills = async (internId?: number): Promise<void> => {
+    const fetchAvailableSkills = useCallback(async (internId?: number): Promise<void> => {
         try {
             const params = internId ? { intern_id: internId } : {};
             const response = await axios.get('/analytics/skills/', { params });
@@ -190,14 +141,13 @@ const MonitoringDashboard: React.FC = () => {
         } catch (err) {
             console.error('Error fetching skills:', err);
         }
-    };
-    
+    }, []);
+
     const fetchProjects = async (): Promise<void> => {
         try {
             const response = await axios.get('/projects/assignments/');
             const data = response.data.results || response.data;
-            // Filter to only show active projects
-            const activeProjects = data.filter((p: any) => p.status === 'ACTIVE');
+            const activeProjects = data.filter((p: { status: string }) => p.status === 'ACTIVE');
             setProjects(activeProjects);
         } catch (err) {
             console.error('Error fetching projects:', err);
@@ -210,7 +160,6 @@ const MonitoringDashboard: React.FC = () => {
             return;
         }
         try {
-            // Find the project ID from the assignment
             const assignment = projects.find(p => p.id === parseInt(projectAssignmentId));
             if (assignment && assignment.project) {
                 const response = await axios.get('/projects/modules/', {
@@ -225,17 +174,13 @@ const MonitoringDashboard: React.FC = () => {
         }
     };
 
-    const fetchData = async (): Promise<void> => {
+    const fetchData = useCallback(async (): Promise<void> => {
         setLoading(true);
-
-        // For managers, require an intern to be selected
         if ((user?.role === 'ADMIN' || user?.role === 'MANAGER') && !selectedIntern) {
             setLoading(false);
             return;
         }
-
         const targetId = selectedIntern || user?.id;
-
         try {
             const [tasksRes, attendanceRes, performanceRes, reportsRes] = await Promise.all([
                 axios.get('/analytics/tasks/', { params: { intern_id: targetId } }),
@@ -245,8 +190,6 @@ const MonitoringDashboard: React.FC = () => {
             ]);
             const tasks = Array.isArray(tasksRes.data.tasks) ? tasksRes.data.tasks : [];
             const attendance = Array.isArray(attendanceRes.data.attendance) ? attendanceRes.data.attendance : [];
-            
-            // Map dashboard data to PerformanceMetric structure
             const dashboardData = performanceRes.data;
             const performance: PerformanceMetric | null = dashboardData ? {
                 overall_performance_score: (dashboardData.performance_score || 0) * 100,
@@ -264,22 +207,64 @@ const MonitoringDashboard: React.FC = () => {
                 performance_status: dashboardData.performance_status,
                 reasoning: dashboardData.reasoning
             } : null;
-
             const weeklyReports = Array.isArray(reportsRes.data.weekly_reports) ? reportsRes.data.weekly_reports : [];
-
             setTasks(tasks);
             setAttendance(attendance);
             setPerformance(performance);
             setWeeklyReports(weeklyReports);
-        } catch (err: any) {
-            console.error('[fetchData] Error fetching data:', err.message || err);
-            if (err.response) {
-                console.error('[fetchData] Response:', err.response.data);
-                console.error('[fetchData] Status:', err.response.status);
-            }
+        } catch (err: unknown) {
+            const apiError = err as { message?: string; response?: { data?: unknown; status?: number } };
+            console.error('[fetchData] Error fetching data:', apiError.message || apiError);
         }
         setLoading(false);
-    };
+    }, [user?.role, user?.id, selectedIntern]);
+
+    // Form states
+    const [taskForm, setTaskForm] = useState({
+        title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] as string[],
+    });
+    const [attendanceForm, setAttendanceForm] = useState({
+        date: new Date().toISOString().split('T')[0], status: 'PRESENT', check_in_time: '', check_out_time: '', notes: '',
+    });
+    const [pdfFile, setPdfFile] = useState<File | null>(null);
+
+
+    useEffect(() => {
+        const path = location.pathname.split('/').pop();
+        if (path && tabs.some(t => t.id === path)) {
+            setActiveTab(path);
+        } else {
+            setActiveTab('overview');
+        }
+    }, [location.pathname, tabs]);
+
+    // Fetch interns when page loads (for managers/admins)
+    useEffect(() => {
+        if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
+            fetchInterns();
+        } else if (user?.role === 'INTERN') {
+            // For interns, fetch data directly
+            fetchData();
+            if (user.id) fetchAvailableSkills(user.id);
+        }
+    }, [user?.role, user?.id, fetchData, fetchInterns, fetchAvailableSkills]);
+
+    // Fetch data when tab changes or selectedIntern is set - with proper chaining
+    useEffect(() => {
+        // For managers, ensure an intern is selected
+        if ((user?.role === 'ADMIN' || user?.role === 'MANAGER')) {
+            if (interns.length > 0 && !selectedIntern) {
+                setSelectedIntern(interns[0].id);
+            } else if (selectedIntern) {
+                fetchData();
+                fetchAvailableSkills(selectedIntern);
+            }
+        } else if (user?.role === 'INTERN') {
+            // For interns, always fetch data
+            fetchData();
+        }
+    }, [selectedIntern, activeTab, user?.role, interns, fetchData, fetchAvailableSkills]);
+
 
     // Handlers
     const handleTabChange = (tabId: string): void => {
@@ -312,7 +297,7 @@ const MonitoringDashboard: React.FC = () => {
     const handleCreateTask = async (e: React.FormEvent): Promise<void> => {
         e.preventDefault();
         try {
-            const taskPayload: any = {
+            const taskPayload: Record<string, unknown> = {
                 title: taskForm.title,
                 description: taskForm.description,
                 priority: taskForm.priority,
@@ -624,8 +609,8 @@ const MonitoringDashboard: React.FC = () => {
                         >
                             <option value="">No Project</option>
                             {projects
-                                .filter((p: any) => selectedIntern ? p.intern.id === selectedIntern : true)
-                                .map((p: any) => (
+                                .filter((p: { intern: { id: number } }) => selectedIntern ? p.intern.id === selectedIntern : true)
+                                .map((p: { id: number; project: { name: string } }) => (
                                 <option key={p.id} value={p.id}>
                                     {p.project.name}
                                 </option>

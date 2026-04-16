@@ -55,6 +55,14 @@ interface AssignIntern {
     role: string;
 }
 
+interface ProjectModule {
+    id: number;
+    name: string;
+    description: string;
+    order?: number;
+    estimated_hours?: number;
+}
+
 interface AISuggestion {
     name: string;
     description: string;
@@ -63,11 +71,7 @@ interface AISuggestion {
     tech_stack: string[];
     learning_objectives: string[];
     business_value: string;
-    modules: {
-        name: string;
-        description: string;
-        estimated_hours: number;
-    }[];
+    modules: ProjectModule[];
 }
 
 const ProjectList: React.FC = () => {
@@ -82,7 +86,7 @@ const ProjectList: React.FC = () => {
     const [showAISuggestionsModal, setShowAISuggestionsModal] = useState(false);
     const [showAIInputModal, setShowAIInputModal] = useState(false);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-    const [projectModules, setProjectModules] = useState<any[]>([]);
+    const [projectModules, setProjectModules] = useState<ProjectModule[]>([]);
     const [newModule, setNewModule] = useState({ name: '', description: '' });
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -94,7 +98,7 @@ const ProjectList: React.FC = () => {
         skills: '',
         duration: '3 months'
     });
-    const [aiSuggestedModules, setAiSuggestedModules] = useState<any[]>([]);
+    const [aiSuggestedModules, setAiSuggestedModules] = useState<ProjectModule[]>([]);
 
     const [newProject, setNewProject] = useState<NewProject>({
         name: '',
@@ -121,7 +125,7 @@ const ProjectList: React.FC = () => {
         role: '',
     });
 
-    const fetchData = async () => {
+    const fetchData = React.useCallback(async () => {
         try {
             const projectsRes = await api.get('/projects/projects/');
 
@@ -147,18 +151,18 @@ const ProjectList: React.FC = () => {
             } else {
                 // Admin gets all interns
                 const internsRes = await api.get('/interns/profiles/');
-                setInterns(internsRes.data.map((profile: any) => profile.user));
+                setInterns(internsRes.data.map((profile: { user: User }) => profile.user));
             }
         } catch (error) {
             console.error("Failed to fetch data", error);
         } finally {
             setLoading(false);
         }
-    };
+    }, [user?.role]);
 
     useEffect(() => {
         fetchData();
-    }, [user?.role]);
+    }, [fetchData]);
 
     const handleAddProject = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -206,8 +210,9 @@ const ProjectList: React.FC = () => {
             });
             setAiSuggestedModules([]); // Clear suggested modules
             fetchData();
-        } catch (err: any) {
-            setError(err.response?.data?.detail || 'Failed to create project');
+        } catch (err) {
+            const apiError = err as { response?: { data?: { detail?: string } } };
+            setError(apiError.response?.data?.detail || 'Failed to create project');
         } finally {
             setSubmitting(false);
         }
@@ -232,8 +237,9 @@ const ProjectList: React.FC = () => {
             setShowEditModal(false);
             setSelectedProject(null);
             fetchData();
-        } catch (err: any) {
-            setError(err.response?.data?.detail || 'Failed to update project');
+        } catch (err) {
+            const apiError = err as { response?: { data?: { detail?: string } } };
+            setError(apiError.response?.data?.detail || 'Failed to update project');
         } finally {
             setSubmitting(false);
         }
@@ -255,8 +261,9 @@ const ProjectList: React.FC = () => {
             setSelectedProject(null);
             setAssignIntern({ intern_id: 0, role: '' });
             fetchData();
-        } catch (err: any) {
-            setError(err.response?.data?.detail || 'Failed to assign intern');
+        } catch (err) {
+            const apiError = err as { response?: { data?: { detail?: string } } };
+            setError(apiError.response?.data?.detail || 'Failed to assign intern');
         } finally {
             setSubmitting(false);
         }
@@ -285,7 +292,7 @@ const ProjectList: React.FC = () => {
         try {
             const response = await api.get(`/projects/projects/${projectId}/modules/`);
             setProjectModules(response.data);
-        } catch (err) {
+        } catch {
             setProjectModules([]);
         }
     };
@@ -307,14 +314,18 @@ const ProjectList: React.FC = () => {
             });
             setNewModule({ name: '', description: '' });
             fetchProjectModules(selectedProject.id);
-        } catch (err: any) {
-            console.error('Add module error:', err.response?.data);
-            const errorData = err.response?.data;
-            if (typeof errorData === 'object' && errorData !== null) {
-                const errorMessages = Object.entries(errorData).map(([key, value]) => `${key}: ${value}`).join(', ');
+        } catch (err) {
+            const apiError = err as { response?: { data?: Record<string, unknown> } };
+            console.error('Add module error:', apiError.response?.data);
+            const errorData = apiError.response?.data;
+            if (typeof errorData === 'object' && errorData !== null && Object.keys(errorData).length > 0) {
+                const errorMessages = Object.entries(errorData)
+                    .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+                    .join(', ');
                 setError(errorMessages);
             } else {
-                setError(err.response?.data?.detail || 'Failed to add module');
+                const detail = (apiError.response?.data as { detail?: string })?.detail;
+                setError(typeof detail === 'string' ? detail : 'Failed to add module');
             }
         } finally {
             setSubmitting(false);
@@ -334,7 +345,7 @@ const ProjectList: React.FC = () => {
             // Get department from user profile - assuming it's available
             const department = user?.department || 'Web Development'; // Default fallback
 
-            const requestData: any = {
+            const requestData: Record<string, string | number> = {
                 department: department,
                 experience_level: 'BEGINNER',
                 num_suggestions: 1,  // Reduced to avoid token limits
@@ -361,9 +372,10 @@ const ProjectList: React.FC = () => {
 
             // Reset input for next use
             setAiInput({ description: '', skills: '', duration: '3 months' });
-        } catch (err: any) {
+        } catch (err) {
+            const apiError = err as { response?: { data?: { error?: string } } };
             console.error('AI suggestion error:', err);
-            setError(err.response?.data?.error || 'Failed to generate AI suggestions');
+            setError(apiError.response?.data?.error || 'Failed to generate AI suggestions');
         } finally {
             setGeneratingAISuggestions(false);
         }
@@ -542,7 +554,10 @@ const ProjectList: React.FC = () => {
                                     </span>
                                     {showAddButton && (
                                         <button
-                                            onClick={() => openAssignModal(project)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                openAssignModal(project);
+                                            }}
                                             className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
                                         >
                                             <UserPlus size={12} />
@@ -570,6 +585,7 @@ const ProjectList: React.FC = () => {
                                         href={project.repository_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
                                         className="text-sm text-[var(--text-dim)] hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1 transition-colors"
                                     >
                                         <ExternalLink size={14} />
@@ -578,7 +594,10 @@ const ProjectList: React.FC = () => {
                                 )}
                                 {showAddButton && (
                                     <button
-                                        onClick={() => openEditModal(project)}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            openEditModal(project);
+                                        }}
                                         className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors ml-auto"
                                     >
                                         <Edit size={14} />
@@ -1141,7 +1160,7 @@ const ProjectList: React.FC = () => {
                                     <div className="overflow-y-auto max-h-[220px] pr-2 custom-scrollbar">
                                         {projectModules.length > 0 ? (
                                             <div className="space-y-2">
-                                                {projectModules.map((module: any) => (
+                                                {projectModules.map((module) => (
                                                     <div key={module.id} className="p-3 bg-[var(--bg-muted)] hover:bg-[var(--bg-color)] rounded-xl border border-transparent hover:border-pink-500/20 transition-colors">
                                                         <div className="flex items-center justify-between">
                                                             <div>

@@ -4,8 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import {
     LayoutDashboard, Users, FolderKanban, MessageSquare,
     FileText, Brain, Monitor, Settings, ChevronRight,
-    Sparkles, LogOut, Zap, User, Upload, Target, BookOpen, Activity,
-    Home, CheckSquare, Calendar, FileText as ReportIcon
+    LogOut, User, Upload, Target, BookOpen, Activity,
+    Home, CheckSquare, Calendar, FileText as ReportIcon, Layers
 } from 'lucide-react';
 
 interface NavItem {
@@ -16,9 +16,30 @@ interface NavItem {
     badge?: string;
 }
 
-const Sidebar: React.FC = () => {
+interface SidebarProps {
+    isExpanded: boolean;
+    setIsExpanded: (expanded: boolean) => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
     const location = useLocation();
     const { user, logout } = useAuth();
+    const [hoveredItem, setHoveredItem] = React.useState<string | null>(null);
+    const [flyoutVisible, setFlyoutVisible] = React.useState(false);
+    const flyoutTimeout = React.useRef<any>(null);
+
+    const handleMouseEnter = (path: string) => {
+        if (flyoutTimeout.current) clearTimeout(flyoutTimeout.current);
+        setHoveredItem(path);
+        setFlyoutVisible(true);
+    };
+
+    const handleMouseLeave = () => {
+        flyoutTimeout.current = setTimeout(() => {
+            setFlyoutVisible(false);
+            setHoveredItem(null);
+        }, 300);
+    };
 
     const mainNavItems: NavItem[] = [
         { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
@@ -64,18 +85,149 @@ const Sidebar: React.FC = () => {
         });
     };
 
+    const renderNavItem = (item: NavItem, section: 'main' | 'admin' | 'monitoring' | 'intern') => {
+        const isTaskItem = item.name.includes('Tasks');
+        const active = isActive(item.path);
+        const isHovered = isTaskItem && flyoutVisible && hoveredItem === item.path && isExpanded;
+
+        const sectionStyles = {
+            main: {
+                activeBg: 'bg-purple-500/[0.05]',
+                activeBorder: 'border-purple-500/10',
+                indicator: 'from-purple-500 to-blue-500',
+                shadow: 'shadow-[0_0_15px_rgba(168,85,247,0.5)]',
+                icon: 'text-purple-400',
+                glow: 'bg-purple-500/5'
+            },
+            admin: {
+                activeBg: 'bg-indigo-500/[0.05]',
+                activeBorder: 'border-indigo-500/10',
+                indicator: 'from-indigo-500 to-purple-500',
+                shadow: 'shadow-[0_0_15px_rgba(99,102,241,0.5)]',
+                icon: 'text-indigo-400',
+                glow: 'bg-indigo-500/5'
+            },
+            monitoring: {
+                activeBg: 'bg-white/[0.03]',
+                activeBorder: 'border-white/5',
+                indicator: 'from-cyan-500 to-blue-500',
+                shadow: 'shadow-[0_0_15px_rgba(6,182,212,0.5)]',
+                icon: 'text-cyan-400',
+                glow: 'bg-cyan-500/5'
+            },
+            intern: {
+                activeBg: 'bg-white/[0.03]',
+                activeBorder: 'border-white/5',
+                indicator: 'from-emerald-500 to-green-500',
+                shadow: 'shadow-[0_0_15px_rgba(16,185,129,0.5)]',
+                icon: 'text-emerald-400',
+                glow: 'bg-emerald-500/5'
+            }
+        }[section];
+
+        return (
+            <li key={item.path} className="relative">
+                <Link
+                    to={item.path}
+                    onMouseEnter={() => isTaskItem && handleMouseEnter(item.path)}
+                    onMouseLeave={() => isTaskItem && handleMouseLeave()}
+                    className={`relative flex items-center px-4 py-1.5 rounded-xl transition-all duration-500 group overflow-hidden ${active
+                        ? 'text-white'
+                        : 'text-slate-500 hover:text-slate-200'
+                        } ${isExpanded ? 'gap-4' : 'gap-0 justify-center'}`}
+                >
+                    {active && (
+                        <div className={`absolute inset-0 ${sectionStyles.activeBg} dark:bg-white/[0.03] border ${sectionStyles.activeBorder} dark:border-white/5 rounded-2xl`}>
+                            <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b ${sectionStyles.indicator} rounded-r-full ${sectionStyles.shadow}`}></div>
+                        </div>
+                    )}
+                    <span className={`relative z-10 transition-all duration-500 ${active
+                        ? `${sectionStyles.icon} scale-110`
+                        : `group-hover:scale-110 ${sectionStyles.icon} opacity-60 group-hover:opacity-100`
+                        }`}>
+                        {item.icon}
+                    </span>
+                    
+                    <span className={`relative z-10 text-sm font-bold tracking-tight transition-all duration-500 whitespace-nowrap overflow-hidden ${isExpanded ? 'w-auto opacity-100 ml-0' : 'w-0 opacity-0 ml-0'} ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-200'}`}>
+                        {item.name}
+                    </span>
+
+                    {item.badge && isExpanded && (
+                        <span className="relative z-10 ml-auto px-2 py-0.5 text-[8px] font-black bg-purple-500/10 text-purple-400 rounded-md border border-purple-500/20 uppercase tracking-widest leading-none animate-in fade-in zoom-in duration-500">
+                            {item.badge}
+                        </span>
+                    )}
+                    {active && isExpanded && (
+                        <div className={`absolute right-[-10%] top-[-10%] w-24 h-24 ${sectionStyles.glow} blur-2xl rounded-full`} />
+                    )}
+                </Link>
+
+                {/* Animated Inline Sub-menu for Tasks */}
+                <div 
+                    className={`grid transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden ${isHovered 
+                        ? 'grid-rows-[1fr] opacity-100 mt-2 mb-3 translate-y-0' 
+                        : 'grid-rows-[0fr] opacity-0 mt-0 mb-0 -translate-y-2 pointer-events-none'}`}
+                >
+                    <div 
+                        onMouseEnter={() => flyoutTimeout.current && clearTimeout(flyoutTimeout.current)}
+                        onMouseLeave={handleMouseLeave}
+                        className="min-h-0 mx-3 p-2 bg-white/[0.03] backdrop-blur-3xl border border-white/5 rounded-2xl space-y-0.5"
+                    >
+                        <Link 
+                            to={item.path === '/workspace/my-tasks' ? '/workspace/tasks/details' : `${item.path}/details`} 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setFlyoutVisible(false);
+                            }}
+                            className="relative z-30 flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/5 group/sub transition-all duration-300"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-lg bg-cyan-500/10 flex items-center justify-center group-hover/sub:bg-cyan-500/20 transition-colors">
+                                    <Activity size={12} className="text-slate-500 group-hover/sub:text-cyan-400" />
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-400 group-hover/sub:text-white tracking-wide uppercase">Detailed Tasks Page</span>
+                            </div>
+                            <ChevronRight size={12} className="text-slate-700 group-hover/sub:translate-x-1 transition-transform" />
+                        </Link>
+                        
+                        <Link 
+                            to={`${item.path}?view=board`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setFlyoutVisible(false);
+                            }}
+                            className="relative z-30 flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/5 group/sub transition-all duration-300"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover/sub:bg-purple-500/20 transition-colors">
+                                    <Layers size={12} className="text-slate-500 group-hover/sub:text-purple-400" />
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-400 group-hover/sub:text-white tracking-wide uppercase">Board View</span>
+                            </div>
+                            <ChevronRight size={12} className="text-slate-700 group-hover/sub:translate-x-1 transition-transform" />
+                        </Link>
+                    </div>
+                </div>
+            </li>
+        );
+    };
+
     return (
-        <aside className="fixed left-0 top-0 h-screen w-64 bg-[var(--sidebar-bg)] backdrop-blur-3xl text-[var(--text-main)] flex flex-col z-40 border-r border-[var(--border-color)] transition-all duration-500">
+        <aside 
+            onMouseEnter={() => setIsExpanded(true)}
+            onMouseLeave={() => setIsExpanded(false)}
+            className={`fixed left-0 top-0 h-screen bg-[var(--sidebar-bg)] backdrop-blur-3xl text-[var(--text-main)] flex flex-col z-40 border-r border-[var(--border-color)] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-2xl ${isExpanded ? 'w-64' : 'w-20'}`}
+        >
             {/* Logo Section */}
-            <div className="p-8 border-b border-[var(--border-color)]">
+            <div className={`border-b border-[var(--border-color)] transition-all duration-500 ${isExpanded ? 'p-6' : 'p-4 flex justify-center'}`}>
                 <Link to="/" className="flex items-center gap-4 group">
                     <div className="relative">
-                        <div className="absolute -inset-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
-                        <div className="relative w-12 h-12 bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-                            <Target size={24} className="text-white" />
+                        <div className="absolute -inset-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl blur-xl opacity-0 group-hover:opacity-40 transition-opacity duration-500"></div>
+                        <div className="relative w-10 h-10 bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-600 rounded-xl flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                            <Target size={20} className="text-white" />
                         </div>
                     </div>
-                    <div>
+                    <div className={`transition-all duration-500 overflow-hidden whitespace-nowrap ${isExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0'}`}>
                         <h1 className="text-xl font-heading font-black tracking-tighter bg-gradient-to-r from-[var(--text-main)] via-purple-400 to-[var(--text-main)] bg-clip-text text-transparent uppercase">
                             AIMs
                         </h1>
@@ -84,185 +236,96 @@ const Sidebar: React.FC = () => {
                 </Link>
             </div>
 
-            {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto py-6 px-3 scrollbar-thin">
+            {/* Navigation - Hide Scrollbar with style tag below */}
+            <nav className="flex-1 overflow-y-auto py-4 px-3 sidebar-nav">
                 {/* Main Navigation */}
-                <div className="mb-8">
-                    <div className="px-4 mb-4 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3">
-                        <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]" />
-                        Main Menu
-                    </div>
-                    <ul className="space-y-1.5 px-2">
-                        {mainNavItems.map((item) => (
-                            <li key={item.path}>
-                                <Link
-                                    to={item.path}
-                                    className={`relative flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-500 group overflow-hidden ${isActive(item.path)
-                                        ? 'text-white'
-                                        : 'text-slate-500 hover:text-slate-200'
-                                        }`}
-                                >
-                                    {isActive(item.path) && (
-                                        <div className="absolute inset-0 bg-purple-500/[0.05] dark:bg-white/[0.03] border border-purple-500/10 dark:border-white/5 rounded-2xl">
-                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-purple-500 to-blue-500 rounded-r-full shadow-[0_0_15px_rgba(168,85,247,0.5)]"></div>
-                                        </div>
-                                    )}
-                                    <span className={`relative z-10 transition-all duration-500 ${isActive(item.path)
-                                        ? 'text-purple-400 scale-110'
-                                        : 'group-hover:scale-110 group-hover:text-purple-400 opacity-60 group-hover:opacity-100'
-                                        }`}>
-                                        {item.icon}
-                                    </span>
-                                    <span className={`relative z-10 text-sm font-bold tracking-tight transition-colors duration-500 ${isActive(item.path) ? 'text-white' : 'text-slate-500 group-hover:text-slate-200'}`}>{item.name}</span>
-                                    {item.badge && (
-                                        <span className="relative z-10 ml-auto px-2 py-0.5 text-[8px] font-black bg-purple-500/10 text-purple-400 rounded-md border border-purple-500/20 uppercase tracking-widest leading-none">
-                                            {item.badge}
-                                        </span>
-                                    )}
-                                    {isActive(item.path) && (
-                                        <div className="absolute right-[-10%] top-[-10%] w-24 h-24 bg-purple-500/5 blur-2xl rounded-full" />
-                                    )}
-                                </Link>
-                            </li>
-                        ))}
+                <div className="mb-4">
+                    {isExpanded && (
+                        <div className="px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 animate-in fade-in duration-500">
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)] flex-shrink-0" />
+                            <span>Main Menu</span>
+                        </div>
+                    )}
+                    <ul className="space-y-0.5">
+                        {mainNavItems.map((item) => renderNavItem(item, 'main'))}
                     </ul>
                 </div>
 
                 {/* Admin Navigation */}
                 {filterByRole(adminNavItems).length > 0 && (
-                    <div className="mb-8">
-                        <div className="px-4 mb-4 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
-                            Analytics
-                        </div>
-                        <ul className="space-y-1.5 px-2">
-                            {filterByRole(adminNavItems).map((item) => (
-                                <li key={item.path}>
-                                    <Link
-                                        to={item.path}
-                                        className={`relative flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-500 group overflow-hidden ${isActive(item.path)
-                                            ? 'text-white'
-                                            : 'text-slate-500 hover:text-slate-200'
-                                            }`}
-                                    >
-                                        {isActive(item.path) && (
-                                            <div className="absolute inset-0 bg-indigo-500/[0.05] dark:bg-white/[0.03] border border-indigo-500/10 dark:border-white/5 rounded-2xl">
-                                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-r-full shadow-[0_0_15px_rgba(99,102,241,0.5)]"></div>
-                                            </div>
-                                        )}
-                                        <span className={`relative z-10 transition-all duration-500 ${isActive(item.path)
-                                            ? 'text-indigo-400 scale-110'
-                                            : 'group-hover:scale-110 group-hover:text-indigo-400 opacity-60 group-hover:opacity-100'
-                                            }`}>
-                                            {item.icon}
-                                        </span>
-                                        <span className={`relative z-10 text-sm font-bold tracking-tight transition-colors duration-500 ${isActive(item.path) ? 'text-white' : 'text-slate-500 group-hover:text-slate-200'}`}>{item.name}</span>
-                                        {isActive(item.path) && (
-                                            <div className="absolute right-[-10%] top-[-10%] w-24 h-24 bg-indigo-500/5 blur-2xl rounded-full" />
-                                        )}
-                                    </Link>
-                                </li>
-                            ))}
+                    <div className="mb-4">
+                        {isExpanded && (
+                            <div className="px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 animate-in fade-in duration-500">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)] flex-shrink-0" />
+                                <span>Analytics</span>
+                            </div>
+                        )}
+                        <ul className="space-y-0.5">
+                            {filterByRole(adminNavItems).map((item) => renderNavItem(item, 'admin'))}
                         </ul>
                     </div>
                 )}
 
                 {/* Monitoring Navigation */}
                 {filterByRole(monitoringNavItems).length > 0 && (
-                    <div className="mb-8">
-                        <div className="px-4 mb-4 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
-                            Monitoring
-                        </div>
-                        <ul className="space-y-1.5 px-2">
-                            {filterByRole(monitoringNavItems).map((item) => (
-                                <li key={item.path}>
-                                    <Link
-                                        to={item.path}
-                                        className={`relative flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-500 group overflow-hidden ${isActive(item.path)
-                                            ? 'text-white'
-                                            : 'text-slate-500 hover:text-slate-200'
-                                            }`}
-                                    >
-                                        {isActive(item.path) && (
-                                            <div className="absolute inset-0 bg-white/[0.03] border border-white/5 rounded-2xl">
-                                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-cyan-500 to-blue-500 rounded-r-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
-                                            </div>
-                                        )}
-                                        <span className={`relative z-10 transition-all duration-500 ${isActive(item.path)
-                                            ? 'text-cyan-400 scale-110'
-                                            : 'group-hover:scale-110 group-hover:text-cyan-400 opacity-60 group-hover:opacity-100'
-                                            }`}>
-                                            {item.icon}
-                                        </span>
-                                        <span className={`relative z-10 text-sm font-bold tracking-tight transition-colors duration-500 ${isActive(item.path) ? 'text-white' : 'text-slate-500 group-hover:text-slate-200'}`}>{item.name}</span>
-                                        {isActive(item.path) && (
-                                            <div className="absolute right-[-10%] top-[-10%] w-24 h-24 bg-cyan-500/5 blur-2xl rounded-full" />
-                                        )}
-                                    </Link>
-                                </li>
-                            ))}
+                    <div className="mb-4">
+                        {isExpanded && (
+                            <div className="px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 animate-in fade-in duration-500">
+                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)] flex-shrink-0" />
+                                <span>Monitoring</span>
+                            </div>
+                        )}
+                        <ul className="space-y-0.5">
+                            {filterByRole(monitoringNavItems).map((item) => renderNavItem(item, 'monitoring'))}
                         </ul>
                     </div>
                 )}
 
                 {/* Intern Navigation */}
                 {filterByRole(internNavItems).length > 0 && (
-                    <div className="mb-8">
-                        <div className="px-4 mb-4 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                            My Workspace
-                        </div>
-                        <ul className="space-y-1.5 px-2">
-                            {filterByRole(internNavItems).map((item) => (
-                                <li key={item.path}>
-                                    <Link
-                                        to={item.path}
-                                        className={`relative flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-500 group overflow-hidden ${isActive(item.path)
-                                            ? 'text-white'
-                                            : 'text-slate-500 hover:text-slate-200'
-                                            }`}
-                                    >
-                                        {isActive(item.path) && (
-                                            <div className="absolute inset-0 bg-white/[0.03] border border-white/5 rounded-2xl">
-                                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-emerald-500 to-green-500 rounded-r-full shadow-[0_0_15px_rgba(16,185,129,0.5)]"></div>
-                                            </div>
-                                        )}
-                                        <span className={`relative z-10 transition-all duration-500 ${isActive(item.path)
-                                            ? 'text-emerald-400 scale-110'
-                                            : 'group-hover:scale-110 group-hover:text-emerald-400 opacity-60 group-hover:opacity-100'
-                                            }`}>
-                                            {item.icon}
-                                        </span>
-                                        <span className={`relative z-10 text-sm font-bold tracking-tight transition-colors duration-500 ${isActive(item.path) ? 'text-white' : 'text-slate-500 group-hover:text-slate-200'}`}>{item.name}</span>
-                                        {isActive(item.path) && (
-                                            <div className="absolute right-[-10%] top-[-10%] w-24 h-24 bg-emerald-500/5 blur-2xl rounded-full" />
-                                        )}
-                                    </Link>
-                                </li>
-                            ))}
+                    <div className="mb-4">
+                        {isExpanded && (
+                            <div className="px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 animate-in fade-in duration-500">
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] flex-shrink-0" />
+                                <span>My Workspace</span>
+                            </div>
+                        )}
+                        <ul className="space-y-0.5">
+                            {filterByRole(internNavItems).map((item) => renderNavItem(item, 'intern'))}
                         </ul>
                     </div>
                 )}
             </nav>
 
             {/* Bottom Section */}
-            <div className="p-3 border-t border-[var(--border-color)] space-y-1">
-                <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-300 w-full group">
-                    <Settings size={20} className="group-hover:rotate-90 transition-transform duration-300" />
-                    <span className="font-medium">Settings</span>
+            <div className={`p-3 border-t border-[var(--border-color)] space-y-1`}>
+                <button className={`flex items-center rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-300 w-full group ${isExpanded ? 'gap-3 px-3 py-2.5' : 'justify-center p-3'}`}>
+                    <Settings size={20} className="group-hover:rotate-90 transition-transform duration-300 flex-shrink-0" />
+                    {isExpanded && <span className="font-medium">Settings</span>}
                 </button>
                 <button
                     onClick={logout}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 w-full group"
+                    className={`flex items-center rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 w-full group ${isExpanded ? 'gap-3 px-3 py-2.5' : 'justify-center p-3'}`}
                 >
-                    <LogOut size={20} className="group-hover:-translate-x-1 transition-transform duration-300" />
-                    <span className="font-medium">Sign Out</span>
+                    <LogOut size={20} className="group-hover:-translate-x-1 transition-transform duration-300 flex-shrink-0" />
+                    {isExpanded && <span className="font-medium">Sign Out</span>}
                 </button>
             </div>
 
+            {/* Task sub-menu logic is now inline within renderNavItem */}
+
             {/* Decorative Elements */}
             <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-purple-500/5 to-transparent pointer-events-none"></div>
+
+            <style>{`
+                .sidebar-nav::-webkit-scrollbar {
+                    display: none;
+                }
+                .sidebar-nav {
+                    -ms-overflow-style: none; /* IE and Edge */
+                    scrollbar-width: none; /* Firefox */
+                }
+            `}</style>
         </aside>
     );
 };

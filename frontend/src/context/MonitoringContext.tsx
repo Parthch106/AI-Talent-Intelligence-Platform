@@ -29,14 +29,14 @@ export const MonitoringProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const STORAGE_KEY = `selected_intern_id_${user?.id}`;
 
     // Update state and persistence
-    const setSelectedInternId = (id: number | null) => {
+    const setSelectedInternId = useCallback((id: number | null) => {
         setSelectedInternIdState(id);
         if (id) {
             localStorage.setItem(STORAGE_KEY, id.toString());
         } else {
             localStorage.removeItem(STORAGE_KEY);
         }
-    };
+    }, [STORAGE_KEY]);
 
     const refreshInterns = useCallback(async () => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'MANAGER')) {
@@ -73,7 +73,7 @@ export const MonitoringProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         } finally {
             setLoadingInterns(false);
         }
-    }, [user, STORAGE_KEY]);
+    }, [user, STORAGE_KEY, selectedInternId, setSelectedInternId]);
 
     useEffect(() => {
         refreshInterns();
@@ -92,6 +92,7 @@ export const MonitoringProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useMonitoring = () => {
     const context = useContext(MonitoringContext);
     if (context === undefined) {

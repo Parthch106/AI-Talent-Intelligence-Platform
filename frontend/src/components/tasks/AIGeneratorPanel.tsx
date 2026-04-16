@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    X, Sparkles, Loader2, ChevronDown, Check, Plus, Target, Clock, 
-    AlertTriangle, PlayCircle, Wand2, Layers
+    X, Sparkles, Loader2, Plus, Clock
 } from 'lucide-react';
 import axios from '../../api/axios';
 import toast from 'react-hot-toast';
@@ -30,7 +29,6 @@ const AIGeneratorPanel: React.FC<AIGeneratorPanelProps> = ({
     onTasksGenerated 
 }) => {
     const [selectedIntern, setSelectedIntern] = useState<number | null>(internId || null);
-    const [internDetails, setInternDetails] = useState<any>(null);
     const [projects, setProjects] = useState<{id: number; name: string}[]>([]);
     const [selectedProject, setSelectedProject] = useState<number | null>(projectFilter || null);
     const [modules, setModules] = useState<{id: number; name: string}[]>([]);
@@ -45,34 +43,38 @@ const AIGeneratorPanel: React.FC<AIGeneratorPanelProps> = ({
         if (selectedIntern) {
             fetchInternContext();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedIntern]);
 
     useEffect(() => {
         if (selectedProject) {
             fetchModules();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedProject]);
 
     const fetchInternContext = async () => {
+        if (!selectedIntern) return;
         try {
             const res = await axios.get('/projects/assignments/', { params: { intern_id: selectedIntern } });
             const assignments = res.data.results || res.data;
-            const uniqueProjects = Array.from(new Set(assignments.map((a: any) => JSON.stringify({id: a.project.id, name: a.project.name}))))
-                .map((s: any) => JSON.parse(s));
+            const uniqueProjects = Array.from(new Set(assignments.map((a: { project: { id: number; name: string } }) => JSON.stringify({id: a.project.id, name: a.project.name}))))
+                .map((s: string) => JSON.parse(s));
             setProjects(uniqueProjects);
-        } catch (err) {
-            console.error("Error fetching intern context", err);
+        } catch {
+            console.error("Error fetching intern context");
         }
     };
 
     const fetchModules = async () => {
+        if (!selectedProject || !selectedIntern) return;
         try {
             const res = await axios.get('/projects/modules/', { 
                 params: { project_id: selectedProject, intern_id: selectedIntern } 
             });
             setModules(res.data.results || res.data);
-        } catch (err) {
-            console.error("Error fetching modules", err);
+        } catch {
+            console.error("Error fetching modules");
         }
     };
 
@@ -100,8 +102,8 @@ const AIGeneratorPanel: React.FC<AIGeneratorPanelProps> = ({
             } else {
                 toast.success("AI Generation Complete", { icon: '✨' });
             }
-        } catch (err: any) {
-            toast.error(err.response?.data?.error || "Failed to generate tasks");
+        } catch {
+            toast.error("Failed to generate tasks");
         } finally {
             setGenerating(false);
         }
@@ -129,7 +131,7 @@ const AIGeneratorPanel: React.FC<AIGeneratorPanelProps> = ({
             setAiTasks(prev => prev.filter((_, i) => i !== index));
             toast.success("Task assigned successfully");
             if (onTasksGenerated) onTasksGenerated();
-        } catch (err) {
+        } catch {
             toast.error("Failed to assign task");
         } finally {
             setAssigning(null);

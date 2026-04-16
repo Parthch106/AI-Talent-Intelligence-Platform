@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 const Layout: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [isSidebarExpanded, setIsSidebarExpanded] = React.useState(false);
 
     React.useEffect(() => {
         // Show profile completion reminder for interns with incomplete profiles
@@ -65,18 +66,26 @@ const Layout: React.FC = () => {
             </div>
 
             {/* Sidebar */}
-            <Sidebar />
+            <Sidebar isExpanded={isSidebarExpanded} setIsExpanded={setIsSidebarExpanded} />
 
-            {/* Header - now handles its own fixed positioning */}
-            <Header />
+            {/* Header - Fixed positioning for Overlay Sidebar support */}
+            <Header isExpanded={isSidebarExpanded} />
 
-            {/* Main Content - with top padding and transition */}
-            <div className="ml-64 pt-16 relative z-10 transition-all duration-500">
+            {/* Main Content - Stable width + GPU-accelerated translation to prevent jittering */}
+            <div 
+                className="pt-16 ml-20 relative z-10 transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
+                style={{ 
+                    width: 'calc(100vw - 80px)',
+                    transform: isSidebarExpanded ? 'translateX(176px)' : 'translateX(0px)'
+                }}
+            >
                 <main className="p-6 md:p-8 lg:p-10">
                     <Outlet />
                 </main>
-                <FloatingAIChatbot />
             </div>
+            
+            {/* Floating components moved outside the transform to stay fixed to viewport */}
+            <FloatingAIChatbot />
         </div>
     );
 };

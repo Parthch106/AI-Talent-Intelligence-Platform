@@ -1,0 +1,83 @@
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\context\AuthContext.tsx
+  22:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\context\MonitoringContext.tsx
+  76:8   warning  React Hook useCallback has missing dependencies: 'selectedInternId' and 'setSelectedInternId'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  95:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                     react-refresh/only-export-components
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\context\ThemeContext.tsx
+  38:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\pages\AITaskGenerator.tsx
+  89:79  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  90:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\pages\AnalysisPage.tsx
+  181:8   warning  React Hook useEffect has a missing dependency: 'fetchIntelligence'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  195:23  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  231:22  error    'fetchError' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+  234:23  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  826:69  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\pages\DocumentsPage.tsx
+  167:8   warning  React Hook useEffect has a missing dependency: 'applyFilters'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  230:23  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\pages\LearningPath.tsx
+  120:10  error  '_MilestoneCard' is defined but never used         @typescript-eslint/no-unused-vars
+  150:11  error  'isOverdue' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  151:11  error  'isInProgress' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\pages\Login.tsx
+  24:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\pages\MonitoringAttendance.tsx
+   19:11  error    'Intern' is defined but never used                                                                                                                             @typescript-eslint/no-unused-vars
+   31:96  error    'loadingInterns' is assigned a value but never used                                                                                                            @typescript-eslint/no-unused-vars
+   81:8   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array                                                   react-hooks/exhaustive-deps
+   86:27  error    Unexpected any. Specify a different type                                                                                                                       @typescript-eslint/no-explicit-any
+  113:27  error    Unexpected any. Specify a different type                                                                                                                       @typescript-eslint/no-explicit-any
+  125:23  error    Unexpected any. Specify a different type                                                                                                                       @typescript-eslint/no-explicit-any
+  137:8   warning  React Hook useEffect has missing dependencies: 'fetchData', 'selectedIntern', 'user.id', and 'user?.role'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\pages\MonitoringDashboard.tsx
+   10:99  error    'AlertTriangle' is defined but never used                                                                                                      @typescript-eslint/no-unused-vars
+  117:12  error    '_reportForm' is assigned a value but never used                                                                                               @typescript-eslint/no-unused-vars
+  117:25  error    '_setReportForm' is assigned a value but never used                                                                                            @typescript-eslint/no-unused-vars
+  138:8   warning  React Hook useEffect has a missing dependency: 'tabs'. Either include it or remove the dependency array                                        react-hooks/exhaustive-deps
+  149:8   warning  React Hook useEffect has missing dependencies: 'fetchData', 'fetchInterns', and 'user.id'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  165:8   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array                                   react-hooks/exhaustive-deps
+  200:52  error    Unexpected any. Specify a different type                                                                                                       @typescript-eslint/no-explicit-any
+  274:23  error    Unexpected any. Specify a different type                                                                                                       @typescript-eslint/no-explicit-any
+  315:32  error    Unexpected any. Specify a different type                                                                                                       @typescript-eslint/no-explicit-any
+  627:45  error    Unexpected any. Specify a different type                                                                                                       @typescript-eslint/no-explicit-any
+  628:42  error    Unexpected any. Specify a different type                                                                                                       @typescript-eslint/no-explicit-any
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\pages\MonitoringReports.tsx
+    6:59  error    'Upload' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+   28:11  error    'Intern' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+   40:96  error    'loadingInterns' is assigned a value but never used                                                           @typescript-eslint/no-unused-vars
+   57:8   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   68:23  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+  108:23  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\pages\MyAttendance.tsx
+   51:8   warning  React Hook useEffect has missing dependencies: 'fetchHeatmapData' and 'fetchMyAttendance'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+   81:8   warning  React Hook useEffect has a missing dependency: 'pagination.limit'. Either include it or remove the dependency array                            react-hooks/exhaustive-deps
+   88:27  error    Unexpected any. Specify a different type                                                                                                       @typescript-eslint/no-explicit-any
+  135:23  error    Unexpected any. Specify a different type                                                                                                       @typescript-eslint/no-explicit-any
+  169:27  error    Unexpected any. Specify a different type                                                                                                       @typescript-eslint/no-explicit-any
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\pages\ProjectList.tsx
+  157:26  error  Parsing error: Invalid character
+
+E:\CSU Internship\AI-Talent-Intelligence-Platform\AI-Talent-Intelligence-Platform\frontend\src\pages\Register.tsx
+  53:59  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+??? 48 problems (34 errors, 14 warnings)
+

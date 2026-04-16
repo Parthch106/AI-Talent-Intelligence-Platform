@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
 interface YearHeatmapProps {
@@ -28,7 +28,7 @@ const YearContributionHeatmap: React.FC<YearHeatmapProps> = ({
   onCellClick,
 }) => {
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+
 
   const colorSchemes = {
     green: {
@@ -61,7 +61,7 @@ const YearContributionHeatmap: React.FC<YearHeatmapProps> = ({
     const firstSunday = new Date(startDate);
     firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
 
-    let currentDate = new Date(firstSunday);
+    const currentDate = new Date(firstSunday);
     let currentWeek: { date: Date; value: number; isCurrentYear: boolean }[] = [];
     let weekIndex = 0;
     let lastMonth = -1;

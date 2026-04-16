@@ -578,12 +578,6 @@ class TaskEvaluationView(APIView):
         """Get task evaluation details."""
         user = request.user
         
-        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
-            return Response(
-                {'error': 'Permission denied. Only managers and admins can view task evaluations.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
         if not task_id:
             task_id = request.query_params.get('task_id')
         
@@ -600,12 +594,25 @@ class TaskEvaluationView(APIView):
                 {'error': 'Task not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
-        # Validate manager access to intern's department
-        if user.role == User.Role.MANAGER:
-            is_valid, error_response = validate_manager_access(user, task.intern_id)
-            if not is_valid:
-                return error_response
+
+        # Permission Check
+        if user.role == User.Role.INTERN:
+            if task.intern_id != user.id:
+                return Response(
+                    {'error': 'Permission denied. You can only view your own tasks.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        elif user.role in [User.Role.ADMIN, User.Role.MANAGER]:
+            # Validate manager access to intern's department
+            if user.role == User.Role.MANAGER:
+                is_valid, error_response = validate_manager_access(user, task.intern_id)
+                if not is_valid:
+                    return error_response
+        else:
+             return Response(
+                {'error': 'Permission denied.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         
         return Response({
             'task_id': task.id,
@@ -613,7 +620,7 @@ class TaskEvaluationView(APIView):
             'title': task.title,
             'intern': {
                 'id': task.intern.id,
-                'name': f"{task.intern.first_name} {task.intern.last_name}",
+                'name': task.intern.full_name,
                 'email': task.intern.email
             },
             'status': task.status,
@@ -717,6 +724,33 @@ class TaskEvaluationView(APIView):
                     task.completed_at = timezone.now()
         
         task.save()
+        
+        # Sync with Feedback system
+        feedback_comments = mentor_feedback if mentor_feedback is not None else task.mentor_feedback
+        feedback_rating = quality_rating if quality_rating is not None else task.quality_rating
+        
+        # Only create feedback if there is actually feedback text or a rating given
+        if feedback_comments or feedback_rating:
+            # Determine normalized task status for feedback model
+            if task.rework_required:
+                fb_task_status = 'COMPLETED_REWORK'
+            elif task.status == 'COMPLETED':
+                fb_task_status = 'COMPLETED_APPROVED'
+            else:
+                fb_task_status = 'IN_PROGRESS'
+
+            Feedback.objects.update_or_create(
+                task=task,
+                reviewer=user,
+                defaults={
+                    'recipient': task.intern,
+                    'project': task.project_assignment.project if task.project_assignment else None,
+                    'feedback_type': 'TASK',
+                    'rating': int(feedback_rating) if feedback_rating else None,
+                    'comments': feedback_comments or "",
+                    'task_status': fb_task_status
+                }
+            )
         
         # Trigger Notifications for Intern
         if new_status in ['COMPLETED', 'REWORK']:

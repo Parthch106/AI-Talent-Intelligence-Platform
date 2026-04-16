@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, User, TrendingUp, Brain, Award, AlertTriangle, CheckCircle, ChevronDown, RefreshCw, FileText, Target, Shield, Zap, Mail, Building, Briefcase, Code, GraduationCap, ExternalLink } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
@@ -172,15 +172,7 @@ const AnalysisPage: React.FC = () => {
         fetchJobRoles();
     }, []);
 
-    useEffect(() => {
-        if (selectedInternId) {
-            fetchIntelligence(selectedInternId);
-        } else {
-            setIntelligence(null);
-        }
-    }, [selectedInternId, selectedJobRole]);
-
-    const fetchIntelligence = async (internId: number) => {
+    const fetchIntelligence = useCallback(async (internId: number) => {
         setLoading(true);
         setError('');
         try {
@@ -192,14 +184,23 @@ const AnalysisPage: React.FC = () => {
             }
             const response = await api.get(`/analytics/intelligence/?${params.toString()}`);
             setIntelligence(response.data);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Intelligence API Error:', err);
-            setError(err.response?.data?.detail || 'Failed to fetch intelligence data');
+            const apiError = err as { response?: { data?: { detail?: string } } };
+            setError(apiError.response?.data?.detail || 'Failed to fetch intelligence data');
             setIntelligence(null);
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedJobRole]);
+
+    useEffect(() => {
+        if (selectedInternId) {
+            fetchIntelligence(selectedInternId);
+        } else {
+            setIntelligence(null);
+        }
+    }, [selectedInternId, selectedJobRole, fetchIntelligence]);
 
     const computeIntelligence = async (internId: number) => {
         setComputing(true);
@@ -228,12 +229,13 @@ const AnalysisPage: React.FC = () => {
             try {
                 const fetchResponse = await api.get(`/analytics/intelligence/?intern_id=${internId}&job_role=${selectedJobRole}&_t=${Date.now()}`);
                 setIntelligence(fetchResponse.data);
-            } catch (fetchError) {
+            } catch {
                 console.warn('Failed to fetch complete fresh data, using compute response as fallback');
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Compute Intelligence Error:', err);
-            setError(err.response?.data?.error || err.response?.data?.detail || 'Failed to compute intelligence');
+            const apiError = err as { response?: { data?: { error?: string; detail?: string } } };
+            setError(apiError.response?.data?.error || apiError.response?.data?.detail || 'Failed to compute intelligence');
         } finally {
             setComputing(false);
         }
@@ -473,8 +475,8 @@ const AnalysisPage: React.FC = () => {
                                             const response = await api.get(`/documents/files/${intelligence.resume_document!.id}/download/`);
                                             // Open the authenticated URL
                                             window.open(response.data.url, '_blank');
-                                        } catch (error) {
-                                            console.error('Error fetching resume URL:', error);
+                                        } catch (err: unknown) {
+                                            console.error('Error fetching resume URL:', err);
                                         }
                                     }}
                                     className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
@@ -823,7 +825,7 @@ const AnalysisPage: React.FC = () => {
                                 <h3 className="text-lg font-semibold text-red-400">Risk Flags</h3>
                             </div>
                             <div className="space-y-2">
-                                {intelligence.risk_flags.map((flag: any, index: number) => (
+                                {intelligence.risk_flags.map((flag: string | { type: string; severity: string; message: string }, index: number) => (
                                     <div key={index} className="p-3 bg-red-500/10 rounded-xl">
                                         <p className="font-medium text-white capitalize">
                                             {typeof flag === 'string' 

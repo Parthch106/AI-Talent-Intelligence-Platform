@@ -1,22 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    User, TrendingUp, Brain, Award, AlertTriangle, CheckCircle, 
-    Clock, Target, Zap, BookOpen, Activity, BarChart3, Star,
+    TrendingUp, Brain, Award, AlertTriangle, CheckCircle, 
+    Target, Zap, BookOpen, Activity, Star,
     ChevronRight, Sparkles, Users, Calendar, ListChecks
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useMonitoring } from '../context/MonitoringContext';
 import api from '../api/axios';
-import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
-
-interface Intern {
-    id: number;
-    full_name: string;
-    email: string;
-    department: string;
-}
 
 interface SkillProfile {
     skill_name: string;
@@ -50,13 +42,6 @@ interface TaskItem {
     assigned_at: string;
 }
 
-interface ActivityItem {
-    type: string;
-    title: string;
-    description: string;
-    timestamp: string;
-}
-
 const PerformanceAnalytics: React.FC = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
@@ -64,11 +49,10 @@ const PerformanceAnalytics: React.FC = () => {
     // Global State from context
     const { selectedInternId, setSelectedInternId, interns } = useMonitoring();
     
-    const [performanceData, setPerformanceData] = useState<any>(null);
+    const [performanceData, setPerformanceData] = useState<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
     const [skillProfiles, setSkillProfiles] = useState<SkillProfile[]>([]);
     const [learningPath, setLearningPath] = useState<LearningPath | null>(null);
     const [taskHistory, setTaskHistory] = useState<TaskItem[]>([]);
-    const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
 
     // For Intern role, ensure selectedInternId is set to their own ID
     useEffect(() => {
@@ -101,6 +85,7 @@ const PerformanceAnalytics: React.FC = () => {
             // No intern selected - stop loading
             setLoading(false);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedInternId]);
 
     // fetchInterns is now handled by MonitoringContext
@@ -127,14 +112,14 @@ const PerformanceAnalytics: React.FC = () => {
                 
                 // Extract skills from learning path milestones
                 if (pathRes.data?.milestones) {
-                    const skillsFromMilestones = pathRes.data.milestones.map((m: any) => ({
+                    const skillsFromMilestones = pathRes.data.milestones.map((m: { skill?: string, area?: string, current_mastery?: number, mastery?: number }) => ({
                         skill_name: m.skill || m.area || 'Unknown Skill',
                         mastery_level: m.current_mastery || m.mastery || 0,
                         learning_rate: 0
                     }));
                     setSkillProfiles(skillsFromMilestones);
                 }
-            } catch (e) {
+            } catch {
                 console.warn('Learning path unavailable');
             }
             
@@ -148,7 +133,7 @@ const PerformanceAnalytics: React.FC = () => {
                 });
                 const tasksData = Array.isArray(tasksRes.data.tasks) ? tasksRes.data.tasks : [];
                 // Sort by completed_at or assigned_at to show most recent first
-                const sortedTasks = tasksData.sort((a: any, b: any) => {
+                const sortedTasks = tasksData.sort((a: { completed_at?: string, assigned_at?: string }, b: { completed_at?: string, assigned_at?: string }) => {
                     const dateA = a.completed_at || a.assigned_at || '';
                     const dateB = b.completed_at || b.assigned_at || '';
                     return new Date(dateB).getTime() - new Date(dateA).getTime();
@@ -229,11 +214,7 @@ const PerformanceAnalytics: React.FC = () => {
         return variants[status?.toUpperCase() || ''] || 'default';
     };
 
-    // Helper to check if task is completed
-    const isTaskCompleted = (status: string) => {
-        const completedStatuses = ['COMPLETED', 'DONE', 'FINISHED', 'SUCCESS'];
-        return completedStatuses.includes(status?.toUpperCase() || '');
-    };
+
 
     const getPerformanceCategory = (score: number) => {
         if (score >= 90) return 'Excellent';

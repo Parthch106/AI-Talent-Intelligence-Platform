@@ -18,13 +18,48 @@ interface Project {
     } | null;
 }
 
+interface DashboardStats {
+    total_managers?: number;
+    total_interns?: number;
+    total_projects?: number;
+    active_projects?: number;
+    pending_reviews?: number;
+    assigned_projects?: number;
+    completed_projects?: number;
+    average_score?: string | number;
+}
+
+interface ActivityItem {
+    description: string;
+    created_at: string;
+    icon?: string;
+    color?: string;
+    link?: string;
+}
+
+interface AlertItem {
+    type: 'critical' | 'warning' | 'insight' | 'info';
+    title: string;
+    message: string;
+    link?: string;
+}
+
+interface StatItem {
+    label: string;
+    value: string | number;
+    icon: React.ReactNode;
+    color: string;
+    trend: string | number;
+    trendUp: boolean;
+}
+
 const Dashboard: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [stats, setStats] = useState<any>({});
+    const [stats, setStats] = useState<DashboardStats>({});
     const [assignedProjects, setAssignedProjects] = useState<Project[]>([]);
-    const [activities, setActivities] = useState<any[]>([]);
-    const [alerts, setAlerts] = useState<any[]>([]);
+    const [activities, setActivities] = useState<ActivityItem[]>([]);
+    const [alerts, setAlerts] = useState<AlertItem[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -38,10 +73,10 @@ const Dashboard: React.FC = () => {
             setLoading(true);
             try {
                 // Fetch all data with individual error handling
-                let statsData = {};
-                let projectsData: any[] = [];
-                let activities: any[] = [];
-                let alerts: any[] = [];
+                let statsData: DashboardStats = {};
+                let projectsData: Project[] = [];
+                let activitiesData: ActivityItem[] = [];
+                let alertsData: AlertItem[] = [];
 
                 try {
                     const res = await api.get('/analytics/summary/');
@@ -59,27 +94,27 @@ const Dashboard: React.FC = () => {
 
                 try {
                     const res = await api.get('/notifications/activity/');
-                    activities = res.data.activities || [];
+                    activitiesData = res.data.activities || [];
                 } catch (e) {
                     console.warn('Failed to fetch activities:', e);
                 }
 
                 try {
                     const res = await api.get('/notifications/dashboard/');
-                    alerts = res.data.alerts || [];
+                    alertsData = res.data.alerts || [];
                 } catch (e) {
                     console.warn('Failed to fetch alerts:', e);
                 }
 
                 setStats(statsData);
-                setActivities(activities);
-                setAlerts(alerts);
+                setActivities(activitiesData);
+                setAlerts(alertsData);
 
                 // For interns, filter to show only assigned projects
                 if (user?.role === 'INTERN') {
                     setAssignedProjects(projectsData);
                 }
-            } catch (error: any) {
+            } catch (error) {
                 console.error("Failed to fetch dashboard data", error);
             } finally {
                 setLoading(false);
@@ -87,7 +122,7 @@ const Dashboard: React.FC = () => {
         };
 
         fetchData();
-    }, [user?.id]);
+    }, [user]);
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -109,7 +144,7 @@ const Dashboard: React.FC = () => {
         );
     }
 
-    let statItems: any[] = [];
+    let statItems: StatItem[] = [];
 
     if (user?.role === 'ADMIN') {
         statItems = [

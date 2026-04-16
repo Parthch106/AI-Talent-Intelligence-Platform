@@ -1,6 +1,5 @@
 import React from 'react';
-import { X, Calendar, Clock, Award, User, Layers, Star, CheckCircle, PlayCircle, AlertTriangle, FileText } from 'lucide-react';
-import Badge from '../common/Badge';
+import { X, Calendar, Clock, Award, User, Layers, Star, CheckCircle, PlayCircle, FileText } from 'lucide-react';
 
 interface Task {
     id: number;

@@ -39,9 +39,9 @@ interface RLPerformanceEvaluation {
     learning_path: {
         has_path: boolean;
         target_role: string | null;
-        milestones: any[];
+        milestones: Record<string, unknown>[];
         current_position: number;
-        progress: any;
+        progress: Record<string, unknown>;
     };
     next_task_type: string;
     optimal_difficulty: number;
@@ -66,6 +66,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
         if (selectedInternId) {
             fetchRLEvaluation();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedInternId]);
 
     const fetchRLEvaluation = async () => {
@@ -77,7 +78,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
             if (response.data) {
                 setRlEvaluation(response.data);
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error fetching RL evaluation:', error);
             // Try alternative endpoint
             try {
@@ -127,11 +128,12 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
             if (onRefresh) {
                 onRefresh();
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error recomputing performance:', error);
+            const err = error as { response?: { data?: { error?: string } } };
             setMessage({
                 type: 'error',
-                text: error.response?.data?.error || 'Failed to recompute performance metrics'
+                text: err.response?.data?.error || 'Failed to recompute performance metrics'
             });
         } finally {
             setRecomputing(false);
@@ -358,7 +360,9 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                                                 {rlEvaluation.learning_path.target_role}
                                             </span>
                                         </div>
-                                        {rlEvaluation.learning_path.milestones && rlEvaluation.learning_path.milestones.slice(0, 4).map((milestone: any, idx: number) => (
+                                        {rlEvaluation.learning_path.milestones && rlEvaluation.learning_path.milestones.slice(0, 4).map((m: unknown, idx: number) => {
+                                            const milestone = m as { skill_name?: string; title?: string; topics?: string[] };
+                                            return (
                                             <div 
                                                 key={idx} 
                                                 className={`flex items-center gap-4 p-3 rounded-lg border ${
@@ -391,7 +395,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ performance, selectedIn
                                                     )}
                                                 </div>
                                             </div>
-                                        ))}
+                                        )})}
                                     </div>
                                 ) : (
                                     <div className="text-center py-6 text-[var(--text-muted)]">

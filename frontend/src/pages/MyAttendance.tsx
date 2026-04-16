@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { AttendanceHeatmap, Card } from '../components/common';
@@ -42,50 +42,13 @@ const MyAttendance: React.FC = () => {
     const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>([]);
 
 
-    // Fetch data when month/year changes
-    useEffect(() => {
-        if (user) {
-            fetchMyAttendance();
-            fetchHeatmapData();
-        }
-    }, [user, selectedMonth, selectedYear]);
 
-    // Filter locally when status changes (no API call needed)
-    useEffect(() => {
-        // Filter from allAttendance based on selectedStatus
-        let filtered = [...allAttendance];
-        
-        if (selectedStatus) {
-            if (selectedStatus === 'LATE') {
-                filtered = allAttendance.filter(a => a.status === 'LATE' || a.status === 'HALF_DAY');
-            } else if (selectedStatus === 'WORK_FROM_HOME') {
-                filtered = allAttendance.filter(a => a.status === 'WORK_FROM_HOME');
-            } else {
-                filtered = allAttendance.filter(a => a.status === selectedStatus);
-            }
-        }
-        
-        // Reset to page 1 when filter changes
-        const newPage = 1;
-        const offset = (newPage - 1) * pagination.limit;
-        const paginatedData = filtered.slice(offset, offset + pagination.limit);
-        setAttendance(paginatedData);
-        
-        // Update pagination
-        setPagination(prev => ({
-            ...prev,
-            page: newPage,
-            total_records: filtered.length,
-            total_pages: Math.ceil(filtered.length / prev.limit) || 1
-        }));
-    }, [selectedStatus, allAttendance]);
-
-    const fetchMyAttendance = async () => {
+    const fetchMyAttendance = useCallback(async () => {
         try {
             setLoading(true);
             
             // Build params - fetch all data for the selected period (limit=1000 to get all records)
-            const params: any = {
+            const params: Record<string, unknown> = {
                 page: 1,
                 limit: 1000  // Get all records for local filtering
             };
@@ -97,7 +60,6 @@ const MyAttendance: React.FC = () => {
             
             // Add month filter if selected
             if (selectedMonth) {
-                params.start_date = `${selectedMonth}-01`;
                 // Get last day of month
                 const [year, month] = selectedMonth.split('-').map(Number);
                 const lastDay = new Date(year, month, 0).getDate();
@@ -129,26 +91,27 @@ const MyAttendance: React.FC = () => {
                 page: 1,
                 limit: 15,
                 total_records: attendanceData.length,
-                total_pages: Math.ceil(attendanceData.length / 15)
+                total_pages: Math.ceil(attendanceData.length / 15) || 1
             });
             
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error fetching attendance:', err);
-            if (err.response?.data?.error) {
-                toast.error('Error: ' + err.response.data.error);
+            const apiError = err as { response?: { data?: { error?: string } } };
+            if (apiError.response?.data?.error) {
+                toast.error('Error: ' + apiError.response.data.error);
             }
             setAllAttendance([]);
         } finally {
             setLoading(false);
         }
-    };
+    }, [user?.role, user?.id, selectedMonth, selectedYear]);
 
-    const fetchHeatmapData = async () => {
+    const fetchHeatmapData = useCallback(async () => {
         setHeatmapLoading(true);
         try {
             // Calculate date range based on filters
-            let startDate: string;
-            let endDate: string;
+            let startDate: string = '';
+            let endDate: string = '';
             
             if (selectedMonth) {
                 // Single month selected
@@ -160,13 +123,9 @@ const MyAttendance: React.FC = () => {
                 // Full year selected
                 startDate = `${selectedYear}-01-01`;
                 endDate = `${selectedYear}-12-31`;
-            } else {
-                // Default to last 6 months
-                startDate = '';
-                endDate = '';
             }
             
-            const params: any = { months: 12 };
+            const params: Record<string, unknown> = { months: 12 };
             if (startDate && endDate) {
                 params.start_date = startDate;
                 params.end_date = endDate;
@@ -179,7 +138,46 @@ const MyAttendance: React.FC = () => {
         } finally {
             setHeatmapLoading(false);
         }
-    };
+    }, [selectedMonth, selectedYear]);
+
+    // Fetch data when month/year changes
+    useEffect(() => {
+        if (user) {
+            fetchMyAttendance();
+            fetchHeatmapData();
+        }
+    }, [user, selectedMonth, selectedYear, fetchMyAttendance, fetchHeatmapData]);
+
+    // Filter locally when status changes (no API call needed)
+    useEffect(() => {
+        // Filter from allAttendance based on selectedStatus
+        let filtered = [...allAttendance];
+        
+        if (selectedStatus) {
+            if (selectedStatus === 'LATE') {
+                filtered = allAttendance.filter(a => a.status === 'LATE' || a.status === 'HALF_DAY');
+            } else if (selectedStatus === 'WORK_FROM_HOME') {
+                filtered = allAttendance.filter(a => a.status === 'WORK_FROM_HOME');
+            } else {
+                filtered = allAttendance.filter(a => a.status === selectedStatus);
+            }
+        }
+        
+        // Reset to page 1 when filter changes
+        const newPage = 1;
+        const offset = (newPage - 1) * pagination.limit;
+        const paginatedData = filtered.slice(offset, offset + pagination.limit);
+        setAttendance(paginatedData);
+        
+        // Update pagination
+        setPagination(prev => ({
+            ...prev,
+            page: newPage,
+            total_records: filtered.length,
+            total_pages: Math.ceil(filtered.length / prev.limit) || 1
+        }));
+    }, [selectedStatus, allAttendance, pagination.limit]);
+
 
     const handlePageChange = (newPage: number) => {
         if (newPage >= 1 && newPage <= pagination.total_pages) {

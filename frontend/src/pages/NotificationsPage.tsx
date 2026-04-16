@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Clock, Trash2, CheckCircle, AlertCircle, Mail, Filter, RefreshCw, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import api from '../api/axios';
-import { useAuth } from '../context/AuthContext';
+
 
 interface Notification {
     id: number;
@@ -13,7 +13,6 @@ interface Notification {
 }
 
 const NotificationsPage: React.FC = () => {
-    const { user } = useAuth();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
     const [unreadOnly, setUnreadOnly] = useState(false);
@@ -45,6 +44,7 @@ const NotificationsPage: React.FC = () => {
 
     useEffect(() => {
         fetchNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [unreadOnly, page]);
 
     const markAsRead = async (id: number) => {
@@ -114,13 +114,7 @@ const NotificationsPage: React.FC = () => {
         setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     };
 
-    const toggleSelectAll = () => {
-        if (selectedIds.length === notifications.length) {
-            setSelectedIds([]);
-        } else {
-            setSelectedIds(notifications.map(n => n.id));
-        }
-    };
+
 
     const getNotificationIcon = (type: string) => {
         switch (type) {

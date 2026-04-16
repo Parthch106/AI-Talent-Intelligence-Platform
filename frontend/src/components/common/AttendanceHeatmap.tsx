@@ -70,7 +70,7 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
     const calendarEnd = new Date(endDate);
     calendarEnd.setDate(calendarEnd.getDate() + (6 - calendarEnd.getDay()));
     
-    let currentDate = new Date(calendarStart);
+    const currentDate = new Date(calendarStart);
     
     while (currentDate <= calendarEnd) {
       const week: { date: Date; data: AttendanceData | null; isCurrentYear: boolean }[] = [];

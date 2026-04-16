@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { DragEndEvent } from '@dnd-kit/core';
-import { Calendar, User, GripVertical, X } from 'lucide-react';
+import { Calendar, GripVertical } from 'lucide-react';
 
 interface Task {
     id: number;

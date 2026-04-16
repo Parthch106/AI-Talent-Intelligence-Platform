@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-    Plus, Target, Clock, Award, CheckCircle, 
+    Plus, Target, Clock, CheckCircle, 
     AlertTriangle, PlayCircle, Star, Code, Bug, LayoutGrid, 
     List, Sparkles, Wand2, Loader2, MessageSquare, 
-    Calendar, Filter, Search, ArrowRight,
+    Calendar, Filter,
     Layers, Trash2, Square, Check, X, Trello
 } from 'lucide-react';
 import Badge from '../common/Badge';
@@ -57,6 +57,8 @@ interface TasksTabProps {
     setYearFilter: (value: number | 'all') => void;
     dateFilter?: string | null;
     setDateFilter?: (date: string | null) => void;
+    initialView?: 'grid' | 'list' | 'board';
+    externalStatusFilter?: string | null;
 }
 
 const TasksTab: React.FC<TasksTabProps> = ({ 
@@ -66,23 +68,22 @@ const TasksTab: React.FC<TasksTabProps> = ({
     onStatusChange, 
     onRefresh, 
     internId, 
-    internName,
     monthFilter,
     setMonthFilter,
     yearFilter,
     setYearFilter,
     dateFilter,
-    setDateFilter
+    initialView,
+    externalStatusFilter
 }) => {
     const tasksArray = Array.isArray(tasks) ? tasks : [];
 
-    const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
     const [showEvaluationModal, setShowEvaluationModal] = useState(false);
-    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [selectedTask] = useState<Task | null>(null);
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [projectFilter, setProjectFilter] = useState<number | null>(null);
     const [projects, setProjects] = useState<{id: number; name: string}[]>([]);
-    const [viewMode, setViewMode] = useState<'grid' | 'list' | 'board'>('grid');
+    const [viewMode, setViewMode] = useState<'grid' | 'list' | 'board'>(initialView || 'grid');
     const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [showAIPanel, setShowAIPanel] = useState(false);
@@ -102,25 +103,25 @@ const TasksTab: React.FC<TasksTabProps> = ({
         });
     };
 
-    const selectAll = () => {
-        if (selectedTasks.size === paginatedTasks.length) {
-            setSelectedTasks(new Set());
-        } else {
-            setSelectedTasks(new Set(paginatedTasks.map(t => t.id)));
-        }
-    };
 
     React.useEffect(() => {
         fetchProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [internId]);
+
+    React.useEffect(() => {
+        if (externalStatusFilter !== undefined) {
+            setStatusFilter(externalStatusFilter);
+        }
+    }, [externalStatusFilter]);
 
     const fetchProjects = async () => {
         try {
             if (internId) {
                 const response = await axios.get('/projects/assignments/', { params: { intern_id: internId } });
                 const assignments = response.data.results || response.data;
-                const uniqueProjects = Array.from(new Set(assignments.map((a: any) => JSON.stringify({id: a.project.id, name: a.project.name}))))
-                    .map((s: any) => JSON.parse(s));
+                const uniqueProjects = Array.from(new Set(assignments.map((a: { project: { id: number, name: string } }) => JSON.stringify({id: a.project.id, name: a.project.name}))))
+                    .map((s: string) => JSON.parse(s));
                 setProjects(uniqueProjects);
             } else {
                 const response = await axios.get('/projects/projects/');
@@ -142,18 +143,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
 
     const [savingEvaluation, setSavingEvaluation] = useState(false);
 
-    const getStatusBadge = (status: string) => {
-        const variants: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
-            'COMPLETED': 'success',
-            'IN_PROGRESS': 'info',
-            'BLOCKED': 'danger',
-            'ASSIGNED': 'default',
-            'SUBMITTED': 'warning',
-            'REVIEWED': 'info',
-            'REWORK': 'danger',
-        };
-        return variants[status] || 'default';
-    };
+
 
     const getPriorityBadge = (priority: string) => {
         const variants: Record<string, 'danger' | 'warning' | 'info' | 'default'> = {
@@ -224,17 +214,9 @@ const TasksTab: React.FC<TasksTabProps> = ({
     const totalPages = Math.ceil(finalFilteredTasks.length / ITEMS_PER_PAGE);
     const paginatedTasks = finalFilteredTasks.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-    const openEvaluationModal = (task: Task) => {
-        setSelectedTask(task);
-        setEvaluation({
-            quality_rating: task.quality_rating || 0,
-            code_review_score: task.code_review_score || 0,
-            bug_count: task.bug_count || 0,
-            mentor_feedback: task.mentor_feedback || '',
-            rework_required: task.rework_required || false,
-            status: task.status === 'REWORK' ? 'REWORK' : 'COMPLETED'
-        });
-        setShowEvaluationModal(true);
+    const openEvaluationPage = (task: Task) => {
+        const path = user?.role === 'INTERN' ? `/workspace/tasks/${task.id}` : `/management/tasks/${task.id}`;
+        navigate(path);
     };
 
     const submitEvaluation = async () => {
@@ -254,7 +236,6 @@ const TasksTab: React.FC<TasksTabProps> = ({
     };
 
     const handleStatusChange = (taskId: number, newStatus: string) => {
-        setActiveDropdown(null);
         if (onStatusChange) onStatusChange(taskId, newStatus);
     };
 
@@ -289,7 +270,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
     };
 
     // Sub-components
-    const TaskCard = ({ task, idx }: { task: Task, idx: number }) => (
+    const TaskCard = ({ task }: { task: Task }) => (
         <div className="group relative bg-[var(--card-bg)] border border-[var(--border-color)] rounded-[32px] overflow-hidden p-8 transition-all duration-500 hover:bg-purple-500/[0.02] hover:border-purple-500/20 hover:shadow-2xl dark:hover:shadow-black/50">
             {/* Checkbox for bulk selection */}
             <button
@@ -338,7 +319,12 @@ const TasksTab: React.FC<TasksTabProps> = ({
                     ))}
                 </div>
             </div>
-            <h3 className="text-xl font-black text-[var(--text-main)] leading-tight mb-4 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors capitalize">{task.title}</h3>
+            <h3 
+                onClick={() => openEvaluationPage(task)}
+                className="text-xl font-black text-[var(--text-main)] leading-tight mb-4 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors capitalize cursor-pointer"
+            >
+                {task.title}
+            </h3>
             {task.module && (
                 <div className="flex items-center gap-2 mb-6">
                     <Layers size={12} className="text-blue-500" />
@@ -355,10 +341,10 @@ const TasksTab: React.FC<TasksTabProps> = ({
                     {task.quality_rating && <Badge variant="warning" size="sm">★ {task.quality_rating.toFixed(1)}</Badge>}
                     {(task.status === 'COMPLETED' || task.status === 'SUBMITTED') && (
                         <button 
-                            onClick={() => openEvaluationModal(task)}
+                            onClick={() => openEvaluationPage(task)}
                             className="px-4 py-1.5 rounded-lg border border-purple-400 bg-purple-600 !text-white shadow-[0_0_15px_rgba(147,51,234,0.4)] transition-all font-black uppercase tracking-widest text-[10px] hover:bg-purple-500 hover:scale-105 active:scale-95"
                         >
-                            {task.status === 'SUBMITTED' ? 'Evaluate Now' : 'Evaluate'}
+                            {task.status === 'SUBMITTED' ? 'Evaluate Now' : 'Details'}
                         </button>
                     )}
                 </div>
@@ -374,7 +360,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
                 day: 'numeric',
                 year: 'numeric'
             });
-        } catch (e) {
+        } catch {
             return dateString;
         }
     };
@@ -398,7 +384,12 @@ const TasksTab: React.FC<TasksTabProps> = ({
             
             {/* Title & Project Column */}
             <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-black text-[var(--text-main)] truncate capitalize group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{task.title}</h4>
+                <h4 
+                    onClick={() => openEvaluationPage(task)}
+                    className="text-sm font-black text-[var(--text-main)] truncate capitalize group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors cursor-pointer"
+                >
+                    {task.title}
+                </h4>
                 <div className="flex items-center gap-4 mt-0.5">
                     <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest">{task.project?.name || 'General'}</span>
                     {task.module && <span className="text-[10px] text-blue-500/50 font-black tracking-widest uppercase">{task.module.name}</span>}
@@ -442,10 +433,10 @@ const TasksTab: React.FC<TasksTabProps> = ({
                     {(task.status === 'COMPLETED' || task.status === 'SUBMITTED') && (
                         <Button 
                             size="sm" 
-                            onClick={() => openEvaluationModal(task)}
+                            onClick={() => openEvaluationPage(task)}
                             className="bg-purple-600 !text-white hover:bg-purple-500 border-none shadow-[0_0_12px_rgba(147,51,234,0.3)] whitespace-nowrap"
                         >
-                            {task.status === 'SUBMITTED' ? 'Evaluate Now' : 'Evaluate'}
+                            {task.status === 'SUBMITTED' ? 'Evaluate Now' : 'Details'}
                         </Button>
                     )}
                 </div>

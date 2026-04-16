@@ -21,8 +21,9 @@ const Login: React.FC = () => {
             const { access, user } = response.data;
             login(access, user);
             navigate('/');
-        } catch (err: any) {
-            setError(err.response?.data?.detail || 'Login failed');
+        } catch (err: unknown) {
+            const apiError = err as { response?: { data?: { detail?: string } } };
+            setError(apiError.response?.data?.detail || 'Login failed');
         } finally {
             setIsLoading(false);
         }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useMonitoring } from '../context/MonitoringContext';
@@ -16,19 +16,13 @@ interface Attendance {
     working_hours: number;
 }
 
-interface Intern {
-    id: number;
-    email: string;
-    full_name: string | null;
-    department: string | null;
-}
 
 const MonitoringAttendancePage: React.FC = () => {
     const { user } = useAuth();
     
     // State
     // Global State from context
-    const { selectedInternId: selectedIntern, setSelectedInternId: setSelectedIntern, interns, loadingInterns } = useMonitoring();
+    const { selectedInternId: selectedIntern, setSelectedInternId: setSelectedIntern, interns } = useMonitoring();
     
     // Local State
     const [attendance, setAttendance] = useState<Attendance[]>([]);
@@ -57,6 +51,55 @@ const MonitoringAttendancePage: React.FC = () => {
         });
     };
 
+    const fetchHeatmapData = useCallback(async (targetId: number): Promise<void> => {
+        setHeatmapLoading(true);
+        try {
+            const params: Record<string, unknown> = { intern_id: targetId };
+            
+            if (yearFilter !== 'all') {
+                params.start_date = `${yearFilter}-01-01`;
+                params.end_date = `${yearFilter}-12-31`;
+            } else {
+                params.months = 12;
+            }
+
+            const response = await axios.get('/analytics/heatmap/attendance/', { params });
+            setHeatmapData(response.data.heatmap || {});
+        } catch (error) {
+            console.error('Error fetching heatmap data:', error);
+            setHeatmapData({});
+        } finally {
+            setHeatmapLoading(false);
+        }
+    }, [yearFilter]);
+
+    const fetchData = useCallback(async (): Promise<void> => {
+        setLoading(true);
+        try {
+            const targetId = user?.role === 'INTERN' ? user?.id : selectedIntern;
+            if (!targetId) return;
+
+            fetchHeatmapData(targetId);
+
+            const params: Record<string, unknown> = { 
+                intern_id: targetId,
+                limit: 1000,
+                page: 1
+            };
+
+            if (monthFilter !== 'all') params.month = monthFilter;
+            if (yearFilter !== 'all') params.year = yearFilter;
+
+            const attendanceRes = await axios.get('/analytics/attendance/', { params });
+            const attendance = Array.isArray(attendanceRes.data.attendance) ? attendanceRes.data.attendance : [];
+            setAttendance(attendance);
+        } catch (err: unknown) {
+            const apiError = err as { message?: string };
+            console.error('[fetchData] Error fetching attendance:', apiError.message || err);
+        }
+        setLoading(false);
+    }, [user?.role, user?.id, selectedIntern, monthFilter, yearFilter, fetchHeatmapData]);
+
     const handleMarkAttendance = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
@@ -78,55 +121,7 @@ const MonitoringAttendancePage: React.FC = () => {
         } else if (selectedIntern) {
             fetchData();
         }
-    }, [selectedIntern, user?.role]);
-
-    const fetchHeatmapData = async (targetId: number): Promise<void> => {
-        setHeatmapLoading(true);
-        try {
-            const params: any = { intern_id: targetId };
-            
-            if (yearFilter !== 'all') {
-                params.start_date = `${yearFilter}-01-01`;
-                params.end_date = `${yearFilter}-12-31`;
-            } else {
-                params.months = 12;
-            }
-
-            const response = await axios.get('/analytics/heatmap/attendance/', { params });
-            setHeatmapData(response.data.heatmap || {});
-        } catch (error) {
-            console.error('Error fetching heatmap data:', error);
-            setHeatmapData({});
-        } finally {
-            setHeatmapLoading(false);
-        }
-    };
-
-    const fetchData = async (): Promise<void> => {
-        setLoading(true);
-        try {
-            const targetId = user?.role === 'INTERN' ? user.id : selectedIntern;
-            if (!targetId) return;
-
-            fetchHeatmapData(targetId);
-
-            const params: any = { 
-                intern_id: targetId,
-                limit: 1000,
-                page: 1
-            };
-
-            if (monthFilter !== 'all') params.month = monthFilter;
-            if (yearFilter !== 'all') params.year = yearFilter;
-
-            const attendanceRes = await axios.get('/analytics/attendance/', { params });
-            const attendance = Array.isArray(attendanceRes.data.attendance) ? attendanceRes.data.attendance : [];
-            setAttendance(attendance);
-        } catch (err: any) {
-            console.error('[fetchData] Error fetching attendance:', err.message || err);
-        }
-        setLoading(false);
-    };
+    }, [selectedIntern, user?.role, fetchData]);
 
     // Re-fetch when filters change
     useEffect(() => {
@@ -134,7 +129,7 @@ const MonitoringAttendancePage: React.FC = () => {
         if (targetId) {
             fetchData();
         }
-    }, [monthFilter, yearFilter]);
+    }, [monthFilter, yearFilter, fetchData, user?.role, user?.id, selectedIntern]);
 
     const getSelectedInternName = (): string => {
         if (user?.role === 'INTERN') return user.full_name || user.email;

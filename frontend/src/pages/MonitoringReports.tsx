@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useMonitoring } from '../context/MonitoringContext';
 import { WeeklyReportsTab } from '../components/monitoring';
-import { ChevronDown, CheckCircle, AlertTriangle, FileUp, Upload } from 'lucide-react';
+import { ChevronDown, CheckCircle, AlertTriangle, FileUp } from 'lucide-react';
 import { Modal, Button } from '../components/common';
 
 // Types (matching MonitoringDashboard)
@@ -25,19 +25,13 @@ interface WeeklyReport {
     submitted_at?: string;
 }
 
-interface Intern {
-    id: number;
-    email: string;
-    full_name: string | null;
-    department: string | null;
-}
 
 const MonitoringReportsPage: React.FC = () => {
     const { user } = useAuth();
     
     // State
     // Global State from context
-    const { selectedInternId: selectedIntern, setSelectedInternId: setSelectedIntern, interns, loadingInterns } = useMonitoring();
+    const { selectedInternId: selectedIntern, setSelectedInternId: setSelectedIntern, interns } = useMonitoring();
     
     // Local State
     const [reports, setReports] = useState<WeeklyReport[]>([]);
@@ -48,15 +42,7 @@ const MonitoringReportsPage: React.FC = () => {
     const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     // Fetch data when page loads (for interns) or when selectedIntern changes
-    useEffect(() => {
-        if (user?.role === 'INTERN') {
-            fetchData();
-        } else if (selectedIntern) {
-            fetchData();
-        }
-    }, [selectedIntern, user?.role]);
-
-    const fetchData = async (): Promise<void> => {
+    const fetchData = useCallback(async (): Promise<void> => {
         setLoading(true);
         try {
             const targetId = user?.role === 'INTERN' ? user.id : selectedIntern;
@@ -65,11 +51,21 @@ const MonitoringReportsPage: React.FC = () => {
             const reportsRes = await axios.get('/analytics/weekly-reports/', { params: { intern_id: targetId } });
             const reports = Array.isArray(reportsRes.data.weekly_reports) ? reportsRes.data.weekly_reports : [];
             setReports(reports);
-        } catch (err: any) {
-            console.error('[fetchData] Error fetching reports:', err.message || err);
+        } catch (err: unknown) {
+            const apiError = err as { message?: string };
+            console.error('[fetchData] Error fetching reports:', apiError.message || err);
         }
         setLoading(false);
-    };
+    }, [user?.role, user?.id, selectedIntern]);
+
+    // Fetch data when page loads (for interns) or when selectedIntern changes
+    useEffect(() => {
+        if (user?.role === 'INTERN') {
+            fetchData();
+        } else if (selectedIntern) {
+            fetchData();
+        }
+    }, [selectedIntern, user?.role, fetchData]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -105,9 +101,10 @@ const MonitoringReportsPage: React.FC = () => {
             setPdfFile(null);
             fetchData();
             setTimeout(() => setStatusMsg(null), 5000);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error submitting report:', err);
-            setStatusMsg({ type: 'error', text: err.response?.data?.error || 'Failed to submit report' });
+            const apiError = err as { response?: { data?: { error?: string } } };
+            setStatusMsg({ type: 'error', text: apiError.response?.data?.error || 'Failed to submit report' });
         }
         setLoading(false);
     };

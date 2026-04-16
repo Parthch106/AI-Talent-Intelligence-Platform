@@ -22,7 +22,18 @@ interface AttendanceTabProps {
 }
 
 // Sub-component for individual Stat Cards
-const StatCard = ({ label, count, status, currentStatus, setStatus, colorClass, activeClass, iconColor }: any) => {
+interface StatCardProps {
+    label: string;
+    count: number;
+    status: string | null;
+    currentStatus: string | null;
+    setStatus: (status: string | null) => void;
+    colorClass: string;
+    activeClass: string;
+    iconColor?: string;
+}
+
+const StatCard = ({ label, count, status, currentStatus, setStatus, colorClass, activeClass, iconColor }: StatCardProps) => {
     const isActive = currentStatus === status;
     return (
         <button
@@ -101,7 +112,7 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
     useEffect(() => setCurrentPage(1), [statusFilter, monthFilter, yearFilter]);
 
     const getStatusBadge = (status: string) => {
-        const variants: any = { 'PRESENT': 'success', 'ABSENT': 'danger', 'LATE': 'warning', 'WORK_FROM_HOME': 'purple' };
+        const variants: Record<string, string> = { 'PRESENT': 'success', 'ABSENT': 'danger', 'LATE': 'warning', 'WORK_FROM_HOME': 'purple' };
         return variants[status] || 'info';
     };
 

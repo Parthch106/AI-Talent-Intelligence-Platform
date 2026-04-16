@@ -5,7 +5,7 @@ import { useMonitoring } from '../context/MonitoringContext';
 import { TasksTab } from '../components/monitoring';
 import { useSearchParams } from 'react-router-dom';
 import { Card, ContributionHeatmap, Modal, Button } from '../components/common';
-import { ChevronDown, Sparkles, Search, Check, X, Plus } from 'lucide-react';
+import { ChevronDown, Search, Check, X, Plus, Filter } from 'lucide-react';
 
 // Types (matching MonitoringDashboard)
 interface Task {
@@ -27,21 +27,31 @@ interface Task {
     rework_required: boolean;
 }
 
-interface Intern {
+interface ProjectAssignment {
     id: number;
-    email: string;
-    full_name: string | null;
-    department: string | null;
+    project: {
+        id: number;
+        name: string;
+    };
+    intern?: {
+        id: number | { id: number };
+    } | number;
+}
+
+interface ProjectModule {
+    id: number;
+    name: string;
 }
 
 const MonitoringTasksPage: React.FC = () => {
     const { user } = useAuth();
     const [searchParams] = useSearchParams();
     const urlInternId = searchParams.get('internId');
+    const viewParam = searchParams.get('view') as 'grid' | 'list' | 'board' | null;
     
     // State
     // Global State from context
-    const { selectedInternId: selectedIntern, setSelectedInternId: setSelectedIntern, interns, loadingInterns } = useMonitoring();
+    const { selectedInternId: selectedIntern, setSelectedInternId: setSelectedIntern, interns } = useMonitoring();
     
     // Local State
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -54,25 +64,17 @@ const MonitoringTasksPage: React.FC = () => {
     const [showInternDropdown, setShowInternDropdown] = useState(false);
     const [internSearch, setInternSearch] = useState('');
     const [activeModal, setActiveModal] = useState<string | null>(null);
-    const [projects, setProjects] = useState<any[]>([]);
-    const [modules, setModules] = useState<any[]>([]);
+    const [projects, setProjects] = useState<ProjectAssignment[]>([]);
+    const [modules, setModules] = useState<ProjectModule[]>([]);
     const [availableSkills, setAvailableSkills] = useState<string[]>([]);
     const [skillSearch, setSkillSearch] = useState('');
     const [showSkillDropdown, setShowSkillDropdown] = useState(false);
     const [taskForm, setTaskForm] = useState({
         title: '', description: '', priority: 'LOW', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] as string[],
     });
+    const [globalStatusFilter, setGlobalStatusFilter] = useState<string | null>(null);
+    const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
-    // Fetch data when page loads (for interns) or when selectedIntern changes
-    useEffect(() => {
-        if (user?.role === 'INTERN') {
-            fetchData();
-            fetchAvailableSkills(user.id);
-        } else if (selectedIntern) {
-            fetchData();
-            fetchAvailableSkills(selectedIntern);
-        }
-    }, [selectedIntern, user?.role]);
 
     const fetchAvailableSkills = async (internId?: number): Promise<void> => {
         try {
@@ -128,13 +130,13 @@ const MonitoringTasksPage: React.FC = () => {
     const handleCreateTask = async (e: React.FormEvent): Promise<void> => {
         e.preventDefault();
         try {
-            const taskPayload: any = {
+            const taskPayload: Record<string, string | number | string[]> = {
                 title: taskForm.title,
                 description: taskForm.description,
                 priority: taskForm.priority,
                 due_date: taskForm.due_date,
                 estimated_hours: taskForm.estimated_hours,
-                intern_id: selectedIntern,
+                intern_id: selectedIntern || 0,
                 skills_required: taskForm.skills_required
             };
             if (taskForm.project_assignment_id) {
@@ -152,10 +154,10 @@ const MonitoringTasksPage: React.FC = () => {
         }
     };
 
-    const fetchHeatmapData = async (targetId: number): Promise<void> => {
+    const fetchHeatmapData = React.useCallback(async (targetId: number): Promise<void> => {
         setHeatmapLoading(true);
         try {
-            const params: any = { intern_id: targetId };
+            const params: Record<string, string | number> = { intern_id: targetId };
             
             if (yearFilter !== 'all') {
                 params.start_date = `${yearFilter}-01-01`;
@@ -172,17 +174,20 @@ const MonitoringTasksPage: React.FC = () => {
         } finally {
             setHeatmapLoading(false);
         }
-    };
+    }, [yearFilter]);
 
-    const fetchData = async (): Promise<void> => {
+    const fetchData = React.useCallback(async (): Promise<void> => {
         setLoading(true);
         try {
             const targetId = user?.role === 'INTERN' ? user.id : selectedIntern;
-            if (!targetId) return;
+            if (!targetId) {
+                setLoading(false);
+                return;
+            }
 
             fetchHeatmapData(targetId);
 
-            const params: any = { 
+            const params: Record<string, string | number> = { 
                 intern_id: targetId,
                 limit: 1000
             };
@@ -191,21 +196,23 @@ const MonitoringTasksPage: React.FC = () => {
             if (yearFilter !== 'all') params.year = yearFilter;
 
             const tasksRes = await axios.get('/analytics/tasks/', { params });
-            const tasks = Array.isArray(tasksRes.data.tasks) ? tasksRes.data.tasks : [];
-            setTasks(tasks);
-        } catch (err: any) {
-            console.error('[fetchData] Error fetching tasks:', err.message || err);
+            const tasksData = Array.isArray(tasksRes.data.tasks) ? tasksRes.data.tasks : [];
+            setTasks(tasksData);
+        } catch (err) {
+            console.error('[fetchData] Error fetching tasks:', err);
         }
         setLoading(false);
-    };
+    }, [user, selectedIntern, monthFilter, yearFilter, fetchHeatmapData]);
 
-    // Re-fetch when filters change
+    // Fetch data when page loads (for interns) or when selectedIntern changes
     useEffect(() => {
-        const targetId = user?.role === 'INTERN' ? user.id : selectedIntern;
+        fetchData();
+        const targetId = user?.role === 'INTERN' ? user?.id : selectedIntern;
         if (targetId) {
-            fetchData();
+            fetchAvailableSkills(targetId);
         }
-    }, [monthFilter, yearFilter]);
+    }, [fetchData, user?.role, user?.id, selectedIntern]);
+
 
     const handleTaskStatusChange = async (taskId: number, newStatus: string): Promise<void> => {
         try {
@@ -284,54 +291,88 @@ const MonitoringTasksPage: React.FC = () => {
                         <p className="text-[var(--text-dim)] mt-1">Manage and track intern tasks</p>
                     </div>
                     {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
-                        <div className="relative z-30">
-                            <button
-                                onClick={() => setShowInternDropdown(!showInternDropdown)}
-                                className="flex items-center gap-3 px-4 py-2.5 bg-[var(--bg-muted)]/50 border border-[var(--border-color)] rounded-xl hover:border-purple-500/50 transition-all"
-                            >
-                                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(getSelectedInternName())} flex items-center justify-center text-[var(--text-main)] font-bold text-xs`}>
-                                    {getInitials(interns.find(i => i.id === selectedIntern)?.full_name || null)}
-                                </div>
-                                <span className="text-[var(--text-main)] truncate max-w-[150px]">{getSelectedInternName()}</span>
-                                <ChevronDown size={16} className={`text-[var(--text-dim)] transition-transform ${showInternDropdown ? 'rotate-180' : ''}`} />
-                            </button>
-                            {showInternDropdown && (
-                                <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--bg-muted)]/95 backdrop-blur-xl border border-[var(--border-color)] rounded-xl shadow-xl z-[9999] isolate animate-scale-in max-h-[400px] overflow-y-auto custom-scrollbar">
-                                    <div className="p-2">
-                                        <div className="relative mb-2">
-                                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                                            <input
-                                                type="text"
-                                                placeholder="Search interns..."
-                                                value={internSearch}
-                                                onChange={(e) => setInternSearch(e.target.value)}
-                                                className="w-full pl-9 pr-3 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-purple-500"
-                                            />
+                        <div className="flex items-center gap-3 overflow-visible">
+                            {/* Status Filter Dropdown */}
+                            <div className="relative z-30">
+                                <button
+                                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                                    className="flex items-center gap-3 px-4 py-2.5 bg-[var(--bg-muted)]/50 border border-[var(--border-color)] rounded-xl hover:border-purple-500/50 transition-all font-bold text-xs uppercase tracking-widest text-[var(--text-dim)]"
+                                >
+                                    <Filter size={14} className="text-purple-400" />
+                                    <span>{globalStatusFilter ? globalStatusFilter.replace('_', ' ') : 'All Status'}</span>
+                                    <ChevronDown size={16} className={`transition-transform ${showStatusDropdown ? 'rotate-180' : ''}`} />
+                                </button>
+                                {showStatusDropdown && (
+                                    <div className="absolute top-full right-0 mt-2 w-48 bg-[var(--bg-muted)]/95 backdrop-blur-xl border border-[var(--border-color)] rounded-xl shadow-xl z-[9999] animate-scale-in">
+                                        <div className="p-1">
+                                            {['ALL', 'ASSIGNED', 'IN_PROGRESS', 'SUBMITTED', 'COMPLETED', 'BLOCKED', 'REWORK'].map((status) => (
+                                                <button
+                                                    key={status}
+                                                    onClick={() => {
+                                                        setGlobalStatusFilter(status === 'ALL' ? null : status);
+                                                        setShowStatusDropdown(false);
+                                                    }}
+                                                    className={`w-full flex items-center justify-between p-3 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors ${globalStatusFilter === status || (status === 'ALL' && !globalStatusFilter) ? 'bg-purple-500/10 text-purple-400' : 'text-[var(--text-muted)] hover:bg-[var(--bg-color)] hover:text-white'}`}
+                                                >
+                                                    {status.replace('_', ' ')}
+                                                    {(globalStatusFilter === status || (status === 'ALL' && !globalStatusFilter)) && <Check size={14} />}
+                                                </button>
+                                            ))}
                                         </div>
-                                        {filteredInterns.map((intern) => (
-                                            <button
-                                                key={intern.id}
-                                                onClick={() => {
-                                                    setSelectedIntern(intern.id);
-                                                    setShowInternDropdown(false);
-                                                    setInternSearch('');
-                                                }}
-                                                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${selectedIntern === intern.id ? 'bg-purple-500/20' : 'hover:bg-[var(--bg-muted)]'}`}
-                                            >
-                                                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(intern.full_name || intern.email)} flex items-center justify-center text-[var(--text-main)] font-bold text-xs`}>
-                                                    {getInitials(intern.full_name)}
-                                                </div>
-                                                <div className="text-left">
-                                                    <p className="text-[var(--text-main)] text-sm">{intern.full_name || intern.email}</p>
-                                                    {intern.department && (
-                                                        <p className="text-xs text-[var(--text-muted)]">{intern.department}</p>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        ))}
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
+
+                            {/* Intern Selector */}
+                            <div className="relative z-30">
+                                <button
+                                    onClick={() => setShowInternDropdown(!showInternDropdown)}
+                                    className="flex items-center gap-3 px-4 py-2.5 bg-[var(--bg-muted)]/50 border border-[var(--border-color)] rounded-xl hover:border-purple-500/50 transition-all"
+                                >
+                                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(getSelectedInternName())} flex items-center justify-center text-[var(--text-main)] font-bold text-xs`}>
+                                        {getInitials(interns.find(i => i.id === selectedIntern)?.full_name || null)}
+                                    </div>
+                                    <span className="text-[var(--text-main)] truncate max-w-[150px]">{getSelectedInternName()}</span>
+                                    <ChevronDown size={16} className={`text-[var(--text-dim)] transition-transform ${showInternDropdown ? 'rotate-180' : ''}`} />
+                                </button>
+                                {showInternDropdown && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--bg-muted)]/95 backdrop-blur-xl border border-[var(--border-color)] rounded-xl shadow-xl z-[9999] isolate animate-scale-in max-h-[400px] overflow-y-auto custom-scrollbar">
+                                        <div className="p-2">
+                                            <div className="relative mb-2">
+                                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search interns..."
+                                                    value={internSearch}
+                                                    onChange={(e) => setInternSearch(e.target.value)}
+                                                    className="w-full pl-9 pr-3 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-purple-500"
+                                                />
+                                            </div>
+                                            {filteredInterns.map((intern) => (
+                                                <button
+                                                    key={intern.id}
+                                                    onClick={() => {
+                                                        setSelectedIntern(intern.id);
+                                                        setShowInternDropdown(false);
+                                                        setInternSearch('');
+                                                    }}
+                                                    className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${selectedIntern === intern.id ? 'bg-purple-500/20' : 'hover:bg-[var(--bg-muted)]'}`}
+                                                >
+                                                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(intern.full_name || intern.email)} flex items-center justify-center text-[var(--text-main)] font-bold text-xs`}>
+                                                        {getInitials(intern.full_name)}
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <p className="text-[var(--text-main)] text-sm">{intern.full_name || intern.email}</p>
+                                                        {intern.department && (
+                                                            <p className="text-xs text-[var(--text-muted)]">{intern.department}</p>
+                                                        )}
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -392,6 +433,8 @@ const MonitoringTasksPage: React.FC = () => {
                             setYearFilter={setYearFilter}
                             dateFilter={filterDate}
                             setDateFilter={setFilterDate}
+                            initialView={viewParam || undefined}
+                            externalStatusFilter={globalStatusFilter}
                         />
                     </>
                 )}
@@ -451,10 +494,10 @@ const MonitoringTasksPage: React.FC = () => {
                                 value={taskForm.project_assignment_id}
                                 onChange={(e) => {
                                     const val = e.target.value;
-                                    const selectedProj = projects.find((p: any) => p.id === val);
+                                    const selectedProj = projects.find((p) => p.id === parseInt(val));
                                     const projectId = selectedProj?.project?.id;
                                     setTaskForm({ ...taskForm, project_assignment_id: val, project_module_id: '' });
-                                    fetchModules(projectId);
+                                    fetchModules(projectId ? String(projectId) : '');
                                 }}
                                 className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                             >
@@ -462,15 +505,16 @@ const MonitoringTasksPage: React.FC = () => {
                                     {selectedIntern ? 'Select Project (Intern\'s Projects Only)' : 'No Project'}
                                 </option>
                                 {projects
-                                    .filter((p: any) => {
+                                    .filter((p) => {
                                         // If no intern selected, show all projects
                                         if (!selectedIntern) return true;
                                         // Only show projects assigned to the selected intern
-                                        return p.intern?.id === selectedIntern || p.intern === selectedIntern;
+                                        const internId = typeof p.intern === 'object' ? p.intern?.id : p.intern;
+                                        return internId === selectedIntern;
                                     })
-                                    .map((p: any) => (
+                                    .map((p) => (
                                     <option key={p.id} value={p.id}>
-                                        {p.project?.name || p.name}
+                                        {p.project?.name}
                                     </option>
                                 ))}
                             </select>

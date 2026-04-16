@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    BookOpen, Brain, ChevronRight, CheckCircle2, Circle,
+    BookOpen, Brain, CheckCircle2, Circle,
     Clock, TrendingUp, Zap, Target, AlertCircle, RefreshCw,
-    Star, Activity, Layers, Play, Award, BarChart3, Cpu, X,
-    ChevronDown, ChevronUp, ClipboardList, Sparkles, Rocket, Loader2
+    Star, Activity, Layers, Play, BarChart3, Cpu, X,
+    ChevronDown, ClipboardList, Sparkles, Rocket, Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useMonitoring } from '../context/MonitoringContext';
@@ -84,7 +84,6 @@ interface OptimalDifficulty {
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
-const DIFFICULTY_COLORS = ['', '#22c55e', '#84cc16', '#f59e0b', '#f97316', '#ef4444'];
 const DIFFICULTY_LABELS = ['', 'Beginner', 'Easy', 'Moderate', 'Advanced', 'Expert'];
 const DIFFICULTY_BG = ['', 'bg-emerald-500/20 text-emerald-300', 'bg-lime-500/20 text-lime-300',
     'bg-amber-500/20 text-amber-300', 'bg-orange-500/20 text-orange-300', 'bg-red-500/20 text-red-300'];
@@ -97,95 +96,13 @@ const ACTION_INFO: Record<string, { label: string; color: string; icon: string }
     COLLABORATION_TASK: { label: 'Collaboration Task', color: 'from-blue-500 to-indigo-600', icon: '🤝' },
 };
 
-function MasteryBar({ mastery }: { mastery: number }) {
-    const pct = Math.round(mastery * 100);
-    const color = pct >= 80 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#6366f1';
-    return (
-        <div className="w-full">
-            <div className="flex justify-between text-xs text-[var(--text-dim)] mb-1">
-                <span>Mastery</span>
-                <span className="font-semibold" style={{ color }}>{pct}%</span>
-            </div>
-            <div className="h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
-                <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${pct}%`, backgroundColor: color }}
-                />
-            </div>
-        </div>
-    );
-}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function MilestoneCard({ milestone, isActive, onClick }: { milestone: Milestone; isActive: boolean; onClick: () => void }) {
-    const isCompleted = milestone.status === 'COMPLETED';
-    const isInProgress = milestone.status === 'IN_PROGRESS';
-
-    return (
-        <div 
-            onClick={onClick}
-            className={`relative flex gap-4 group transition-all duration-300 cursor-pointer ${isActive ? 'scale-[1.01]' : 'hover:translate-x-1'}`}
-        >
-            {/* Timeline line */}
-            <div className="flex flex-col items-center">
-                <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 flex-shrink-0
-                    ${isCompleted
-                        ? 'bg-emerald-500/20 border-emerald-500 shadow-lg shadow-emerald-500/20 group-hover:bg-emerald-500/30'
-                            : 'bg-[var(--bg-muted)] border-[var(--border-color)] hover:bg-purple-500/10'
-                    }`}
-                >
-                    {isCompleted
-                        ? <CheckCircle2 size={18} className="text-emerald-400 group-hover:scale-110 transition-transform" />
-                            : <Circle size={18} className="text-[var(--text-muted)] group-hover:text-[var(--text-dim)] transition-colors" />
-                    }
-                </div>
-                <div className={`w-0.5 flex-1 mt-1 rounded-full transition-colors ${isCompleted ? 'bg-emerald-500/40 group-hover:bg-emerald-500/60' : 'bg-[var(--border-color)]'}`} style={{ minHeight: 24 }} />
-            </div>
-
-            {/* Card */}
-            <div className={`flex-1 pb-5 rounded-2xl p-4 border transition-all duration-300
-                ${isCompleted
-                    ? 'bg-emerald-500/5 border-emerald-500/20 group-hover:border-emerald-500/40 group-hover:bg-emerald-500/10'
-                        : 'bg-[var(--card-bg)] border-[var(--border-color)] hover:bg-purple-500/[0.03] hover:border-purple-500/20'
-                }
-            `}>
-                <div className="flex items-start justify-between mb-2 gap-3">
-                    <div>
-                        <h3 className="font-semibold text-[var(--text-main)] text-sm group-hover:text-[var(--text-main)] transition-colors">{milestone.title}</h3>
-                        <p className="text-xs text-[var(--text-dim)] mt-0.5 line-clamp-1">{milestone.description}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${DIFFICULTY_BG[milestone.difficulty] || DIFFICULTY_BG[3]}`}>
-                            {DIFFICULTY_LABELS[milestone.difficulty] || 'Moderate'}
-                        </span>
-                        <span className="flex items-center gap-1 text-xs text-[var(--text-dim)] group-hover:text-[var(--text-dim)] transition-colors">
-                            <Clock size={11} /> {milestone.estimated_hours}h
-                        </span>
-                    </div>
-                </div>
-
-                <MasteryBar mastery={milestone.current_mastery} />
-
-                {/* Prerequisites */}
-                {milestone.prerequisites.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                        {milestone.prerequisites.map(p => (
-                            <span key={p} className="text-xs px-2 py-0.5 rounded-full bg-[var(--bg-muted)] text-[var(--text-dim)] group-hover:bg-[var(--bg-muted)]">
-                                req: {p}
-                            </span>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
 
 function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
     const isCompleted = task.status === 'COMPLETED' || task.status === 'SUBMITTED';
     const isOverdue = !isCompleted && new Date(task.due_date) < new Date();
-    const isAssigned = task.status === 'ASSIGNED';
     const isInProgress = task.status === 'IN_PROGRESS';
 
     return (
@@ -374,11 +291,12 @@ const LearningPath: React.FC = () => {
     const [path, setPath] = useState<PathProgress | null>(null);
     const [recommendation, setRecommendation] = useState<RLRecommendation | null>(null);
     const [optimalDiff, setOptimalDiff] = useState<OptimalDifficulty | null>(null);
-    const [loadingPath, setLoadingPath] = useState(false);
     const [loadingRec, setLoadingRec] = useState(false);
     const [loadingGenerate, setLoadingGenerate] = useState(false);
+    const [loadingPath, setLoadingPath] = useState(false);
     const [activeStatModal, setActiveStatModal] = useState<string | null>(null);
     const [activeMilestoneModal, setActiveMilestoneModal] = useState<Milestone | null>(null);
+    const [activeMilestoneIndex, setActiveMilestoneIndex] = useState<number | null>(null);
     
     // Custom Path States
     const [availableSkills, setAvailableSkills] = useState<string[]>([]);
@@ -406,7 +324,6 @@ const LearningPath: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState<string>('');
 
     const [isGeneratingTask, setIsGeneratingTask] = useState(false);
-    const [activeMilestoneIndex, setActiveMilestoneIndex] = useState<number | null>(null);
     const [isReviewingTask, setIsReviewingTask] = useState(false);
 
     const isManagerOrAdmin = user?.role === 'MANAGER' || user?.role === 'ADMIN';
@@ -420,7 +337,7 @@ const LearningPath: React.FC = () => {
                 if (res.data?.job_roles) {
                     setJobRoles(res.data.job_roles);
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error('Failed to fetch job roles', err);
             }
         };
@@ -450,7 +367,7 @@ const LearningPath: React.FC = () => {
         try {
             const res = await api.get(`/analytics/rl/optimal-difficulty/${internId}/`);
             setOptimalDiff(res.data);
-        } catch (_) {}
+        } catch { /* ignore error */ }
     }, []);
 
     const fetchRecommendation = useCallback(async (internId: number) => {
@@ -459,7 +376,7 @@ const LearningPath: React.FC = () => {
         try {
             const res = await api.post('/analytics/rl/top-tasks/', { intern_id: internId });
             setRecommendation(res.data);
-        } catch (_) {} finally {
+        } catch { /* ignore error */ } finally {
             setLoadingRec(false);
         }
     }, [isManagerOrAdmin]);
@@ -469,9 +386,7 @@ const LearningPath: React.FC = () => {
         try {
             const res = await api.get(`/analytics/tasks/?intern_id=${internId}`);
             setTasks(res.data.tasks || []);
-        } catch (_) {
-            setTasks([]);
-        } finally {
+        } catch { /* ignore error */ } finally {
             setLoadingTasks(false);
         }
     }, []);
@@ -480,7 +395,7 @@ const LearningPath: React.FC = () => {
         try {
             const response = await api.get('/analytics/skills/');
             setAvailableSkills(response.data.skills);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Error fetching skills:", err);
         }
     }, []);
@@ -512,8 +427,8 @@ const LearningPath: React.FC = () => {
                 loadPath(effectiveInternId);
                 if (isManagerOrAdmin) fetchRecommendation(effectiveInternId);
             }
-        } catch (err: any) {
-            setError(err.response?.data?.error || 'Failed to generate path');
+        } catch {
+            setError('Failed to generate path');
         } finally {
             setLoadingGenerate(false);
         }
@@ -545,7 +460,7 @@ const LearningPath: React.FC = () => {
             }
         } catch (err: any) {
             console.error("Error fetching AI suggestions:", err);
-            setError(err.response?.data?.error || "Failed to get AI suggestions.");
+            setError("Failed to get AI suggestions.");
         } finally {
             setIsSuggesting(false);
         }
@@ -578,8 +493,8 @@ const LearningPath: React.FC = () => {
                     setActiveMilestoneModal(updatedMilestone);
                 }
             }
-        } catch (err: any) {
-            setError(err.response?.data?.error || 'Failed to generate AI task');
+        } catch {
+            setError('Failed to generate AI task');
         } finally {
             setIsGeneratingTask(false);
         }
@@ -606,8 +521,8 @@ const LearningPath: React.FC = () => {
             if (updatedMilestone) {
                 setActiveMilestoneModal(updatedMilestone);
             }
-        } catch (err: any) {
-            setError(err.response?.data?.error || 'Failed to review task');
+        } catch {
+            setError('Failed to review task');
         } finally {
             setIsReviewingTask(false);
         }

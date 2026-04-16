@@ -49,8 +49,9 @@ const Register: React.FC = () => {
                     navigate('/auth/login');
                 }, 3000);
             }
-        } catch (err: any) {
-            const errorData = err.response?.data;
+        } catch (err) {
+            const apiError = err as { response?: { data?: Record<string, unknown> } };
+            const errorData = apiError.response?.data;
             if (typeof errorData === 'object') {
                 const errorMessages = Object.entries(errorData)
                     .map(([field, messages]) => {
@@ -62,7 +63,8 @@ const Register: React.FC = () => {
                     .join('\n');
                 setError(errorMessages);
             } else {
-                setError(err.response?.data?.detail || 'Registration failed');
+                const detail = (apiError.response?.data as { detail?: string })?.detail;
+                setError(typeof detail === 'string' ? detail : 'Registration failed');
             }
         } finally {
             setIsLoading(false);

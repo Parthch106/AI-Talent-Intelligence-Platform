@@ -16,6 +16,9 @@ interface TooltipData {
   y: number;
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 const ContributionHeatmap: React.FC<HeatmapProps> = ({
   data,
   year = new Date().getFullYear(),
@@ -25,9 +28,8 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
 }) => {
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
   const gridContainerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   // Theme-aware color schemes
   const colorSchemes = {
@@ -50,8 +52,7 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
 
   const colors = colorSchemes[colorScheme];
 
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 
   // Generate full year calendar data
   const calendarData = useMemo(() => {
@@ -70,7 +71,7 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
     const calendarEnd = new Date(endDate);
     calendarEnd.setDate(calendarEnd.getDate() + (6 - calendarEnd.getDay()));
     
-    let currentDate = new Date(calendarStart);
+    const currentDate = new Date(calendarStart);
     
     while (currentDate <= calendarEnd) {
       const week: { date: Date; value: number; isCurrentYear: boolean }[] = [];
@@ -187,9 +188,10 @@ const ContributionHeatmap: React.FC<HeatmapProps> = ({
 
   // Clean up timeout on unmount
   useEffect(() => {
+    const currentTimeout = hoverTimeoutRef.current;
     return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
+      if (currentTimeout) {
+        clearTimeout(currentTimeout);
       }
     };
   }, []);

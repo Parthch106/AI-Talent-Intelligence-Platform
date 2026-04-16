@@ -17,7 +17,6 @@ const ProjectList = lazy(() => import('./pages/ProjectList'));
 const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
 const DocumentsPage = lazy(() => import('./pages/DocumentsPage'));
 const AnalysisPage = lazy(() => import('./pages/AnalysisPage'));
-const MonitoringDashboard = lazy(() => import('./pages/MonitoringDashboard'));
 const MonitoringOverviewPage = lazy(() => import('./pages/MonitoringOverview'));
 const MonitoringTasksPage = lazy(() => import('./pages/MonitoringTasks'));
 const MonitoringAttendancePage = lazy(() => import('./pages/MonitoringAttendance'));
@@ -32,6 +31,7 @@ const LearningPath = lazy(() => import('./pages/LearningPath'));
 const PerformanceAnalytics = lazy(() => import('./pages/PerformanceAnalytics'));
 const AITaskGenerator = lazy(() => import('./pages/AITaskGenerator'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
+const TaskDetailPage = lazy(() => import('./pages/TaskDetailPage'));
 
 const AITaskRedirect: React.FC = () => {
   const { internId } = useParams();
@@ -76,35 +76,38 @@ const App: React.FC = () => {
                   <Route path="/analytics/skill-intelligence" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><AnalysisPage /></ProtectedRoute>} />
                   <Route path="/analysis" element={<Navigate to="/analytics/skill-intelligence" replace />} />
                   
-                  <Route element={<MonitoringProvider><Outlet /></MonitoringProvider>}>
-                    {/* Management */}
-                    <Route path="/management/overview" element={<MonitoringOverviewPage />} />
-                    <Route path="/management/tasks" element={<MonitoringTasksPage />} />
-                    <Route path="/management/attendance" element={<MonitoringAttendancePage />} />
-                    <Route path="/management/reports" element={<MonitoringReportsPage />} />
-                    <Route path="/monitoring" element={<Navigate to="/management/overview" replace />} />
-                    <Route path="/tasks" element={<Navigate to="/management/tasks" replace />} />
-                    <Route path="/attendance" element={<Navigate to="/management/attendance" replace />} />
-                    <Route path="/reports" element={<Navigate to="/management/reports" replace />} />
-
-                    {/* Shared Analytics */}
-                    <Route path="/analytics/learning-paths" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><LearningPath /></ProtectedRoute>} />
-                    <Route path="/analytics/performance" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><PerformanceAnalytics /></ProtectedRoute>} />
-                    <Route path="/learning-path" element={<Navigate to="/analytics/learning-paths" replace />} />
-                    <Route path="/performance" element={<Navigate to="/analytics/performance" replace />} />
-
-                    <Route path="/tools/ai-task-generator/:internId?" element={<AITaskGenerator />} />
-                    <Route path="/monitoring/ai-tasks/:internId?" element={<AITaskRedirect />} />
-                  </Route>
+                <Route element={<MonitoringProvider><Outlet /></MonitoringProvider>}>
+                  {/* Management */}
+                  <Route path="/management/overview" element={<MonitoringOverviewPage />} />
+                  <Route path="/management/tasks" element={<MonitoringTasksPage />} />
+                  <Route path="/management/tasks/details" element={<TaskDetailPage />} />
+                  <Route path="/management/tasks/:taskId" element={<TaskDetailPage />} />
+                  <Route path="/management/attendance" element={<MonitoringAttendancePage />} />
+                  <Route path="/management/reports" element={<MonitoringReportsPage />} />
+                  <Route path="/monitoring" element={<Navigate to="/management/overview" replace />} />
+                  <Route path="/tasks" element={<Navigate to="/management/tasks" replace />} />
+                  <Route path="/attendance" element={<Navigate to="/management/attendance" replace />} />
+                  <Route path="/reports" element={<Navigate to="/management/reports" replace />} />
 
                   {/* Intern Workspace */}
                   <Route path="/workspace/submit-report" element={<UploadWeeklyReport />} />
                   <Route path="/workspace/my-tasks" element={<InternTasks />} />
+                  <Route path="/workspace/tasks/details" element={<TaskDetailPage />} />
+                  <Route path="/workspace/tasks/:taskId" element={<TaskDetailPage />} />
                   <Route path="/workspace/my-attendance" element={<MyAttendance />} />
                   <Route path="/upload-report" element={<Navigate to="/workspace/submit-report" replace />} />
                   <Route path="/my-tasks" element={<Navigate to="/workspace/my-tasks" replace />} />
                   <Route path="/my-attendance" element={<Navigate to="/workspace/my-attendance" replace />} />
                 </Route>
+
+                <Route path="/analytics/learning-paths" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><LearningPath /></ProtectedRoute>} />
+                <Route path="/analytics/performance" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><PerformanceAnalytics /></ProtectedRoute>} />
+                <Route path="/learning-path" element={<Navigate to="/analytics/learning-paths" replace />} />
+                <Route path="/performance" element={<Navigate to="/performance" replace />} />
+                
+                <Route path="/tools/ai-task-generator/:internId?" element={<AITaskGenerator />} />
+                <Route path="/monitoring/ai-tasks/:internId?" element={<AITaskRedirect />} />
+              </Route>
 
                 {/* Catch all */}
                 <Route path="*" element={<Navigate to="/" replace />} />

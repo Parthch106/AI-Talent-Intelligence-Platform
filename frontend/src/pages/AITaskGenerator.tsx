@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
-    Brain, Sparkles, Wand2, Loader2, ChevronLeft, 
-    Target, Clock, CheckCircle, Award, Code, 
-    Star, Bug, LayoutGrid, List, MessageSquare,
-    AlertTriangle, PlayCircle, Plus, Save, 
-    Layers, Cpu, Zap, Search, Filter, History,
+    Brain, Sparkles, Loader2, ChevronLeft, 
+    Target, Clock, Star, 
+    Plus, Layers, Cpu, Zap, History,
     ChevronDown
 } from 'lucide-react';
 import axios from '../api/axios';
-import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import toast from 'react-hot-toast';
-import { useAuth } from '../context/AuthContext';
 import { useMonitoring } from '../context/MonitoringContext';
 
 interface AITaskSuggestion {
@@ -30,14 +26,12 @@ const AITaskGenerator: React.FC = () => {
     const urlInternId = urlInternIdParam && !urlInternIdParam.startsWith(':') ? parseInt(urlInternIdParam) : null;
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { user } = useAuth();
     
     // Global State from context
     const { selectedInternId: contextInternId, setSelectedInternId, interns } = useMonitoring();
     
     // States
     const [selectedIntern, setSelectedInternLocal] = useState<number | null>(urlInternId ? urlInternId : contextInternId);
-    const [internDetails, setInternDetails] = useState<any>(null);
     
     const [projects, setProjects] = useState<{id: number; name: string}[]>([]);
     const [selectedProject, setSelectedProject] = useState<number | null>(null);
@@ -47,13 +41,15 @@ const AITaskGenerator: React.FC = () => {
     
     const [generating, setGenerating] = useState(false);
     const [aiTasks, setAiTasks] = useState<AITaskSuggestion[]>([]);
-    const [aiSummary, setAiSummary] = useState<string>('');
-    const [ongoingHistory, setOngoingHistory] = useState<any[]>([]);
-    const [completedHistory, setCompletedHistory] = useState<any[]>([]);
+    const [ongoingHistory, setOngoingHistory] = useState<{title: string; due_date: string}[]>([]);
+    const [completedHistory, setCompletedHistory] = useState<{title: string}[]>([]);
     
     const [assigning, setAssigning] = useState<string | null>(null);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [editValues, setEditValues] = useState<{title: string, description: string}>({title: '', description: ''});
+    
+    // Missing States
+    const [internDetails, setInternDetails] = useState<{id: number; email: string; username?: string; full_name: string | null; department: string | null} | null>(null);
 
     // Sync local selectedIntern with URL param OR context
     useEffect(() => {
@@ -93,8 +89,8 @@ const AITaskGenerator: React.FC = () => {
                 
                 const res = await axios.get('/projects/assignments/', { params: { intern_id: selectedIntern } });
                 const assignments = res.data.results || res.data;
-                const uniqueProjects = Array.from(new Set(assignments.map((a: any) => JSON.stringify({id: a.project.id, name: a.project.name}))))
-                    .map((s: any) => JSON.parse(s));
+                const uniqueProjects = Array.from(new Set(assignments.map((a: { project: { id: number; name: string } }) => JSON.stringify({id: a.project.id, name: a.project.name}))))
+                    .map((s) => JSON.parse(s as string));
                 setProjects(uniqueProjects);
             } catch (err) {
                 console.error("Error fetching intern context", err);
@@ -169,7 +165,6 @@ const AITaskGenerator: React.FC = () => {
             });
             
             setAiTasks(response.data.tasks || []);
-            setAiSummary(response.data.summary || '');
             setOngoingHistory(response.data.ongoing_tasks || []);
             setCompletedHistory(response.data.completed_tasks || []);
             

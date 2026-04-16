@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 
 // Icon exports for easy access
+// eslint-disable-next-line react-refresh/only-export-components
 export const Icons = {
     Plus, X, CheckCircle, Clock, AlertTriangle, Home,
     Calendar, TrendingUp, FileText, Users, Target, ChevronRight,
@@ -22,7 +23,6 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     iconPosition?: 'left' | 'right';
     loading?: boolean;
     fullWidth?: boolean;
-    glow?: boolean;
 }
 
 const variantClasses = {
@@ -59,7 +59,6 @@ const Button: React.FC<ButtonProps> = ({
     iconPosition = 'left',
     loading = false,
     fullWidth = false,
-    glow = false,
     children,
     className = '',
     disabled,

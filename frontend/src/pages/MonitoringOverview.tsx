@@ -29,19 +29,12 @@ interface PerformanceMetric {
     dropout_risk: string;
 }
 
-interface Intern {
-    id: number;
-    email: string;
-    full_name: string | null;
-    department: string | null;
-}
-
 const MonitoringOverviewPage: React.FC = () => {
     const { user } = useAuth();
     
     // State
     // Global State from context
-    const { selectedInternId: selectedIntern, setSelectedInternId: setSelectedIntern, interns, loadingInterns } = useMonitoring();
+    const { selectedInternId: selectedIntern, setSelectedInternId: setSelectedIntern, interns } = useMonitoring();
     
     // Local State
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -57,6 +50,7 @@ const MonitoringOverviewPage: React.FC = () => {
         } else if (selectedIntern) {
             fetchData();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedIntern, user?.role]);
 
     const fetchData = async (): Promise<void> => {
@@ -86,9 +80,10 @@ const MonitoringOverviewPage: React.FC = () => {
 
             setTasks(tasks);
             setAttendance(attendance);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setPerformance(performance as any);
-        } catch (err: any) {
-            console.error('[fetchData] Error fetching data:', err.message || err);
+        } catch (err) {
+            console.error('[fetchData] Error fetching data:', err);
         }
         setLoading(false);
     };

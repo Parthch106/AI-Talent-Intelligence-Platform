@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
     MessageSquare, X, Send, Bot, User, 
-    ChevronDown, Maximize2, Minimize2, 
+    Maximize2, Minimize2, 
     Sparkles, RefreshCw, AlertCircle
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import Button from './Button';
+
 
 interface Message {
     role: 'user' | 'assistant' | 'system';
@@ -81,7 +81,7 @@ const FloatingAIChatbot: React.FC = () => {
             } else {
                 throw new Error("Invalid response from assistant");
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Chat error:", err);
             setError("Failed to get response. Please try again.");
             setMessages(prev => [...prev, {

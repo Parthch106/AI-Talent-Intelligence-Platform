@@ -14,7 +14,11 @@ interface Notification {
     created_at: string;
 }
 
-const Header: React.FC = () => {
+interface HeaderProps {
+    isExpanded: boolean;
+}
+
+const Header: React.FC<HeaderProps> = ({ isExpanded }) => {
     const { user, logout } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
@@ -23,7 +27,7 @@ const Header: React.FC = () => {
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
-    const [loadingNotifications, setLoadingNotifications] = useState(false);
+    const [loadingNotifications] = useState(false);
 
     // Fetch notifications
     useEffect(() => {
@@ -40,7 +44,7 @@ const Header: React.FC = () => {
                         const feedbackRes = await api.get('/feedback/unread_count/');
                         const feedbackUnread = feedbackRes.data.unread_count || 0;
                         setUnreadCount(prev => prev + feedbackUnread);
-                    } catch (e) {
+                    } catch {
                         // Ignore
                     }
                 }
@@ -160,7 +164,10 @@ const Header: React.FC = () => {
 
     return (
         <>
-            <header className="h-20 bg-[var(--header-bg)] backdrop-blur-3xl border-b border-[var(--border-color)] flex items-center justify-between px-8 fixed top-0 left-64 right-0 z-30 transition-all duration-500">
+            <header 
+                className="h-20 bg-[var(--header-bg)] backdrop-blur-3xl border-b border-[var(--border-color)] flex items-center justify-between px-8 fixed top-0 left-20 right-0 z-30 transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
+                style={{ transform: isExpanded ? 'translateX(176px)' : 'translateX(0px)' }}
+            >
                 {/* Left Section - Welcome */}
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-4">

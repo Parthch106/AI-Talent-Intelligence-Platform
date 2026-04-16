@@ -3,7 +3,7 @@ import { User, Mail, Building, Phone, BookOpen, Award, Settings, Save, X, Shield
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import Card from '../components/common/Card';
-import Badge from '../components/common/Badge';
+
 import Button from '../components/common/Button';
 
 interface UserProfile {
@@ -132,8 +132,9 @@ const ProfilePage: React.FC = () => {
             setTimeout(() => {
                 setSuccess('');
             }, 3000);
-        } catch (err: any) {
-            setError(err.response?.data?.message || 'Failed to update profile');
+        } catch (err) {
+            const error = err as { response?: { data?: { message?: string } } };
+            setError(error.response?.data?.message || 'Failed to update profile');
         } finally {
             setSaving(false);
         }
@@ -145,13 +146,9 @@ const ProfilePage: React.FC = () => {
         // Only parse skills when saving, not on every keystroke
     };
 
-    const _getSkillsValue = () => {
-        const skills = formData.profile.skills;
-        if (!skills || !Array.isArray(skills)) return '';
-        return skills.join(', ');
-    };
 
-    const handleInputChange = (section: 'user' | 'profile', field: string, value: any) => {
+
+    const handleInputChange = (section: 'user' | 'profile', field: string, value: string | string[]) => {
         setFormData(prev => ({
             ...prev,
             [section]: { ...prev[section], [field]: value }

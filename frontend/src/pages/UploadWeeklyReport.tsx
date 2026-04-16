@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Card, Button, Badge, Modal } from '../components/common';
 import {
     FileText, Upload, CheckCircle, Clock, AlertTriangle,
-    ChevronRight, FileUp, Calendar, Target, TrendingUp, BookOpen, Trash2, Eye
+    ChevronRight, FileUp, Calendar, Target, TrendingUp, Trash2, Eye
 } from 'lucide-react';
 
 interface WeeklyReport {
@@ -42,11 +42,7 @@ const UploadWeeklyReport: React.FC = () => {
     const [error, setError] = useState<string>('');
     const [pdfFile, setPdfFile] = useState<File | null>(null);
 
-    useEffect(() => {
-        fetchReports();
-    }, []);
-
-    const fetchReports = async () => {
+    const fetchReports = React.useCallback(async () => {
         setLoading(true);
         try {
             // For interns, don't pass intern_id - backend uses current user
@@ -58,7 +54,11 @@ const UploadWeeklyReport: React.FC = () => {
             console.error('Error fetching reports:', err);
         }
         setLoading(false);
-    };
+    }, [user?.role, user?.id]);
+
+    useEffect(() => {
+        fetchReports();
+    }, [fetchReports]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -96,9 +96,10 @@ const UploadWeeklyReport: React.FC = () => {
             setPdfFile(null);
             fetchReports();
             setTimeout(() => setSuccess(''), 5000);
-        } catch (err: any) {
+        } catch (err) {
+            const apiError = err as { response?: { data?: { error?: string } } };
             console.error('Error submitting report:', err);
-            setError(err.response?.data?.error || 'Failed to submit report. Please try again.');
+            setError(apiError.response?.data?.error || 'Failed to submit report. Please try again.');
         }
         setLoading(false);
     };
@@ -117,9 +118,10 @@ const UploadWeeklyReport: React.FC = () => {
             setSuccess('Report deleted successfully');
             fetchReports();
             setTimeout(() => setSuccess(''), 5000);
-        } catch (err: any) {
+        } catch (err) {
+            const apiError = err as { response?: { data?: { error?: string } } };
             console.error('Error deleting report:', err);
-            setError(err.response?.data?.error || 'Failed to delete report');
+            setError(apiError.response?.data?.error || 'Failed to delete report');
         }
         setLoading(false);
     };

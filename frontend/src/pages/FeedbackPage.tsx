@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { MessageSquare, Plus, X, Star, User, Calendar, ThumbsUp, TrendingUp, CheckCircle, AlertCircle, Clock, Filter, ArrowUpDown, Target, AlertTriangle } from 'lucide-react';
+import { MessageSquare, Plus, Star, User, Calendar, ThumbsUp, TrendingUp, CheckCircle, Target, Clock, AlertTriangle } from 'lucide-react';
 import Modal from '../components/common/Modal';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
+import toast from 'react-hot-toast';
 
 interface User {
     id: number;
@@ -151,7 +152,6 @@ const FeedbackPage: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState<'given' | 'received'>('given');
-    const [unreadCount, setUnreadCount] = useState(0);
 
     // Filtering and sorting state
     const [feedbackTypeFilter, setFeedbackTypeFilter] = useState<string>('all');
@@ -175,20 +175,13 @@ const FeedbackPage: React.FC = () => {
             const feedbackRes = await api.get('/feedback/');
             setFeedback(feedbackRes.data);
 
-            // Fetch unread count
-            try {
-                const unreadRes = await api.get('/feedback/unread_count/');
-                setUnreadCount(unreadRes.data.unread_count || 0);
-            } catch (e) {
-                // Ignore error for unread count
-            }
-
-            // Fetch interns based on role
+// Fetch interns based on role
             if (user?.role === 'MANAGER') {
                 const internsRes = await api.get('/interns/department-interns/');
                 setInterns(internsRes.data);
             } else {
                 const internsRes = await api.get('/interns/profiles/');
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 setInterns(internsRes.data.map((p: any) => p.user));
             }
 
@@ -207,6 +200,7 @@ const FeedbackPage: React.FC = () => {
 
     useEffect(() => {
         fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.role]);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -232,8 +226,8 @@ const FeedbackPage: React.FC = () => {
                 areas_for_improvement: '',
             });
             fetchData();
-        } catch (err: any) {
-            setError(err.response?.data?.error || err.response?.data?.detail || 'Failed to submit feedback');
+        } catch {
+            setError('Failed to submit feedback');
         } finally {
             setSubmitting(false);
         }
@@ -442,7 +436,7 @@ const FeedbackPage: React.FC = () => {
                     {/* Sort */}
                     <select
                         value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as any)}
+                        onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'rating_high' | 'rating_low')}
                         className="px-4 py-2 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-lg text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                     >
                         <option value="newest">Newest First</option>

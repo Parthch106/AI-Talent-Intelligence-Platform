@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Upload, FileText, Download, Trash2, X, FolderOpen, File, FilePlus, Calendar, User, ExternalLink, Search, ChevronDown } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -146,7 +146,7 @@ const DocumentsPage: React.FC = () => {
         ];
     };
 
-    const fetchDocuments = async () => {
+    const fetchDocuments = useCallback(async () => {
         try {
             const response = await api.get('/documents/files/');
             setDocuments(response.data);
@@ -155,18 +155,13 @@ const DocumentsPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchDocuments();
-    }, [user?.role]);
+    }, [user?.role, fetchDocuments]);
 
-    // Apply filters whenever filters or search change
-    useEffect(() => {
-        applyFilters();
-    }, [documents, selectedDocType, selectedOwnerType, searchQuery]);
-
-    const applyFilters = () => {
+    const applyFilters = useCallback(() => {
         let filtered = documents;
 
         // Filter by document type
@@ -193,7 +188,12 @@ const DocumentsPage: React.FC = () => {
         }
 
         setFilteredDocuments(filtered);
-    };
+    }, [documents, selectedDocType, selectedOwnerType, searchQuery, user?.id]);
+
+    // Apply filters whenever filters or search change
+    useEffect(() => {
+        applyFilters();
+    }, [applyFilters]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -227,8 +227,9 @@ const DocumentsPage: React.FC = () => {
             setShowUploadModal(false);
             setNewDocument({ title: '', document_type: '', file: null, description: '' });
             fetchDocuments();
-        } catch (err: any) {
-            setError(err.response?.data?.detail || 'Failed to upload document');
+        } catch (err: unknown) {
+            const apiError = err as { response?: { data?: { detail?: string } } };
+            setError(apiError.response?.data?.detail || 'Failed to upload document');
         } finally {
             setSubmitting(false);
         }
