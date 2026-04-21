@@ -92,15 +92,8 @@ class InternProfile(models.Model):
         verbose_name        = 'Intern Profile'
         verbose_name_plural = 'Intern Profiles'
 
-    def __str__(self):
-        return f"{self.user.email} — {self.get_status_display()}"
+from apps.analytics.models import ConversionScore
 
-
-# ============================================================================
-# Phase 5 — Full-Time Offers & Stipend
-# ============================================================================
-
-from apps.analytics.models import ConversionScore   # Cross-app FK
 
 class FullTimeOffer(models.Model):
 
@@ -156,7 +149,7 @@ class FullTimeOffer(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.intern.username} — PPO ({self.get_status_display()})"
+        return f"{self.intern.full_name} — PPO ({self.get_status_display()})"
 
     @property
     def is_active(self):
@@ -210,7 +203,7 @@ class StipendRecord(models.Model):
 
     def __str__(self):
         return (
-            f"{self.intern.username} — "
+            f"{self.intern.full_name} — "
             f"{self.month.strftime('%B %Y')} — "
             f"₹{self.amount} ({self.get_status_display()})"
         )

@@ -698,7 +698,6 @@ class CertificationCriteria(models.Model):
         help_text="Only one active criteria set per phase is used for evaluation"
     )
     description = models.TextField(
-        blank=True,
         help_text="Human-readable explanation of this criteria set"
     )
     created_by  = models.ForeignKey(
@@ -716,6 +715,28 @@ class CertificationCriteria(models.Model):
 
     def __str__(self):
         return f"{self.get_phase_display()} Criteria — {'Active' if self.is_active else 'Inactive'} (created {self.created_at.date()})"
+
+    def clean(self):
+        """
+        Prevent admin from retroactively editing criteria that have already
+        been used in an issued CertificationRecord.
+        """
+        from django.core.exceptions import ValidationError
+        if self.pk:   # Editing an existing criteria set
+            if CertificationRecord.objects.filter(
+                cert_type=self.phase,
+                issue_date__isnull=False,   # Has been issued
+                is_revoked=False,
+            ).exists():
+                raise ValidationError(
+                    f"This criteria set has been used in issued certificates. "
+                    f"Create a new criteria version instead of editing an existing one. "
+                    f"Past certificates use the criteria_snapshot captured at the time of issuance."
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 import uuid
 
@@ -1956,6 +1977,7 @@ class WeeklyReportV2(models.Model):
             ((self.total_estimated_hours - self.total_actual_hours) / self.total_estimated_hours) * 100, 1
         )
 
+
 class ConversionScore(models.Model):
     """
     12-month ML aggregate score for the full-time offer decision.
@@ -1997,4 +2019,4 @@ class ConversionScore(models.Model):
         ordering = ['-computed_at']
 
     def __str__(self):
-        return f"{self.intern.username} — {self.composite_score:.1f}% (v{self.model_version})"
+        return f"{self.intern.email} — {self.composite_score:.1f}% (v{self.model_version})"

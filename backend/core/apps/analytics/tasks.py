@@ -12,9 +12,12 @@ from django.core.mail import EmailMessage
 from django.utils import timezone
 
 import qrcode
-from weasyprint import HTML
+# from weasyprint import HTML  # Moved to inside generate_certificate_pdf
 
+from django.core.cache import cache
 from apps.analytics.models import PhaseEvaluation, CertificationRecord, CertificationCriteria, WeeklyReportV2
+
+REPORT_LOCK_TTL = 300   # 5 minutes
 from apps.analytics.services.certification_service import get_aggregated_scores, evaluate_criteria
 from apps.analytics.services.weekly_report_service_v2 import (
     compute_weekly_metrics_v2,
@@ -120,6 +123,12 @@ def generate_certificate_pdf(cert_id):
         html_string = render_to_string('certificates/certificate.html', context)
         
         # 3. Convert to PDF
+        try:
+            from weasyprint import HTML
+        except ImportError:
+            logger.error("WeasyPrint not properly installed or missing system libraries (gobject-2.0-0). Skipping PDF generation.")
+            return
+
         pdf_buffer = io.BytesIO()
         HTML(string=html_string, base_url=settings.WEASYPRINT_BASEURL).write_pdf(pdf_buffer)
         
@@ -178,11 +187,10 @@ def update_all_conversion_scores():
     Celery Beat — every Monday 9:00 AM (after weekly reports are generated at 8am).
     Computes / updates ConversionScore for every Phase 2+ intern.
     """
-    from django.contrib.auth import get_user_model
+    from apps.accounts.models import User
     from apps.analytics.models import ConversionScore
     from apps.analytics.services import compute_conversion_score
 
-    User = get_user_model()
     eligible_interns = User.objects.filter(
         role='INTERN',
         internprofile__status__in=['STIPEND_INTERN', 'PHASE_2_COMPLETE', 'PPO_OFFERED']
@@ -198,10 +206,133 @@ def update_all_conversion_scores():
             )
             updated += 1
         except Exception as exc:
-            logger.error(f"ConversionScore update failed for {intern.username}: {exc}")
+            logger.error(f"ConversionScore update failed for {intern.email}: {exc}")
 
     logger.info(f"update_all_conversion_scores: updated {updated} interns.")
     return {'updated': updated}
+
+
+ONBOARDING_PLAN_PROMPT = """\
+You are an HR specialist generating a personalised onboarding plan for a new full-time employee.
+Base your response ONLY on the data provided below.
+
+EMPLOYEE PROFILE:
+- Name: {intern_name}
+- Recommended role: {role_title}
+- Department: {department}
+- 12-Month internship overall score: {overall_score}%
+- Top skills demonstrated: {top_skills}
+- Areas needing development: {growth_areas}
+- Average task quality rating over internship: {avg_quality}/5
+- Attendance reliability: {attendance_pct}%
+
+Generate:
+1. A 2-sentence offer rationale explaining why this person deserves a full-time offer.
+2. A 30-60-90 day onboarding plan (3 short bullet points per phase).
+
+Return ONLY valid JSON — no markdown, no extra text:
+{{
+  "offer_summary": "...",
+  "onboarding_plan": {{
+    "day_30": ["...", "...", "..."],
+    "day_60": ["...", "...", "..."],
+    "day_90": ["...", "...", "..."]
+  }}
+}}
+"""
+
+
+@shared_task(name='apps.analytics.tasks.generate_onboarding_plan', bind=True, max_retries=2, default_retry_delay=60)
+def generate_onboarding_plan(self, offer_id: int):
+    """
+    Called when a FullTimeOffer is created.
+    Generates ai_offer_summary and ai_onboarding_plan via Groq LLM.
+    """
+    import json
+    from django.conf import settings
+    from apps.accounts.models import FullTimeOffer
+    from apps.analytics.services import _get_skills_summary
+
+    try:
+        offer = FullTimeOffer.objects.select_related(
+            'intern', 'conversion_score'
+        ).get(pk=offer_id)
+    except FullTimeOffer.DoesNotExist:
+        return
+
+    cs   = offer.conversion_score
+    intern = offer.intern
+
+    top_skills   = _get_skills_summary(intern)
+    growth_areas = _get_growth_areas(intern)
+
+    prompt = ONBOARDING_PLAN_PROMPT.format(
+        intern_name   = intern.full_name or intern.email,
+        role_title    = offer.recommended_role_title or 'Software Engineer',
+        department    = offer.recommended_department or 'Engineering',
+        overall_score = cs.composite_score,
+        top_skills    = top_skills or 'Python, Django, React',
+        growth_areas  = growth_areas or 'Team communication, documentation',
+        avg_quality   = round(cs.absolute_performance_score / 20, 1),   # Approximate /5 scale
+        attendance_pct = cs.feature_vector.get('avg_attendance_pct', 'N/A'),
+    )
+
+    try:
+        from groq import Groq
+        client   = Groq(api_key=settings.GROQ_API_KEY)
+        response = client.chat.completions.create(
+            model       = settings.GROQ_MODEL,
+            messages    = [{'role': 'user', 'content': prompt}],
+            max_tokens  = 600,
+            temperature = 0.4,
+        )
+        raw = response.choices[0].message.content.strip()
+        # Clean markdown if LLM includes it
+        if raw.startswith('```'):
+            raw = raw.strip('```json').strip('```').strip()
+        data = json.loads(raw)
+    except Exception as exc:
+        logger.error(f"generate_onboarding_plan failed for offer {offer_id}: {exc}")
+        raise self.retry(exc=exc)
+
+    # Flatten onboarding_plan dict to formatted text
+    plan = data.get('onboarding_plan', {})
+    plan_text = (
+        "FIRST 30 DAYS:\n"  + '\n'.join(f'• {b}' for b in plan.get('day_30', [])) + '\n\n'
+        "DAYS 31–60:\n"    + '\n'.join(f'• {b}' for b in plan.get('day_60', [])) + '\n\n'
+        "DAYS 61–90:\n"    + '\n'.join(f'• {b}' for b in plan.get('day_90', []))
+    )
+
+    FullTimeOffer.objects.filter(pk=offer_id).update(
+        ai_offer_summary   = data.get('offer_summary', ''),
+        ai_onboarding_plan = plan_text,
+    )
+
+    logger.info(f"Onboarding plan generated for offer {offer_id}.")
+
+
+def _get_growth_areas(intern) -> str:
+    """Returns areas where the intern's scores were lowest, for LLM context."""
+    from apps.analytics.models import WeeklyReportV2
+    from django.db.models import Avg
+
+    agg = WeeklyReportV2.objects.filter(
+        intern=intern, is_auto_generated=True
+    ).aggregate(
+        avg_prod = Avg('productivity_score'),
+        avg_qual = Avg('quality_score'),
+        avg_eng  = Avg('engagement_score'),
+    )
+
+    areas = []
+    if (agg['avg_prod'] or 0) < 70:
+        areas.append('task delivery speed')
+    if (agg['avg_qual'] or 0) < 70:
+        areas.append('output quality')
+    if (agg['avg_eng'] or 0) < 70:
+        areas.append('team engagement')
+
+    return ', '.join(areas) if areas else 'no critical gaps identified'
 
 @shared_task(name='apps.analytics.tasks.check_phase_transition_eligibility')
 def check_phase_transition_eligibility():
@@ -244,96 +375,108 @@ def generate_weekly_reports_v2():
 def generate_single_report_v2(self, intern_id: int, week_start_str: str, week_end_str: str):
     """
     Builds a complete WeeklyReportV2 for one intern for one week.
+    Uses a distributed lock to prevent concurrent execution.
     """
     from datetime import datetime
     from apps.accounts.models import User
     from apps.analytics.models import WeeklyReportV2, TaskTracking, AttendanceRecord
 
-    week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date()
-    week_end   = datetime.strptime(week_end_str,   '%Y-%m-%d').date()
+    # ── Distributed lock (Redis) ───────────────────────────────────────────────
+    lock_key = f"report_lock:intern_{intern_id}:week_{week_start_str}"
+    lock_acquired = cache.add(lock_key, '1', timeout=REPORT_LOCK_TTL)
+    if not lock_acquired:
+        logger.warning(
+            f"generate_single_report_v2: lock held for intern {intern_id} week {week_start_str} — skipping duplicate."
+        )
+        return {'skipped': True, 'reason': 'duplicate_task'}
 
     try:
-        intern = User.objects.get(pk=intern_id)
-    except User.DoesNotExist:
-        logger.error(f"generate_single_report_v2: intern {intern_id} not found.")
-        return
+        week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date()
+        week_end   = datetime.strptime(week_end_str,   '%Y-%m-%d').date()
 
-    # Idempotency check
-    if WeeklyReportV2.objects.filter(intern=intern, week_start=week_start, is_auto_generated=True).exists():
-        logger.info(f"Report already exists for intern {intern_id} week {week_start} — skipping.")
-        return
+        try:
+            intern = User.objects.get(pk=intern_id)
+        except User.DoesNotExist:
+            logger.error(f"generate_single_report_v2: intern {intern_id} not found.")
+            return
 
-    # 1. Fetch data
-    tasks_qs = TaskTracking.objects.filter(
-        intern=intern,
-        # Using created_at for simple weekly grouping
-        created_at__date__range=[week_start, week_end]
-    )
-    attendance_qs = AttendanceRecord.objects.filter(
-        intern=intern,
-        date__range=[week_start, week_end]
-    )
+        # Idempotency check
+        if WeeklyReportV2.objects.filter(intern=intern, week_start=week_start, is_auto_generated=True).exists():
+            logger.info(f"Report already exists for intern {intern_id} week {week_start} — skipping.")
+            return
 
-    # 2. Prior week report
-    prior = WeeklyReportV2.objects.filter(
-        intern=intern,
-        is_auto_generated=True
-    ).order_by('-week_start').first()
+        # 1. Fetch data
+        tasks_qs = TaskTracking.objects.filter(
+            intern=intern,
+            created_at__date__range=[week_start, week_end]
+        )
+        attendance_qs = AttendanceRecord.objects.filter(
+            intern=intern,
+            date__range=[week_start, week_end]
+        )
 
-    # 3. Compute week number
-    week_number = _compute_week_number_v2(intern, week_start)
+        # 2. Prior week report
+        prior = WeeklyReportV2.objects.filter(
+            intern=intern,
+            is_auto_generated=True
+        ).order_by('-week_start').first()
 
-    # 4. Compute metrics
-    try:
-        metrics = compute_weekly_metrics_v2(tasks_qs, attendance_qs, prior)
-    except Exception as exc:
-        logger.error(f"compute_weekly_metrics_v2 failed for intern {intern_id}: {exc}")
-        raise self.retry(exc=exc)
+        # 3. Compute week number
+        week_number = _compute_week_number_v2(intern, week_start)
 
-    # 5. Red flags
-    flags = check_red_flags_v2(metrics)
+        # 4. Compute metrics
+        try:
+            metrics = compute_weekly_metrics_v2(tasks_qs, attendance_qs, prior)
+        except Exception as exc:
+            logger.error(f"compute_weekly_metrics_v2 failed for intern {intern_id}: {exc}")
+            raise self.retry(exc=exc)
 
-    # 6. Self-report mismatch
-    self_report = WeeklyReportV2.objects.filter(
-        intern=intern,
-        week_start=week_start,
-        is_auto_generated=False
-    ).first()
+        # 5. Red flags
+        flags = check_red_flags_v2(metrics)
 
-    mismatch_detected  = False
-    mismatch_details   = []
-    if self_report:
-        mismatch_detected, mismatch_details = detect_mismatch_v2(metrics, self_report)
+        # 6. Self-report mismatch
+        self_report = WeeklyReportV2.objects.filter(
+            intern=intern,
+            week_start=week_start,
+            is_auto_generated=False
+        ).first()
 
-    # 7. Compute cumulative (Simplified for now)
-    cumulative = _compute_cumulative_score_v2(intern, week_start, metrics['overall_weekly_score'])
+        mismatch_detected  = False
+        mismatch_details   = []
+        if self_report:
+            mismatch_detected, mismatch_details = detect_mismatch_v2(metrics, self_report)
 
-    # 8. Save WeeklyReportV2
-    report = WeeklyReportV2.objects.create(
-        intern            = intern,
-        week_start        = week_start,
-        week_end          = week_end,
-        week_number       = week_number,
-        is_auto_generated = True,
-        **metrics,
-        cumulative_overall_score     = cumulative,
-        red_flag                     = bool(flags),
-        red_flag_reasons             = flags,
-        intern_self_report           = self_report,
-        self_report_mismatch         = mismatch_detected,
-        self_report_mismatch_details = mismatch_details,
-    )
+        # 7. Compute cumulative
+        cumulative = _compute_cumulative_score_v2(intern, week_start, metrics['overall_weekly_score'])
 
-    # 9. Async sub-tasks
-    generate_week_narrative_v2.delay(report.id)
-    notify_manager_new_report_v2.delay(report.id)
+        # 8. Save WeeklyReportV2
+        report = WeeklyReportV2.objects.create(
+            intern            = intern,
+            week_start        = week_start,
+            week_end          = week_end,
+            week_number       = week_number,
+            is_auto_generated = True,
+            **metrics,
+            cumulative_overall_score     = cumulative,
+            red_flag                     = bool(flags),
+            red_flag_reasons             = flags,
+            intern_self_report           = self_report,
+            self_report_mismatch         = mismatch_detected,
+            self_report_mismatch_details = mismatch_details,
+        )
 
-    if bool(flags):
-        consecutive = check_consecutive_red_flags_v2(intern)
-        if consecutive >= 2:
-            escalate_red_flag_to_admin_v2.delay(intern.id, report.id)
+        # 9. Async sub-tasks
+        generate_week_narrative_v2.delay(report.id)
+        notify_manager_new_report_v2.delay(report.id)
 
-    return {'report_id': report.id, 'red_flag': bool(flags)}
+        if bool(flags):
+            consecutive = check_consecutive_red_flags_v2(intern)
+            if consecutive >= 2:
+                escalate_red_flag_to_admin_v2.delay(intern.id, report.id)
+
+        return {'report_id': report.id, 'red_flag': bool(flags)}
+    finally:
+        cache.delete(lock_key)
 
 
 def _compute_week_number_v2(intern, week_start) -> int:
@@ -437,6 +580,9 @@ def generate_week_narrative_v2(self, report_id: int):
             data = json.loads(clean)
         except json.JSONDecodeError:
             logger.error(f"Could not parse Groq JSON for report {report_id}.")
+            WeeklyReportV2.objects.filter(pk=report_id, ai_narrative='').update(
+                ai_narrative='[AI summary unavailable — the narrative service was temporarily unreachable. Metrics above are accurate.]'
+            )
             return
 
     WeeklyReportV2.objects.filter(pk=report_id).update(
@@ -498,137 +644,3 @@ def escalate_red_flag_to_admin_v2(intern_id: int, report_id: int):
             )
     except Exception as e:
         logger.error(f"Failed to escalate red flag: {e}")
-
-
-# ==============================================================================
-# PHASE 5 — LLM Onboarding Plan Generation
-# ==============================================================================
-
-ONBOARDING_PLAN_PROMPT = """\
-You are an HR specialist generating a personalised onboarding plan for a new full-time employee.
-Base your response ONLY on the data provided below.
-
-EMPLOYEE PROFILE:
-- Name: {intern_name}
-- Recommended role: {role_title}
-- Department: {department}
-- 12-Month internship overall score: {overall_score}%
-- Top skills demonstrated: {top_skills}
-- Areas needing development: {growth_areas}
-- Average task quality rating over internship: {avg_quality}/5
-- Attendance reliability: {attendance_pct}%
-
-Generate:
-1. A 2-sentence offer rationale explaining why this person deserves a full-time offer.
-2. A 30-60-90 day onboarding plan (3 short bullet points per phase).
-
-Return ONLY valid JSON — no markdown, no extra text:
-{{
-  "offer_summary": "...",
-  "onboarding_plan": {{
-    "day_30": ["...", "...", "..."],
-    "day_60": ["...", "...", "..."],
-    "day_90": ["...", "...", "..."]
-  }}
-}}
-"""
-
-
-@shared_task(bind=True, max_retries=2, default_retry_delay=60)
-def generate_onboarding_plan(self, offer_id: int):
-    """
-    Called when a FullTimeOffer is created.
-    Generates ai_offer_summary and ai_onboarding_plan via Groq LLM.
-    """
-    import json
-    from django.conf import settings
-    from apps.accounts.models import FullTimeOffer
-    from apps.analytics.services import _get_skills_summary
-
-    try:
-        offer = FullTimeOffer.objects.select_related(
-            'intern', 'conversion_score'
-        ).get(pk=offer_id)
-    except FullTimeOffer.DoesNotExist:
-        return
-
-    cs   = offer.conversion_score
-    intern = offer.intern
-
-    top_skills   = _get_skills_summary(intern)
-    growth_areas = _get_growth_areas(intern)
-
-    prompt = ONBOARDING_PLAN_PROMPT.format(
-        intern_name   = intern.get_full_name() or intern.username,
-        role_title    = offer.recommended_role_title or 'Software Engineer',
-        department    = offer.recommended_department or 'Engineering',
-        overall_score = cs.composite_score,
-        top_skills    = top_skills or 'Python, Django, React',
-        growth_areas  = growth_areas or 'Team communication, documentation',
-        avg_quality   = round(cs.absolute_performance_score / 20, 1),   # Approximate /5 scale
-        attendance_pct = cs.feature_vector.get('avg_attendance_pct', 'N/A'),
-    )
-
-    try:
-        from groq import Groq
-        client   = Groq(api_key=settings.GROQ_API_KEY)
-        response = client.chat.completions.create(
-            model       = settings.GROQ_MODEL,
-            messages    = [{'role': 'user', 'content': prompt}],
-            max_tokens  = 600,
-            temperature = 0.4,
-        )
-        raw = response.choices[0].message.content.strip()
-        
-        # Handle cases where LLM puts markdown formatting around the JSON
-        if raw.startswith('```json'):
-            raw = raw[7:]
-        if raw.startswith('```'):
-            raw = raw[3:]
-        if raw.endswith('```'):
-            raw = raw[:-3]
-        raw = raw.strip()
-        
-        data = json.loads(raw)
-    except Exception as exc:
-        logger.error(f"generate_onboarding_plan failed for offer {offer_id}: {exc}")
-        raise self.retry(exc=exc)
-
-    # Flatten onboarding_plan dict to formatted text
-    plan = data.get('onboarding_plan', {})
-    plan_text = (
-        "FIRST 30 DAYS:\n"  + '\n'.join(f'• {b}' for b in plan.get('day_30', [])) + '\n\n'
-        "DAYS 31–60:\n"    + '\n'.join(f'• {b}' for b in plan.get('day_60', [])) + '\n\n'
-        "DAYS 61–90:\n"    + '\n'.join(f'• {b}' for b in plan.get('day_90', []))
-    )
-
-    FullTimeOffer.objects.filter(pk=offer_id).update(
-        ai_offer_summary   = data.get('offer_summary', ''),
-        ai_onboarding_plan = plan_text,
-    )
-
-    logger.info(f"Onboarding plan generated for offer {offer_id}.")
-
-
-def _get_growth_areas(intern) -> str:
-    """Returns areas where the intern's scores were lowest, for LLM context."""
-    from apps.analytics.models import WeeklyReportV2
-    from django.db.models import Avg
-
-    agg = WeeklyReportV2.objects.filter(
-        intern=intern, is_auto_generated=True
-    ).aggregate(
-        avg_prod = Avg('productivity_score'),
-        avg_qual = Avg('quality_score'),
-        avg_eng  = Avg('engagement_score'),
-    )
-
-    areas = []
-    if (agg['avg_prod'] or 0) < 70:
-        areas.append('task delivery speed')
-    if (agg['avg_qual'] or 0) < 70:
-        areas.append('output quality')
-    if (agg['avg_eng'] or 0) < 70:
-        areas.append('team engagement')
-
-    return ', '.join(areas) if areas else 'no critical gaps identified'

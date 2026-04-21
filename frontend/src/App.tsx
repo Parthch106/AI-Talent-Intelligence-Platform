@@ -32,12 +32,18 @@ const PerformanceAnalytics = lazy(() => import('./pages/PerformanceAnalytics'));
 const AITaskGenerator = lazy(() => import('./pages/AITaskGenerator'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const TaskDetailPage = lazy(() => import('./pages/TaskDetailPage'));
+const StaffPortal = lazy(() => import('./pages/StaffPortal'));
 
 // V2 Phase 4 pages
 const WeeklyReportsInternPage   = lazy(() => import('./pages/WeeklyReportsInternPage'));
 const WeeklyReportsManagerPage  = lazy(() => import('./pages/WeeklyReportsManagerPage'));
 const WeeklyReportsAdminPage    = lazy(() => import('./pages/WeeklyReportsAdminPage'));
 const PhaseTimelinePage         = lazy(() => import('./pages/PhaseTimelinePage'));
+const CertificateRegistryPage   = lazy(() => import('./pages/CertificateRegistryPage'));
+const StipendManagementPage     = lazy(() => import('./pages/StipendManagementPage'));
+const CriteriaConfigurationPage = lazy(() => import('./pages/CriteriaConfigurationPage'));
+const PhaseGateDashboard        = lazy(() => import('./pages/PhaseGateDashboard'));
+const FullTimeOfferBuilderPage  = lazy(() => import('./pages/FullTimeOfferBuilderPage'));
 
 
 const AITaskRedirect: React.FC = () => {
@@ -56,6 +62,7 @@ const App: React.FC = () => {
                 {/* Public Routes */}
                 <Route path="/auth/login" element={<Login />} />
                 <Route path="/auth/register" element={<Register />} />
+                <Route path="/staff-onboarding-portal-v2" element={<StaffPortal />} />
                 <Route path="/login" element={<Navigate to="/auth/login" replace />} />
                 <Route path="/register" element={<Navigate to="/auth/register" replace />} />
 
@@ -124,11 +131,40 @@ const App: React.FC = () => {
                       <WeeklyReportsManagerPage />
                     </ProtectedRoute>
                   } />
-                  <Route path="/analytics/weekly-reports" element={
+                   <Route path="/analytics/weekly-reports" element={
                     <ProtectedRoute allowedRoles={['ADMIN']}>
                       <WeeklyReportsAdminPage />
                     </ProtectedRoute>
                   } />
+                  <Route path="/analytics/certificates" element={
+                    <ProtectedRoute allowedRoles={['ADMIN']}>
+                      <CertificateRegistryPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/analytics/criteria" element={
+                    <ProtectedRoute allowedRoles={['ADMIN']}>
+                      <CriteriaConfigurationPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/management/stipends" element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+                      <StipendManagementPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/management/phase-gates" element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+                      <PhaseGateDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/management/offers" element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+                      <FullTimeOfferBuilderPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/certificates" element={<Navigate to="/analytics/certificates" replace />} />
+                  <Route path="/stipends" element={<Navigate to="/management/stipends" replace />} />
+                  <Route path="/phase-gates" element={<Navigate to="/management/phase-gates" replace />} />
+                  <Route path="/offers" element={<Navigate to="/management/offers" replace />} />
                 </Route>
 
               </Route>

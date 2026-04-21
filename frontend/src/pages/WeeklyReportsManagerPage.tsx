@@ -25,13 +25,16 @@ const WeeklyReportsManagerPage: React.FC = () => {
 
   useEffect(() => { loadReports(); }, [loadReports]);
 
-  const redFlagReports = reports.filter(r => r.red_flag);
-  const normalReports  = reports.filter(r => !r.red_flag);
+  const redFlagReports = (reports || []).filter(r => r?.red_flag);
+  const normalReports  = (reports || []).filter(r => !r?.red_flag);
 
-  const filtered = (list: WeeklyReportV2[]) =>
-    filterIntern
-      ? list.filter(r => r.intern_name?.toLowerCase().includes(filterIntern.toLowerCase()))
+  const filtered = (list: WeeklyReportV2[]) => {
+    if (!list) return [];
+    return filterIntern
+      ? list.filter(r => r?.intern_name?.toLowerCase().includes(filterIntern.toLowerCase()))
       : list;
+  };
+
 
   return (
     <div style={{ padding: '28px 24px', maxWidth: '900px', margin: '0 auto' }}>

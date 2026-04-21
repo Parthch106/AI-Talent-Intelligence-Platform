@@ -48,12 +48,12 @@ from .views import (
     WeeklyReportV2ViewSet,
     CriteriaPreviewView,
     verify_certificate,
-    # Phase 5
     FullTimeOfferViewSet,
-    StipendRecordViewSet,
     InternOfferResponseView,
-    StipendPayrollExportView,
     ConversionScoreView,
+    CertificateRevokeView,
+    CertificateReinstateView,
+    WeeklyReportBulkPDFExportView,
 )
 from .views_talent_intelligence import (
     AnalyzeInternView,
@@ -71,10 +71,18 @@ v2_router.register(r'stages',         EmploymentStageViewSet,       basename='em
 v2_router.register(r'evaluations',    PhaseEvaluationViewSet,       basename='phase-evaluation')
 v2_router.register(r'reports-v2',     WeeklyReportV2ViewSet,        basename='weekly-report-v2')
 v2_router.register(r'admin/criteria', CertificationCriteriaViewSet, basename='certification-criteria')
-v2_router.register(r'offers',         FullTimeOfferViewSet,         basename='full-time-offer')
-v2_router.register(r'admin/stipend',  StipendRecordViewSet,         basename='stipend-record')
+v2_router.register(r'offers-v2',      FullTimeOfferViewSet,         basename='full-time-offer')
 
 urlpatterns = [
+    # ============================================================================
+    # PHASE 5 — FULL-TIME OFFERS & CONVERSION SCORES
+    # ============================================================================
+    path('offers-v2/<int:pk>/respond/', InternOfferResponseView.as_view(), name='offer-respond'),
+    path('conversion-score/', ConversionScoreView.as_view(), name='conversion-score'),
+    path('admin/certificates/<int:pk>/revoke/',    CertificateRevokeView.as_view(),    name='certificate-revoke'),
+    path('admin/certificates/<int:pk>/reinstate/', CertificateReinstateView.as_view(), name='certificate-reinstate'),
+    path('admin/reports/export-pdf/',             WeeklyReportBulkPDFExportView.as_view(), name='weekly-report-bulk-pdf'),
+
     # ============================================================================
     # BACKWARD COMPATIBLE ENDPOINTS FOR FRONTEND (USING NEW ML PIPELINE)
     # ============================================================================
@@ -175,11 +183,4 @@ urlpatterns = [
     # V2 PHASE 2 — CERTIFICATION ENGINE
     # ============================================================================
     path('verify/<uuid:unique_cert_id>/', verify_certificate, name='verify-certificate'),
-
-    # ============================================================================
-    # PHASE 5 — OFFERS, STIPEND & CONVERSION PIPELINE
-    # ============================================================================
-    path('offers/<int:pk>/respond/', InternOfferResponseView.as_view(), name='offer-respond'),
-    path('admin/stipend/export/', StipendPayrollExportView.as_view(), name='stipend-export'),
-    path('conversion-score/', ConversionScoreView.as_view(), name='conversion-score'),
 ]

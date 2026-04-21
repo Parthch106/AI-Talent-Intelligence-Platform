@@ -1,10 +1,12 @@
 import re
 import uuid
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 logger = logging.getLogger(__name__)
 
+from django.http import JsonResponse, HttpResponse
+from django_ratelimit.decorators import ratelimit
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.views import APIView
@@ -16,6 +18,7 @@ from dateutil.relativedelta import relativedelta
 from apps.interns.models import InternProfile
 from apps.projects.models import Project, ProjectAssignment
 from apps.accounts.models import User, InternProfile as InternProfileV2
+from apps.accounts.permissions import IsAdmin, IsManager, IsIntern
 from apps.feedback.models import Feedback
 from apps.analytics.services import AnalyticsDashboardService
 from apps.analytics.services.internship_monitoring_service import InternshipMonitoringService
@@ -2700,9 +2703,7 @@ class PhaseEvaluationViewSet(viewsets.ModelViewSet):
     CRUD for PhaseEvaluation records.
     """
     def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated()]
+        return [IsAdmin()]
 
     def get_queryset(self):
         user = self.request.user
@@ -2733,11 +2734,95 @@ class PhaseEvaluationViewSet(viewsets.ModelViewSet):
         except:
             snapshot = {}
         serializer.save(criteria_snapshot=snapshot)
+    
+    @action(detail=False, methods=['get'], url_path='eligible')
+    def list_eligible(self, request):
+        """
+        List interns reaching 6m or 12m milestones who haven't had a recent evaluation.
+        """
+        from apps.accounts.models import InternProfile
+        from django.utils import timezone
+        from datetime import date
+        
+        # Interns in ACTIVE_INTERN or STIPEND_INTERN
+        eligible_profiles = InternProfile.objects.filter(
+            status__in=['ACTIVE_INTERN', 'STIPEND_INTERN']
+        ).select_related('user')
+        
+        results = []
+        for profile in eligible_profiles:
+            # Simple eligibility logic: 6 months for P1 -> P2, 12 months for P2 -> PPO
+            months_active = 0
+            if profile.join_date:
+                delta = date.today() - profile.join_date
+                months_active = delta.days // 30
+            
+            # Check if they are at a milestone
+            is_eligible = (profile.status == 'ACTIVE_INTERN' and months_active >= 6) or \
+                          (profile.status == 'STIPEND_INTERN' and months_active >= 12)
+            
+            if is_eligible:
+                # Get overall score from PerformanceMetrics
+                from apps.analytics.models import PerformanceMetrics
+                metrics = PerformanceMetrics.objects.filter(intern=profile.user).first()
+                score = metrics.overall_performance_score if metrics else 0.0
+                
+                results.append({
+                    'id': profile.id,
+                    'user': {
+                        'id': profile.user.id,
+                        'full_name': profile.user.full_name or profile.user.email,
+                        'email': profile.user.email,
+                    },
+                    'status': profile.status,
+                    'join_date': str(profile.join_date),
+                    'months_active': months_active,
+                    'current_phase': profile.status,
+                    'overall_score': score,
+                    'is_eligible': True
+                })
+        
+        return Response(results)
+
+    @action(detail=False, methods=['get'], url_path='eligible-ppo')
+    def list_eligible_ppo(self, request):
+        """
+        List interns reaching 12m with high score for PPO.
+        """
+        from apps.accounts.models import InternProfile
+        from datetime import date
+        
+        # Interns in STIPEND_INTERN
+        eligible_profiles = InternProfile.objects.filter(
+            status='STIPEND_INTERN'
+        ).select_related('user')
+        
+        results = []
+        for profile in eligible_profiles:
+            months_active = 0
+            if profile.join_date:
+                delta = date.today() - profile.join_date
+                months_active = delta.days // 30
+            
+            if months_active >= 11: # Near 12 months
+                from apps.analytics.models import PerformanceMetrics
+                metrics = PerformanceMetrics.objects.filter(intern=profile.user).first()
+                score = metrics.overall_performance_score if metrics else 0.0
+                
+                if score >= 75: # Threshold for PPO eligibility
+                    results.append({
+                        'id': profile.user.id,
+                        'full_name': profile.user.full_name or profile.user.email,
+                        'email': profile.user.email,
+                        'overall_score': score,
+                    })
+        
+        return Response(results)
 
 
 class CertificationCriteriaViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
-        return [permissions.IsAuthenticated()]
+        return [IsAdmin()]
     queryset = CertificationCriteria.objects.all().select_related('created_by')
     def get_serializer_class(self):
         from apps.analytics.serializers import CertificationCriteriaSerializer
@@ -2773,18 +2858,30 @@ from rest_framework.permissions import AllowAny
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@ratelimit(key='ip', rate='30/m', method='GET', block=True)
 def verify_certificate(request, unique_cert_id):
+    """
+    Public endpoint — rate-limited to 30 requests/minute per IP.
+    Returns certificate status for third-party verification.
+    """
+    from apps.analytics.models import CertificationRecord
+
     try:
-        cert = CertificationRecord.objects.get(unique_cert_id=unique_cert_id)
-        return Response({
-            'status': 'REVOKED' if cert.is_revoked else 'VALID',
-            'intern_name': cert.intern.full_name,
-            'certificate_type': cert.get_cert_type_display(),
-            'issue_date': cert.issue_date,
-            'overall_score': cert.overall_score_at_issue,
-        })
-    except:
-        return Response({'status': 'INVALID'}, status=404)
+        cert = CertificationRecord.objects.select_related('intern').get(
+            unique_cert_id=unique_cert_id
+        )
+    except CertificationRecord.DoesNotExist:
+        return JsonResponse({'valid': False, 'detail': 'Certificate not found.'}, status=404)
+
+    return JsonResponse({
+        'valid':        not cert.is_revoked,
+        'is_revoked':   cert.is_revoked,
+        'intern_name':  cert.intern.full_name or cert.intern.email,
+        'phase':        cert.cert_type,
+        'issued_at':    str(cert.issue_date) if cert.issue_date else None,
+        'revoked_at':   str(cert.revoked_at.date()) if cert.revoked_at else None,
+        'revoke_reason': cert.revocation_reason if cert.is_revoked else None,
+    })
 
 
 class WeeklyReportV2ViewSet(viewsets.ModelViewSet):
@@ -2798,6 +2895,100 @@ class WeeklyReportV2ViewSet(viewsets.ModelViewSet):
         if str(user.role) in ['MANAGER', 'ADMIN']:
             return WeeklyReportV2.objects.all().select_related('intern', 'reviewed_by').order_by('-week_start')
         return WeeklyReportV2.objects.none()
+
+
+class CertificateRevokeView(APIView):
+    """
+    POST /api/admin/certificates/{id}/revoke/
+    Revokes a certificate. Adds reason and timestamp.
+    """
+    permission_classes = [IsAdmin]
+
+    def post(self, request, pk):
+        from django.utils import timezone
+        from apps.analytics.models import CertificationRecord
+
+        try:
+            cert = CertificationRecord.objects.get(pk=pk)
+        except CertificationRecord.DoesNotExist:
+            return Response({'detail': 'Certificate not found.'}, status=404)
+
+        if cert.is_revoked:
+            return Response({'detail': 'Certificate is already revoked.'}, status=400)
+
+        reason = request.data.get('reason', '')
+        if not reason:
+            return Response({'detail': 'A reason is required to revoke a certificate.'}, status=400)
+
+        cert.is_revoked       = True
+        cert.revocation_reason = reason
+        cert.revoked_at       = timezone.now()
+        cert.revoked_by       = request.user
+        cert.save(update_fields=['is_revoked', 'revocation_reason', 'revoked_at', 'revoked_by'])
+
+        # Notify the intern
+        try:
+            from apps.notifications.models import Notification
+            Notification.objects.create(
+                recipient  = cert.intern,
+                message    = f"Your {cert.get_cert_type_display()} has been revoked. Reason: {reason}",
+                notif_type = 'CERTIFICATE_REVOKED',
+                is_urgent  = True,
+            )
+        except Exception:
+            pass
+
+        return Response({
+            'detail': 'Certificate revoked successfully.',
+            'cert_id': cert.pk,
+            'is_revoked': True,
+            'revoke_reason': reason,
+            'revoked_at': str(cert.revoked_at),
+        })
+
+
+class CertificateReinstateView(APIView):
+    """
+    POST /api/admin/certificates/{id}/reinstate/
+    Reinstates a previously revoked certificate.
+    """
+    permission_classes = [IsAdmin]
+
+    def post(self, request, pk):
+        from apps.analytics.models import CertificationRecord
+
+        try:
+            cert = CertificationRecord.objects.get(pk=pk)
+        except CertificationRecord.DoesNotExist:
+            return Response({'detail': 'Certificate not found.'}, status=404)
+
+        if not cert.is_revoked:
+            return Response({'detail': 'Certificate is not revoked.'}, status=400)
+
+        reinstate_reason = request.data.get('reason', 'Reinstated by admin')
+
+        cert.is_revoked        = False
+        cert.revocation_reason = f"[REINSTATED: {reinstate_reason}] Previous reason: {cert.revocation_reason}"
+        cert.revoked_at        = None
+        cert.revoked_by        = None
+        cert.save(update_fields=['is_revoked', 'revocation_reason', 'revoked_at', 'revoked_by'])
+
+        # Notify intern
+        try:
+            from apps.notifications.models import Notification
+            Notification.objects.create(
+                recipient  = cert.intern,
+                message    = f"Your {cert.get_cert_type_display()} has been reinstated.",
+                notif_type = 'CERTIFICATE_REINSTATED',
+            )
+        except Exception:
+            pass
+
+        return Response({
+            'detail': 'Certificate reinstated successfully.',
+            'cert_id': cert.pk,
+            'is_revoked': False,
+        })
 
     def perform_create(self, serializer):
         if str(self.request.user.role) != 'INTERN':
@@ -2833,23 +3024,27 @@ class WeeklyReportV2ViewSet(viewsets.ModelViewSet):
 
 
 # ============================================================================
-# Phase 5 — Full-Time Offers & Stipend
+# Phase 5 — Full-Time Offers & Conversion Scores
 # ============================================================================
 
-from apps.accounts.models import FullTimeOffer, StipendRecord
-from .serializers import FullTimeOfferSerializer, StipendRecordSerializer, ConversionScoreSerializer
+from apps.accounts.models import FullTimeOffer
+from apps.accounts.serializers import FullTimeOfferSerializer
+from .models import ConversionScore
+from .serializers import ConversionScoreSerializer
+from apps.accounts.permissions import IsAdmin, IsManager
+
 
 class FullTimeOfferViewSet(viewsets.ModelViewSet):
     """
-    Intern (GET only):      /api/offers/        — see own offer
-    Admin/Manager (CRUD):   /api/admin/offers/  — full management
+    Intern (GET only):      /api/analytics/offers-v2/        — see own offer
+    Admin/Manager (CRUD):   /api/analytics/offers-v2/  — full management
     """
     serializer_class   = FullTimeOfferSerializer
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]
-        return [IsAdminOnly()]
+        return [IsAdmin()]
 
     def get_queryset(self):
         user = self.request.user
@@ -2870,7 +3065,7 @@ class FullTimeOfferViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'], url_path='issue')
     def issue_offer(self, request, pk=None):
         """
-        PATCH /api/admin/offers/{id}/issue/
+        PATCH /api/analytics/offers-v2/{id}/issue/
         Transitions DRAFT → ISSUED and notifies the intern.
         """
         offer = self.get_object()
@@ -2884,10 +3079,10 @@ class FullTimeOfferViewSet(viewsets.ModelViewSet):
 
 class InternOfferResponseView(APIView):
     """
-    PATCH /api/offers/{id}/respond/
+    PATCH /api/analytics/offers-v2/{id}/respond/
     Only the intern who owns the offer can respond.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsIntern]
 
     def patch(self, request, pk):
         from django.utils import timezone
@@ -2927,6 +3122,23 @@ class InternOfferResponseView(APIView):
         })
 
 
+class ConversionScoreView(APIView):
+    """
+    GET /api/analytics/conversion-score/
+    Intern sees their own conversion score.
+    """
+    permission_classes = [IsIntern]
+
+    def get(self, request):
+        try:
+            score = ConversionScore.objects.get(intern=request.user)
+            return Response(ConversionScoreSerializer(score).data)
+        except ConversionScore.DoesNotExist:
+            return Response({'detail': 'Score not generated yet.'}, status=404)
+
+
+# ── Notification Helpers ──────────────────────────────────────────────────────
+
 def _notify_intern_offer_issued(offer):
     try:
         from apps.notifications.models import Notification
@@ -2934,160 +3146,133 @@ def _notify_intern_offer_issued(offer):
             recipient  = offer.intern,
             message    = (
                 f"🎉 Congratulations! A Pre-Placement Offer has been issued to you for the role of "
-                f"{offer.recommended_role_title} in {offer.recommended_department}. "
-                f"Please respond by {offer.response_deadline}."
+                f"{offer.recommended_role_title} in {offer.recommended_department}."
             ),
-            notif_type = 'PPO_ISSUED',
+            notif_type = 'OFFER_ISSUED',
             is_urgent  = True,
         )
     except Exception:
         pass
 
-
-def _notify_admin_offer_responded(offer, response: str):
+def _notify_admin_offer_responded(offer, response):
     try:
         from apps.notifications.models import Notification
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        for admin in User.objects.filter(role='ADMIN'):
+        from apps.accounts.models import User
+        admins = User.objects.filter(role='ADMIN')
+        for admin in admins:
             Notification.objects.create(
-                recipient  = admin,
-                message    = (
-                    f"{offer.intern.get_full_name()} has {response.lower()}ed the PPO offer "
-                    f"for {offer.recommended_role_title}."
-                ),
-                notif_type = 'PPO_RESPONDED',
+                recipient = admin,
+                message   = f"Intern {offer.intern.full_name} has {response.lower()}ed their PPO offer.",
+                notif_type = 'OFFER_RESPONSE',
             )
     except Exception:
         pass
 
 
-class StipendRecordViewSet(viewsets.ModelViewSet):
+class WeeklyReportBulkPDFExportView(APIView):
     """
-    Admin-only CRUD for StipendRecord.
+    GET /api/admin/reports/export-pdf/?intern_id=&phase=PHASE_1
+    Generates a multi-page PDF of all auto-generated WeeklyReports for one intern.
     """
-    serializer_class   = StipendRecordSerializer
-    permission_classes = [IsAdminOnly]
-    queryset           = StipendRecord.objects.all().select_related('intern', 'approved_by')
-
-    @action(detail=True, methods=['patch'], url_path='approve')
-    def approve(self, request, pk=None):
-        record = self.get_object()
-        if record.status not in ['PENDING', 'HELD']:
-            return Response({'detail': f'Cannot approve a record with status {record.status}.'}, status=400)
-
-        # Take performance snapshot at approval time
-        from apps.analytics.services.certification_service import get_aggregated_scores
-        from apps.analytics.models import EmploymentStage
-        try:
-            stage = EmploymentStage.objects.get(intern=record.intern, phase='PHASE_2')
-            scores = get_aggregated_scores(record.intern, stage.phase_start_date, timezone.now().date())
-            perf_score = scores['overall_score']
-        except Exception:
-            perf_score = None
-
-        record.status      = 'APPROVED'
-        record.approved_by = request.user
-        record.approved_at = timezone.now()
-        record.performance_score_at_disbursement = perf_score
-        record.save(update_fields=['status', 'approved_by', 'approved_at', 'performance_score_at_disbursement'])
-
-        return Response(StipendRecordSerializer(record).data)
-
-    @action(detail=True, methods=['patch'], url_path='disburse')
-    def disburse(self, request, pk=None):
-        record = self.get_object()
-        if record.status != 'APPROVED':
-            return Response({'detail': 'Only APPROVED records can be disbursed.'}, status=400)
-
-        record.status       = 'DISBURSED'
-        record.disbursed_at = timezone.now()
-        record.save(update_fields=['status', 'disbursed_at'])
-
-        return Response(StipendRecordSerializer(record).data)
-
-    @action(detail=True, methods=['patch'], url_path='hold')
-    def hold(self, request, pk=None):
-        record = self.get_object()
-        record.status = 'HELD'
-        record.notes  = request.data.get('reason', '')
-        record.save(update_fields=['status', 'notes'])
-        return Response(StipendRecordSerializer(record).data)
-
-
-import csv
-from django.http import HttpResponse
-
-class StipendPayrollExportView(APIView):
-    """
-    GET /api/admin/stipend/export/?month=2026-07-01&status=DISBURSED
-    Downloads a CSV of stipend records for payroll processing.
-    """
-    permission_classes = [IsAdminOnly]
+    permission_classes = [IsAdmin]
 
     def get(self, request):
-        month_param  = request.query_params.get('month')
-        status_param = request.query_params.get('status', 'APPROVED')
+        intern_id   = request.query_params.get('intern_id')
+        phase_param = request.query_params.get('phase')
 
-        qs = StipendRecord.objects.filter(status=status_param).select_related('intern', 'approved_by')
-        if month_param:
-            qs = qs.filter(month=month_param)
+        if not intern_id:
+            return Response({'detail': 'intern_id is required.'}, status=400)
 
-        response = HttpResponse(content_type='text/csv')
-        filename = f"payroll_{month_param or 'all'}_{status_param.lower()}.csv"
+        try:
+            intern = User.objects.get(pk=intern_id, role='INTERN')
+        except User.DoesNotExist:
+            return Response({'detail': 'Intern not found.'}, status=404)
+
+        reports_qs = WeeklyReportV2.objects.filter(
+            intern=intern,
+            is_auto_generated=True,
+        ).order_by('week_start')
+
+        if phase_param:
+            # Filter by phase date range using EmploymentStage
+            from apps.accounts.models import EmploymentStage
+            try:
+                stage = EmploymentStage.objects.get(intern=intern, phase=phase_param)
+                reports_qs = reports_qs.filter(
+                    week_start__gte=stage.phase_start_date,
+                    week_start__lte=stage.phase_end_date or date.today(),
+                )
+            except EmploymentStage.DoesNotExist:
+                pass
+
+        reports = list(reports_qs)
+
+        if not reports:
+            return Response({'detail': 'No reports found for this intern.'}, status=404)
+
+        # Build HTML for WeasyPrint
+        html_content = _build_report_html(intern, reports)
+
+        from weasyprint import HTML
+        from io import BytesIO
+        pdf_bytes = HTML(string=html_content, base_url=request.build_absolute_uri('/')).write_pdf()
+
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        filename = f"{intern.email.split('@')[0]}_weekly_reports_{date.today()}.pdf"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
-
-        writer = csv.writer(response)
-        writer.writerow([
-            'Intern ID', 'Full Name', 'Email',
-            'Month', 'Amount (INR)', 'Status',
-            'Approved By', 'Approved At', 'Disbursed At',
-            'Performance Score at Disbursement', 'Notes'
-        ])
-
-        for record in qs:
-            writer.writerow([
-                record.intern.pk,
-                record.intern.get_full_name(),
-                record.intern.email,
-                record.month.strftime('%B %Y'),
-                str(record.amount),
-                record.get_status_display(),
-                record.approved_by.get_full_name() if record.approved_by else '',
-                record.approved_at.strftime('%Y-%m-%d %H:%M') if record.approved_at else '',
-                record.disbursed_at.strftime('%Y-%m-%d %H:%M') if record.disbursed_at else '',
-                str(record.performance_score_at_disbursement) if record.performance_score_at_disbursement else '',
-                record.notes,
-            ])
-
         return response
 
 
-class ConversionScoreView(APIView):
+def _build_report_html(intern, reports: list) -> str:
+    """Generates HTML for the bulk report PDF."""
+    rows = ''
+    for r in reports:
+        flag = '🚩' if r.red_flag else ''
+        rows += f"""
+        <tr>
+            <td>Week {r.week_number}</td>
+            <td>{r.week_start} — {r.week_end}</td>
+            <td>{r.overall_weekly_score:.1f}% {flag}</td>
+            <td>{r.productivity_score:.1f}%</td>
+            <td>{r.quality_score:.1f}%</td>
+            <td>{r.attendance_days}/{r.expected_days}</td>
+            <td>{r.tasks_completed}/{r.tasks_assigned}</td>
+            <td>{r.tasks_overdue}</td>
+            <td style="font-size:9pt; color: #555">{r.ai_narrative[:120] + '...' if len(r.ai_narrative) > 120 else r.ai_narrative}</td>
+        </tr>
+        """
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="UTF-8"/>
+    <style>
+        body {{ font-family: 'Helvetica Neue', sans-serif; font-size: 10pt; color: #111; margin: 30px; }}
+        h1 {{ font-size: 18pt; color: #1e1e2e; margin-bottom: 4px; }}
+        p.sub {{ color: #555; font-size: 9pt; margin-top: 0; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 16px; }}
+        th {{ background: #1e1e2e; color: #fff; padding: 8px 6px; text-align: left; font-size: 9pt; }}
+        td {{ padding: 7px 6px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; vertical-align: top; }}
+        tr:nth-child(even) {{ background: #f9fafb; }}
+        .red-flag {{ background: #fef2f2 !important; }}
+    </style>
+    </head>
+    <body>
+        <h1>Weekly Performance Report — {intern.full_name or intern.email}</h1>
+        <p class="sub">Generated {date.today()} • {len(reports)} weeks • System-generated reports only</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Week</th><th>Date Range</th><th>Overall</th>
+                    <th>Productivity</th><th>Quality</th><th>Attendance</th>
+                    <th>Tasks Done</th><th>Overdue</th><th>AI Summary</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows}
+            </tbody>
+        </table>
+    </body>
+    </html>
     """
-    GET /api/conversion-score/
-    Intern: sees their own score.
-    Manager/Admin: pass ?intern_id= to see any intern's score.
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        from apps.analytics.models import ConversionScore
-
-        if request.user.role == 'INTERN':
-            try:
-                score = ConversionScore.objects.get(intern=request.user)
-                return Response(ConversionScoreSerializer(score).data)
-            except ConversionScore.DoesNotExist:
-                return Response({'detail': 'Conversion score not yet computed. Available after Phase 2 begins.'}, status=404)
-
-        intern_id = request.query_params.get('intern_id')
-        if not intern_id:
-            scores = ConversionScore.objects.all().select_related('intern')
-            return Response(ConversionScoreSerializer(scores, many=True).data)
-
-        try:
-            score = ConversionScore.objects.get(intern_id=intern_id)
-            return Response(ConversionScoreSerializer(score).data)
-        except ConversionScore.DoesNotExist:
-            return Response({'detail': 'Not found.'}, status=404)

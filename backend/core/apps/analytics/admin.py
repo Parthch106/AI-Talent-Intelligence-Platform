@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.conf import settings
+from .models import ConversionScore
 from .models import (
     TaskTracking,
     AttendanceRecord,
@@ -384,3 +385,11 @@ class IoTDeviceAdmin(admin.ModelAdmin):
     list_filter   = ('device_type', 'is_active')
     search_fields = ('device_id', 'location')
     readonly_fields = ('registered_at',)
+
+
+@admin.register(ConversionScore)
+class ConversionScoreAdmin(admin.ModelAdmin):
+    list_display = ('intern', 'composite_score', 'computed_at', 'model_version')
+    list_filter = ('model_version', 'computed_at')
+    search_fields = ('intern__email', 'intern__full_name')
+    readonly_fields = ('computed_at',)

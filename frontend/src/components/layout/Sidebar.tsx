@@ -6,7 +6,8 @@ import {
     FileText, Brain, Monitor, Settings, ChevronRight,
     LogOut, User, Upload, Target, BookOpen, Activity,
     Home, CheckSquare, Calendar, FileText as ReportIcon, Layers,
-    ClipboardList, GitBranch, BarChart2, TrendingUp
+    ClipboardList, GitBranch, BarChart2, TrendingUp, CreditCard,
+    Zap, Award, Send
 } from 'lucide-react';
 
 interface NavItem {
@@ -56,6 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
         { name: 'Learning Path', path: '/analytics/learning-paths', icon: <BookOpen size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
         { name: 'Performance', path: '/analytics/performance', icon: <Activity size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
         { name: 'Report Analytics', path: '/analytics/weekly-reports', icon: <TrendingUp size={20} />, roles: ['ADMIN'], badge: 'V2' },
+        { name: 'Criteria Config', path: '/analytics/criteria', icon: <Zap size={20} />, roles: ['ADMIN'], badge: 'V2' },
     ];
 
     // Monitoring sub-pages (separate pages, not tabs)
@@ -65,6 +67,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
         { name: 'Attendance', path: '/management/attendance', icon: <Calendar size={18} />, roles: ['ADMIN', 'MANAGER'] },
         { name: 'Reports (V1)', path: '/management/reports', icon: <ReportIcon size={18} />, roles: ['ADMIN', 'MANAGER'] },
         { name: 'Weekly Reports', path: '/management/weekly-reports', icon: <BarChart2 size={18} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
+        { name: 'Stipends', path: '/management/stipends', icon: <CreditCard size={18} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
+        { name: 'Phase Gates', path: '/management/phase-gates', icon: <Award size={18} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
+        { name: 'PPO Offers', path: '/management/offers', icon: <Send size={18} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
     ];
 
     const internNavItems: NavItem[] = [

@@ -35,6 +35,12 @@ app.conf.beat_schedule = {
         'task':     'apps.analytics.tasks.check_phase_transition_eligibility',
         'schedule': crontab(hour=0, minute=0),
     },
+
+    # ── Phase 6: Offer Expiry Automation (daily 1:00 AM) ─────────────────────
+    'expire-pending-offers': {
+        'task':     'apps.accounts.tasks.expire_pending_offers',
+        'schedule': crontab(hour=1, minute=0),
+    },
 }
 
 @app.task(bind=True)

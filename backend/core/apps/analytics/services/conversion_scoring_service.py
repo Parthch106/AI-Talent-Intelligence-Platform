@@ -1,22 +1,23 @@
 import logging
 from django.db.models import Avg
+from django.contrib.auth import get_user_model
+from apps.analytics.models import WeeklyReportV2, ConversionScore
+from apps.documents.models import ResumeData
+from textblob import TextBlob
 
 logger = logging.getLogger(__name__)
 
 def compute_conversion_score(intern) -> dict:
     """
     Computes the weighted ConversionScore for a given intern.
-    Reads from: WeeklyReport, PerformanceMetrics (existing), MonthlyEvaluation (existing).
+    Reads from: WeeklyReportV2, ResumeData, MonthlyEvaluation (if exists).
 
     Returns a dict of all component scores and the composite, ready to save.
     """
-    from apps.analytics.models import WeeklyReport
-
     # ── 1. Performance Trend Score (0–100) ────────────────────────────────────
     # Measures whether overall_weekly_score is improving over time.
-    # Method: linear regression slope divided by max possible slope × 100.
     reports = list(
-        WeeklyReport.objects.filter(intern=intern, is_auto_generated=True)
+        WeeklyReportV2.objects.filter(intern=intern, is_auto_generated=True)
         .order_by('week_start')
         .values_list('overall_weekly_score', flat=True)
     )
@@ -24,19 +25,19 @@ def compute_conversion_score(intern) -> dict:
 
     # ── 2. Absolute Performance Score (0–100) ──────────────────────────────────
     # Simple average of all weekly overall scores.
-    valid_reports = [r for r in reports if r is not None]
-    absolute_performance = sum(valid_reports) / max(len(valid_reports), 1)
+    clean_reports = [r for r in reports if r is not None]
+    absolute_performance = sum(clean_reports) / max(len(clean_reports), 1)
 
     # ── 3. Skill Growth Delta (0–100) ──────────────────────────────────────────
-    # Compares number of distinct skills at Phase 1 start vs now.
+    # Compares number of distinct skills at start vs now.
     skill_growth = _compute_skill_growth(intern)
 
     # ── 4. Manager Sentiment Trend (0–100) ────────────────────────────────────
-    # Averages sentiment polarity over all manager_comment and feedback text.
+    # Averages sentiment polarity over all manager_comment text.
     manager_sentiment = _compute_manager_sentiment(intern)
 
     # ── 5. Peer Comparison Percentile (0–100) ─────────────────────────────────
-    # Where does this intern's absolute_performance sit in the current cohort?
+    # Where does this intern sit in the current cohort?
     peer_percentile = _compute_peer_percentile(intern, absolute_performance)
 
     # ── 6. Composite (weighted ensemble) ──────────────────────────────────────
@@ -50,9 +51,10 @@ def compute_conversion_score(intern) -> dict:
     )
 
     feature_vector = {
-        'report_count':        len(reports),
+        'report_count':        len(clean_reports),
         'weeks_tracked':       len(reports),
-        'raw_scores_sample':   reports[-4:],   # Last 4 weeks for audit
+        'raw_scores_sample':   clean_reports[-4:] if clean_reports else [],
+        'avg_attendance_pct':  _get_avg_attendance(intern),
     }
 
     return {
@@ -65,7 +67,6 @@ def compute_conversion_score(intern) -> dict:
         'model_version':              'v1.0',
         'feature_vector':             feature_vector,
     }
-
 
 def _compute_trend_score(scores: list) -> float:
     """
@@ -92,17 +93,14 @@ def _compute_trend_score(scores: list) -> float:
     mapped = 50.0 + (slope / 2.0) * 50.0
     return max(0.0, min(100.0, mapped))
 
-
 def _compute_skill_growth(intern) -> float:
     """
-    Counts skills at Phase 1 start vs current. Returns 0–100.
-    Reads from existing resume parser / SkillGap model.
+    Counts skills at start vs current. Returns 0–100.
     """
     try:
-        from apps.documents.models import ParsedResume
-        resumes = ParsedResume.objects.filter(intern=intern).order_by('created_at')
+        resumes = ResumeData.objects.filter(user=intern).order_by('parsed_at')
         if resumes.count() < 2:
-            return 50.0   # Only one resume — cannot measure growth
+            return 50.0
         first_skills = set(resumes.first().skills or [])
         latest_skills = set(resumes.last().skills or [])
         new_skills = len(latest_skills - first_skills)
@@ -111,27 +109,22 @@ def _compute_skill_growth(intern) -> float:
     except Exception:
         return 50.0
 
-
 def _compute_manager_sentiment(intern) -> float:
     """
-    Averages sentiment polarity over all manager_comment text in WeeklyReport
-    and feedback text in MonthlyEvaluation.
-    Returns 0–100 (50 = neutral).
+    Averages sentiment polarity over manager comments.
     """
     try:
-        from textblob import TextBlob
-        from apps.analytics.models import WeeklyReport
-
-        texts = list(WeeklyReport.objects.filter(
+        texts = list(WeeklyReportV2.objects.filter(
             intern=intern,
             manager_comment__gt=''
         ).values_list('manager_comment', flat=True))
 
+        # Optionally add MonthlyEvaluation feedback if the model exists and has a text field
         try:
-            from apps.assessments.models import MonthlyEvaluation
-            texts += list(MonthlyEvaluation.objects.filter(
+            from apps.analytics.models import MonthlyEvaluationReport
+            texts += list(MonthlyEvaluationReport.objects.filter(
                 intern=intern
-            ).values_list('manager_feedback', flat=True))
+            ).values_list('overall_feedback', flat=True))
         except Exception:
             pass
 
@@ -139,21 +132,19 @@ def _compute_manager_sentiment(intern) -> float:
             return 50.0
 
         polarities = [TextBlob(t).sentiment.polarity for t in texts if t]
+        if not polarities:
+            return 50.0
+            
         avg_polarity = sum(polarities) / len(polarities)
         # Map -1..+1 → 0..100
         return round((avg_polarity + 1) / 2 * 100, 2)
-    except ImportError:
-        return 50.0   # textblob not installed — return neutral
-
+    except Exception:
+        return 50.0
 
 def _compute_peer_percentile(intern, intern_absolute_score: float) -> float:
     """
     Returns the intern's percentile rank (0–100) relative to their cohort.
-    Cohort = all active interns with at least 4 weeks of data.
     """
-    from django.contrib.auth import get_user_model
-    from apps.analytics.models import WeeklyReport
-
     User = get_user_model()
     cohort_interns = User.objects.filter(
         role='INTERN',
@@ -162,7 +153,7 @@ def _compute_peer_percentile(intern, intern_absolute_score: float) -> float:
 
     cohort_scores = []
     for peer in cohort_interns:
-        peer_reports = WeeklyReport.objects.filter(
+        peer_reports = WeeklyReportV2.objects.filter(
             intern=peer, is_auto_generated=True, overall_weekly_score__isnull=False
         )
         if peer_reports.count() >= 4:
@@ -170,19 +161,22 @@ def _compute_peer_percentile(intern, intern_absolute_score: float) -> float:
             cohort_scores.append(avg)
 
     if not cohort_scores:
-        return 50.0   # Only intern in cohort — neutral percentile
+        return 50.0
 
     below = sum(1 for s in cohort_scores if s < intern_absolute_score)
     return round((below / len(cohort_scores)) * 100, 2)
 
+def _get_avg_attendance(intern) -> float:
+    """Helper to get average attendance percentage."""
+    agg = WeeklyReportV2.objects.filter(intern=intern, is_auto_generated=True).aggregate(avg_att=Avg('attendance_pct'))
+    return round(agg['avg_att'] or 0.0, 2)
+
 def _get_skills_summary(intern) -> str:
-    """Helper for LLM to get top skills."""
+    """Returns a comma-separated string of the intern's latest skills."""
     try:
-        from apps.documents.models import ParsedResume
-        resume = ParsedResume.objects.filter(intern=intern).order_by('-created_at').first()
+        resume = ResumeData.objects.filter(user=intern).order_by('-parsed_at').first()
         if resume and resume.skills:
-            return ", ".join(resume.skills[:5])
+            return ', '.join(resume.skills[:10])
     except Exception:
         pass
     return ""
-

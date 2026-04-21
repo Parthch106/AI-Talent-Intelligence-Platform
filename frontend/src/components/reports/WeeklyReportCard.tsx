@@ -268,37 +268,53 @@ const WeeklyReportCard: React.FC<Props> = ({
 
           {/* AI Narrative */}
           {report.ai_narrative && (
-            <div style={{
-              background: 'rgba(99,102,241,0.08)',
-              border: '1px solid rgba(99,102,241,0.3)',
-              borderRadius: '10px',
-              padding: '14px 16px',
-              marginBottom: '16px',
-            }}>
-              <p style={{ fontSize: '11px', fontWeight: 700, color: '#818cf8', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                🤖 AI Summary
-              </p>
-              <p style={{ color: '#d1d5db', fontSize: '13px', lineHeight: 1.7, margin: '0 0 10px' }}>
-                {report.ai_narrative}
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                {report.ai_top_achievement && (
-                  <p style={{ fontSize: '12px', color: '#6ee7b7', margin: 0 }}>
-                    ✦ <strong>Achievement:</strong> {report.ai_top_achievement}
-                  </p>
-                )}
-                {report.ai_concern_area && (
-                  <p style={{ fontSize: '12px', color: '#fcd34d', margin: 0 }}>
-                    ✦ <strong>Concern:</strong> {report.ai_concern_area}
-                  </p>
-                )}
-                {report.ai_growth_note && (
-                  <p style={{ fontSize: '12px', color: '#93c5fd', margin: 0 }}>
-                    ✦ <strong>Growth:</strong> {report.ai_growth_note}
-                  </p>
-                )}
+            report.ai_narrative.startsWith('[AI summary unavailable') ? (
+              <div style={{
+                background: 'rgba(75,85,99,0.15)',
+                border: '1px solid #374151',
+                borderRadius: '10px',
+                padding: '12px 16px',
+                marginBottom: '16px',
+                color: '#9ca3af',
+                fontSize: '12px',
+                display: 'flex', alignItems: 'center', gap: '10px',
+              }}>
+                <span style={{ fontSize: '16px' }}>ℹ️</span>
+                <span>AI summary temporarily unavailable. Performance metrics above are fully accurate.</span>
               </div>
-            </div>
+            ) : (
+              <div style={{
+                background: 'rgba(99,102,241,0.08)',
+                border: '1px solid rgba(99,102,241,0.3)',
+                borderRadius: '10px',
+                padding: '14px 16px',
+                marginBottom: '16px',
+              }}>
+                <p style={{ fontSize: '11px', fontWeight: 700, color: '#818cf8', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  🤖 AI Summary
+                </p>
+                <p style={{ color: '#d1d5db', fontSize: '13px', lineHeight: 1.7, margin: '0 0 10px' }}>
+                  {report.ai_narrative}
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {report.ai_top_achievement && (
+                    <p style={{ fontSize: '12px', color: '#6ee7b7', margin: 0 }}>
+                      ✦ <strong>Achievement:</strong> {report.ai_top_achievement}
+                    </p>
+                  )}
+                  {report.ai_concern_area && (
+                    <p style={{ fontSize: '12px', color: '#fcd34d', margin: 0 }}>
+                      ✦ <strong>Concern:</strong> {report.ai_concern_area}
+                    </p>
+                  )}
+                  {report.ai_growth_note && (
+                    <p style={{ fontSize: '12px', color: '#93c5fd', margin: 0 }}>
+                      ✦ <strong>Growth:</strong> {report.ai_growth_note}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
           )}
 
           {/* Self-report mismatch */}

@@ -35,7 +35,7 @@ const Register: React.FC = () => {
 
         setIsLoading(true);
         try {
-            const response = await api.post('/accounts/auth/register', {
+            const response = await api.post('/accounts/auth/register/', {
                 email,
                 full_name,
                 password,

@@ -26,10 +26,12 @@ const WeeklyReportsAdminPage: React.FC = () => {
   );
 
   // Aggregate metrics for the cohort
-  const totalInterns  = new Set(reports.map(r => r.intern)).size;
-  const avgOverall    = reports.reduce((sum, r) => sum + (r.overall_weekly_score ?? 0), 0) / (reports.length || 1);
-  const redFlagPct    = reports.length ? (reports.filter(r => r.red_flag).length / reports.length) * 100 : 0;
-  const reviewedPct   = reports.length ? (reports.filter(r => r.manager_reviewed).length / reports.length) * 100 : 0;
+  const safeReports   = reports || [];
+  const totalInterns  = new Set(safeReports.map(r => r.intern)).size;
+  const avgOverall    = safeReports.reduce((sum, r) => sum + (r.overall_weekly_score ?? 0), 0) / (safeReports.length || 1);
+  const redFlagPct    = safeReports.length ? (safeReports.filter(r => r.red_flag).length / safeReports.length) * 100 : 0;
+  const reviewedPct   = safeReports.length ? (safeReports.filter(r => r.manager_reviewed).length / safeReports.length) * 100 : 0;
+
 
   // Score distribution buckets
   const buckets = [

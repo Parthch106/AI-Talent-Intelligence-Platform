@@ -8,3 +8,5 @@ export { default as ContributionHeatmap } from './ContributionHeatmap';
 export { default as AttendanceHeatmap } from './AttendanceHeatmap';
 export { default as YearContributionHeatmap } from './YearContributionHeatmap';
 export { default as FloatingAIChatbot } from './FloatingAIChatbot';
+export { default as LoadingSpinner } from './LoadingSpinner';
+export { default as Skeleton } from './Skeleton';

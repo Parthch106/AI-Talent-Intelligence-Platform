@@ -5,9 +5,7 @@ from apps.analytics.models import (
     CertificationCriteria,
     CertificationRecord,
     WeeklyReportV2,
-    ConversionScore,
 )
-from apps.accounts.models import FullTimeOffer, StipendRecord
 
 
 # ============================================================================
@@ -145,70 +143,31 @@ class WeeklyReportV2Serializer(serializers.ModelSerializer):
         ]
 
 
+from apps.analytics.models import (
+    EmploymentStage,
+    PhaseEvaluation,
+    CertificationCriteria,
+    CertificationRecord,
+    WeeklyReportV2,
+    ConversionScore,
+)
+
+
 class WeeklyReportCommentV2Serializer(serializers.Serializer):
     manager_comment = serializers.CharField(max_length=2000, allow_blank=True)
 
 
-# ============================================================================
-# Phase 5 — Full-Time Offers & Stipend
-# ============================================================================
-
 class ConversionScoreSerializer(serializers.ModelSerializer):
-    intern_username = serializers.CharField(source='intern.username', read_only=True)
+    intern_name = serializers.CharField(source='intern.full_name', read_only=True)
+    intern_email = serializers.EmailField(source='intern.email', read_only=True)
 
     class Meta:
-        model  = ConversionScore
+        model = ConversionScore
         fields = [
-            'id', 'intern', 'intern_username', 'computed_at',
-            'performance_trend_score', 'absolute_performance_score',
-            'skill_growth_delta', 'manager_sentiment_trend',
-            'peer_comparison_percentile', 'composite_score',
-            'model_version', 'feature_vector',
+            'id', 'intern', 'intern_name', 'intern_email',
+            'computed_at', 'performance_trend_score',
+            'absolute_performance_score', 'skill_growth_delta',
+            'manager_sentiment_trend', 'peer_comparison_percentile',
+            'composite_score', 'model_version', 'feature_vector'
         ]
-        read_only_fields = fields
-
-
-class FullTimeOfferSerializer(serializers.ModelSerializer):
-    intern_name      = serializers.CharField(source='intern.get_full_name', read_only=True)
-    status_display   = serializers.CharField(source='get_status_display', read_only=True)
-    issued_by_name   = serializers.CharField(source='issued_by.get_full_name', read_only=True, allow_null=True)
-    composite_score  = serializers.FloatField(source='conversion_score.composite_score', read_only=True)
-
-    class Meta:
-        model  = FullTimeOffer
-        fields = [
-            'id', 'intern', 'intern_name',
-            'conversion_score', 'composite_score',
-            'issued_by', 'issued_by_name', 'issued_at', 'status', 'status_display',
-            'recommended_role_title', 'recommended_department',
-            'salary_band_min', 'salary_band_max',
-            'ai_onboarding_plan', 'ai_offer_summary',
-            'response_deadline', 'intern_response_at', 'intern_response_notes',
-            'created_at', 'updated_at',
-        ]
-        read_only_fields = [
-            'id', 'issued_at', 'intern_response_at',
-            'ai_onboarding_plan', 'ai_offer_summary',
-            'created_at', 'updated_at',
-        ]
-
-
-class StipendRecordSerializer(serializers.ModelSerializer):
-    intern_name    = serializers.CharField(source='intern.get_full_name', read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
-    month_display  = serializers.SerializerMethodField()
-    approved_by_name = serializers.CharField(source='approved_by.get_full_name', read_only=True, allow_null=True)
-
-    class Meta:
-        model  = StipendRecord
-        fields = [
-            'id', 'intern', 'intern_name',
-            'month', 'month_display', 'amount',
-            'status', 'status_display',
-            'approved_by', 'approved_by_name', 'approved_at', 'disbursed_at',
-            'performance_score_at_disbursement', 'notes',
-        ]
-        read_only_fields = ['id', 'approved_at', 'disbursed_at', 'performance_score_at_disbursement']
-
-    def get_month_display(self, obj):
-        return obj.month.strftime('%B %Y')
+        read_only_fields = ['id', 'computed_at']
