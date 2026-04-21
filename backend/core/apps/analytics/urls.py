@@ -45,7 +45,15 @@ from .views import (
     EmploymentStageViewSet,
     PhaseEvaluationViewSet,
     CertificationCriteriaViewSet,
+    WeeklyReportV2ViewSet,
     CriteriaPreviewView,
+    verify_certificate,
+    # Phase 5
+    FullTimeOfferViewSet,
+    StipendRecordViewSet,
+    InternOfferResponseView,
+    StipendPayrollExportView,
+    ConversionScoreView,
 )
 from .views_talent_intelligence import (
     AnalyzeInternView,
@@ -61,7 +69,10 @@ from .views_talent_intelligence import (
 v2_router = DefaultRouter()
 v2_router.register(r'stages',         EmploymentStageViewSet,       basename='employment-stage')
 v2_router.register(r'evaluations',    PhaseEvaluationViewSet,       basename='phase-evaluation')
+v2_router.register(r'reports-v2',     WeeklyReportV2ViewSet,        basename='weekly-report-v2')
 v2_router.register(r'admin/criteria', CertificationCriteriaViewSet, basename='certification-criteria')
+v2_router.register(r'offers',         FullTimeOfferViewSet,         basename='full-time-offer')
+v2_router.register(r'admin/stipend',  StipendRecordViewSet,         basename='stipend-record')
 
 urlpatterns = [
     # ============================================================================
@@ -159,4 +170,16 @@ urlpatterns = [
 
     # ViewSet routes: stages/, evaluations/, admin/criteria/ + CRUD detail routes
     path('', include(v2_router.urls)),
+
+    # ============================================================================
+    # V2 PHASE 2 — CERTIFICATION ENGINE
+    # ============================================================================
+    path('verify/<uuid:unique_cert_id>/', verify_certificate, name='verify-certificate'),
+
+    # ============================================================================
+    # PHASE 5 — OFFERS, STIPEND & CONVERSION PIPELINE
+    # ============================================================================
+    path('offers/<int:pk>/respond/', InternOfferResponseView.as_view(), name='offer-respond'),
+    path('admin/stipend/export/', StipendPayrollExportView.as_view(), name='stipend-export'),
+    path('conversion-score/', ConversionScoreView.as_view(), name='conversion-score'),
 ]

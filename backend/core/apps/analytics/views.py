@@ -5,16 +5,17 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
 from django.db.models import Q, Avg, Count
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
 from apps.interns.models import InternProfile
 from apps.projects.models import Project, ProjectAssignment
-from apps.accounts.models import User
+from apps.accounts.models import User, InternProfile as InternProfileV2
 from apps.feedback.models import Feedback
 from apps.analytics.services import AnalyticsDashboardService
 from apps.analytics.services.internship_monitoring_service import InternshipMonitoringService
@@ -24,8 +25,19 @@ from apps.analytics.models import (
     WeeklyReport,
     PerformanceMetrics,
     MonthlyEvaluationReport,
+    # V2 ML Pipeline Models
     Application,
     ModelPrediction,
+    # V2 Phase 1 & 2
+    EmploymentStage,
+    PhaseEvaluation,
+    CertificationCriteria,
+    CertificationRecord,
+    WeeklyReportV2,
+)
+from apps.analytics.serializers import (
+    WeeklyReportV2Serializer,
+    WeeklyReportCommentV2Serializer
 )
 from apps.analytics.services.weekly_report_parser import parse_weekly_report
 from apps.notifications.signals import (
@@ -183,6 +195,7 @@ class InternIntelligenceView(APIView):
         user = request.user
         intern_id = request.query_params.get('intern_id')
         
+        from apps.analytics.services import AnalyticsDashboardService
         analytics_service = AnalyticsDashboardService()
         
         # If intern_id provided and user is manager/admin
@@ -227,6 +240,7 @@ class ComputeIntelligenceView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        from apps.analytics.services import AnalyticsDashboardService
         analytics_service = AnalyticsDashboardService()
         result = analytics_service.compute_intern_intelligence(int(target_id))
         
@@ -260,6 +274,7 @@ class ManagerDashboardView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        from apps.analytics.services import AnalyticsDashboardService
         analytics_service = AnalyticsDashboardService()
         dashboard = analytics_service.get_manager_dashboard(user.id)
         
@@ -284,6 +299,7 @@ class AdminDashboardView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        from apps.analytics.services import AnalyticsDashboardService
         analytics_service = AnalyticsDashboardService()
         dashboard = analytics_service.get_admin_dashboard()
         
@@ -1075,6 +1091,7 @@ class WeeklyReportView(APIView):
         # Parse the PDF to extract report data
         parsed_data = {}
         try:
+            from apps.analytics.services.weekly_report_parser import parse_weekly_report
             parsed_data = parse_weekly_report(pdf_file)
         except Exception as e:
             logger.error(f"[WeeklyReportView] Error parsing PDF for user_id={user.id}: {e}")
@@ -1319,6 +1336,7 @@ class ComputePerformanceMetricsView(APIView):
         if not is_valid:
             return error_response
 
+        from apps.analytics.services.internship_monitoring_service import InternshipMonitoringService
         monitoring_service = InternshipMonitoringService()
 
         if period_type == 'WEEKLY':
@@ -2640,35 +2658,23 @@ class IsAdminOrManager(permissions.BasePermission):
         )
 
 
+
 class EmploymentStageViewSet(viewsets.ModelViewSet):
     """
     CRUD for EmploymentStage records.
-
-    GET  /api/analytics/stages/                — Intern sees own; Manager/Admin sees all
-    POST /api/analytics/stages/                — Manager/Admin creates
-    PATCH/PUT /api/analytics/stages/{id}/      — Manager/Admin updates
-    DELETE /api/analytics/stages/{id}/         — Admin only
     """
-
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]
         if self.action == 'destroy':
-            return [IsAdminOnly()]
-        return [IsAdminOrManager()]
+            return [permissions.IsAdminUser()]
+        return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
         user = self.request.user
         if str(user.role) == 'INTERN':
-            return EmploymentStage.objects.filter(
-                intern=user
-            ).select_related('intern', 'promoted_by')
-        # Manager/Admin see all (manager can filter by intern query param)
-        qs = EmploymentStage.objects.all().select_related('intern', 'promoted_by')
-        intern_id = self.request.query_params.get('intern_id')
-        if intern_id:
-            qs = qs.filter(intern_id=intern_id)
-        return qs
+            return EmploymentStage.objects.filter(intern=user).select_related('intern', 'promoted_by')
+        return EmploymentStage.objects.all().select_related('intern', 'promoted_by')
 
     def get_serializer_class(self):
         from apps.analytics.serializers import EmploymentStageSerializer
@@ -2679,17 +2685,10 @@ class EmploymentStageViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['patch'], url_path='close')
     def close_stage(self, request, pk=None):
-        """
-        PATCH /api/analytics/stages/{id}/close/
-        Sets phase_end_date = today, closing the active phase.
-        """
         from django.utils import timezone
         stage = self.get_object()
         if stage.phase_end_date:
-            return Response(
-                {'detail': 'This stage is already closed.'},
-                status=400
-            )
+            return Response({'detail': 'This stage is already closed.'}, status=400)
         stage.phase_end_date = timezone.now().date()
         stage.save(update_fields=['phase_end_date'])
         from apps.analytics.serializers import EmploymentStageSerializer
@@ -2699,162 +2698,396 @@ class EmploymentStageViewSet(viewsets.ModelViewSet):
 class PhaseEvaluationViewSet(viewsets.ModelViewSet):
     """
     CRUD for PhaseEvaluation records.
-
-    GET  /api/analytics/evaluations/           — Intern sees own; Manager/Admin sees all
-    POST /api/analytics/evaluations/           — Manager/Admin creates
     """
-
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]
-        return [IsAdminOrManager()]
+        return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
         user = self.request.user
         if str(user.role) == 'INTERN':
-            return PhaseEvaluation.objects.filter(
-                intern=user
-            ).select_related('intern', 'employment_stage', 'evaluated_by')
-        qs = PhaseEvaluation.objects.all().select_related(
-            'intern', 'employment_stage', 'evaluated_by'
-        )
-        intern_id = self.request.query_params.get('intern_id')
-        if intern_id:
-            qs = qs.filter(intern_id=intern_id)
-        return qs
+            return PhaseEvaluation.objects.filter(intern=user).select_related('intern', 'employment_stage', 'evaluated_by')
+        return PhaseEvaluation.objects.all().select_related('intern', 'employment_stage', 'evaluated_by')
 
     def get_serializer_class(self):
         from apps.analytics.serializers import PhaseEvaluationSerializer
         return PhaseEvaluationSerializer
 
     def perform_create(self, serializer):
-        """Auto-populate criteria_snapshot from the active CertificationCriteria."""
         from apps.analytics.serializers import PhaseEvaluationSerializer
-
-        # Get the employment stage from the request data
         stage_id = self.request.data.get('employment_stage')
         try:
             stage = EmploymentStage.objects.get(pk=stage_id)
-            # Determine which phase criteria to snapshot
-            phase_map = {
-                'PHASE_1': 'PHASE_1',
-                'PHASE_2': 'PHASE_2',
-                'FULL_TIME': 'PPO',
-            }
+            phase_map = {'PHASE_1': 'PHASE_1', 'PHASE_2': 'PHASE_2', 'FULL_TIME': 'PPO'}
             criteria_phase = phase_map.get(stage.phase, 'PHASE_1')
-            criteria = CertificationCriteria.objects.filter(
-                phase=criteria_phase, is_active=True
-            ).latest('created_at')
+            criteria = CertificationCriteria.objects.filter(phase=criteria_phase, is_active=True).latest('created_at')
             snapshot = {
-                'min_overall_score':     criteria.min_overall_score,
+                'min_overall_score': criteria.min_overall_score,
                 'min_productivity_score': criteria.min_productivity_score,
-                'min_quality_score':     criteria.min_quality_score,
-                'min_engagement_score':  criteria.min_engagement_score,
-                'min_attendance_pct':    criteria.min_attendance_pct,
+                'min_quality_score': criteria.min_quality_score,
+                'min_engagement_score': criteria.min_engagement_score,
+                'min_attendance_pct': criteria.min_attendance_pct,
                 'min_weekly_reports_submitted': criteria.min_weekly_reports_submitted,
             }
-        except (EmploymentStage.DoesNotExist, CertificationCriteria.DoesNotExist):
+        except:
             snapshot = {}
-
-        # Evaluate criteria_met
-        data = self.request.data
-        checks = [
-            ('min_overall_score',     float(data.get('overall_score', 0))),
-            ('min_productivity_score', float(data.get('productivity_score', 0))),
-            ('min_quality_score',     float(data.get('quality_score', 0))),
-            ('min_engagement_score',  float(data.get('engagement_score', 0))),
-            ('min_attendance_pct',    float(data.get('attendance_pct', 0))),
-        ]
-        criteria_met = all(
-            snapshot.get(key) is None or value >= snapshot.get(key)
-            for key, value in checks
-        )
-
-        serializer.save(
-            criteria_snapshot=snapshot,
-            criteria_met=criteria_met,
-        )
+        serializer.save(criteria_snapshot=snapshot)
 
 
 class CertificationCriteriaViewSet(viewsets.ModelViewSet):
-    """
-    Admin-only CRUD for CertificationCriteria.
-
-    GET  /api/analytics/admin/criteria/        — list all criteria sets
-    POST /api/analytics/admin/criteria/        — create new criteria set
-    """
-    permission_classes  = [IsAdminOnly]
-    queryset            = CertificationCriteria.objects.all().select_related('created_by')
-
+    def get_permissions(self):
+        return [permissions.IsAuthenticated()]
+    queryset = CertificationCriteria.objects.all().select_related('created_by')
     def get_serializer_class(self):
         from apps.analytics.serializers import CertificationCriteriaSerializer
         return CertificationCriteriaSerializer
-
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
 
 class CriteriaPreviewView(APIView):
-    """
-    POST /api/analytics/admin/criteria/preview/
-    Admin submits a set of scores and gets back a pass/fail result
-    against the currently active criteria for a given phase.
-    Does NOT save anything — read-only simulation.
+    permission_classes = [permissions.IsAuthenticated]
+    def post(self, request):
+        from .services.certification_service import evaluate_criteria
+        phase = request.data.get('phase')
+        if not phase: return Response({'detail': 'phase is required.'}, status=400)
+        try:
+            criteria = CertificationCriteria.objects.filter(phase=phase, is_active=True).latest('created_at')
+        except:
+            return Response({'detail': 'No active criteria.'}, status=404)
+        scores = {
+            'overall_score': float(request.data.get('overall_score', 0)),
+            'productivity_score': float(request.data.get('productivity_score', 0)),
+            'quality_score': float(request.data.get('quality_score', 0)),
+            'engagement_score': float(request.data.get('engagement_score', 0)),
+            'attendance_pct': float(request.data.get('attendance_pct', 0)),
+            'weekly_reports_submitted': int(request.data.get('weekly_reports_submitted', 0)),
+        }
+        result = evaluate_criteria(scores, criteria)
+        return Response(result)
 
-    Request body:
-    {
-        "phase": "PHASE_1",
-        "overall_score": 78.5,
-        "productivity_score": 72.0,
-        "quality_score": 70.5,
-        "engagement_score": 80.0,
-        "attendance_pct": 65.0
-    }
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def verify_certificate(request, unique_cert_id):
+    try:
+        cert = CertificationRecord.objects.get(unique_cert_id=unique_cert_id)
+        return Response({
+            'status': 'REVOKED' if cert.is_revoked else 'VALID',
+            'intern_name': cert.intern.full_name,
+            'certificate_type': cert.get_cert_type_display(),
+            'issue_date': cert.issue_date,
+            'overall_score': cert.overall_score_at_issue,
+        })
+    except:
+        return Response({'status': 'INVALID'}, status=404)
+
+
+class WeeklyReportV2ViewSet(viewsets.ModelViewSet):
+    serializer_class = WeeklyReportV2Serializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if str(user.role) == 'INTERN':
+            return WeeklyReportV2.objects.filter(intern=user).select_related('intern', 'reviewed_by').order_by('-week_start')
+        if str(user.role) in ['MANAGER', 'ADMIN']:
+            return WeeklyReportV2.objects.all().select_related('intern', 'reviewed_by').order_by('-week_start')
+        return WeeklyReportV2.objects.none()
+
+    def perform_create(self, serializer):
+        if str(self.request.user.role) != 'INTERN':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only interns can self-submit weekly reports.")
+        week_start = serializer.validated_data['week_start']
+        from apps.analytics.tasks import _compute_week_number_v2
+        week_number = _compute_week_number_v2(self.request.user, week_start)
+        serializer.save(intern=self.request.user, is_auto_generated=False, week_number=week_number)
+
+    @action(detail=True, methods=['post'], url_path='comment')
+    def add_comment(self, request, pk=None):
+        if str(request.user.role) not in ['MANAGER', 'ADMIN']:
+            return Response({'detail': 'Only managers can comment.'}, status=403)
+        report = self.get_object()
+        serializer = WeeklyReportCommentV2Serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        report.manager_comment = serializer.validated_data['manager_comment']
+        report.save(update_fields=['manager_comment'])
+        return Response({'detail': 'Comment saved.'})
+
+    @action(detail=True, methods=['patch'], url_path='mark-reviewed')
+    def mark_reviewed(self, request, pk=None):
+        if str(request.user.role) not in ['MANAGER', 'ADMIN']:
+            return Response({'detail': 'Only managers can mark reviewed.'}, status=403)
+        report = self.get_object()
+        report.manager_reviewed = True
+        report.reviewed_by = request.user
+        from django.utils import timezone
+        report.reviewed_at = timezone.now()
+        report.save(update_fields=['manager_reviewed', 'reviewed_by', 'reviewed_at'])
+        return Response({'detail': 'Report marked as reviewed.'})
+
+
+# ============================================================================
+# Phase 5 — Full-Time Offers & Stipend
+# ============================================================================
+
+from apps.accounts.models import FullTimeOffer, StipendRecord
+from .serializers import FullTimeOfferSerializer, StipendRecordSerializer, ConversionScoreSerializer
+
+class FullTimeOfferViewSet(viewsets.ModelViewSet):
+    """
+    Intern (GET only):      /api/offers/        — see own offer
+    Admin/Manager (CRUD):   /api/admin/offers/  — full management
+    """
+    serializer_class   = FullTimeOfferSerializer
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminOnly()]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'INTERN':
+            return FullTimeOffer.objects.filter(intern=user).select_related(
+                'intern', 'conversion_score', 'issued_by'
+            )
+        return FullTimeOffer.objects.all().select_related(
+            'intern', 'conversion_score', 'issued_by'
+        )
+
+    def perform_create(self, serializer):
+        """Admin creates the offer. Triggers LLM onboarding plan generation."""
+        from apps.analytics.tasks import generate_onboarding_plan
+        offer = serializer.save()
+        generate_onboarding_plan.delay(offer.id)
+
+    @action(detail=True, methods=['patch'], url_path='issue')
+    def issue_offer(self, request, pk=None):
+        """
+        PATCH /api/admin/offers/{id}/issue/
+        Transitions DRAFT → ISSUED and notifies the intern.
+        """
+        offer = self.get_object()
+        if offer.status != 'DRAFT':
+            return Response({'detail': f'Cannot issue an offer with status {offer.status}.'}, status=400)
+
+        offer.issue(issued_by_user=request.user)
+        _notify_intern_offer_issued(offer)
+        return Response(FullTimeOfferSerializer(offer).data)
+
+
+class InternOfferResponseView(APIView):
+    """
+    PATCH /api/offers/{id}/respond/
+    Only the intern who owns the offer can respond.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, pk):
+        from django.utils import timezone
+        from apps.accounts.models import FullTimeOffer, InternProfile
+
+        try:
+            offer = FullTimeOffer.objects.get(pk=pk, intern=request.user)
+        except FullTimeOffer.DoesNotExist:
+            return Response({'detail': 'Offer not found.'}, status=404)
+
+        if offer.status != 'ISSUED':
+            return Response({'detail': 'Only an issued offer can be responded to.'}, status=400)
+
+        response_choice = request.data.get('response')   # 'ACCEPT' or 'DECLINE'
+        notes           = request.data.get('notes', '')
+
+        if response_choice not in ['ACCEPT', 'DECLINE']:
+            return Response({'detail': "response must be 'ACCEPT' or 'DECLINE'."}, status=400)
+
+        new_status     = 'ACCEPTED' if response_choice == 'ACCEPT' else 'DECLINED'
+        profile_status = 'FULL_TIME' if response_choice == 'ACCEPT' else 'NOT_CONVERTED'
+
+        offer.status               = new_status
+        offer.intern_response_at   = timezone.now()
+        offer.intern_response_notes = notes
+        offer.save(update_fields=['status', 'intern_response_at', 'intern_response_notes', 'updated_at'])
+
+        # Update InternProfile status
+        InternProfile.objects.filter(user=request.user).update(status=profile_status)
+
+        _notify_admin_offer_responded(offer, response_choice)
+
+        return Response({
+            'detail': f'Offer {new_status.lower()} successfully.',
+            'new_status': new_status,
+            'profile_status': profile_status,
+        })
+
+
+def _notify_intern_offer_issued(offer):
+    try:
+        from apps.notifications.models import Notification
+        Notification.objects.create(
+            recipient  = offer.intern,
+            message    = (
+                f"🎉 Congratulations! A Pre-Placement Offer has been issued to you for the role of "
+                f"{offer.recommended_role_title} in {offer.recommended_department}. "
+                f"Please respond by {offer.response_deadline}."
+            ),
+            notif_type = 'PPO_ISSUED',
+            is_urgent  = True,
+        )
+    except Exception:
+        pass
+
+
+def _notify_admin_offer_responded(offer, response: str):
+    try:
+        from apps.notifications.models import Notification
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        for admin in User.objects.filter(role='ADMIN'):
+            Notification.objects.create(
+                recipient  = admin,
+                message    = (
+                    f"{offer.intern.get_full_name()} has {response.lower()}ed the PPO offer "
+                    f"for {offer.recommended_role_title}."
+                ),
+                notif_type = 'PPO_RESPONDED',
+            )
+    except Exception:
+        pass
+
+
+class StipendRecordViewSet(viewsets.ModelViewSet):
+    """
+    Admin-only CRUD for StipendRecord.
+    """
+    serializer_class   = StipendRecordSerializer
+    permission_classes = [IsAdminOnly]
+    queryset           = StipendRecord.objects.all().select_related('intern', 'approved_by')
+
+    @action(detail=True, methods=['patch'], url_path='approve')
+    def approve(self, request, pk=None):
+        record = self.get_object()
+        if record.status not in ['PENDING', 'HELD']:
+            return Response({'detail': f'Cannot approve a record with status {record.status}.'}, status=400)
+
+        # Take performance snapshot at approval time
+        from apps.analytics.services.certification_service import get_aggregated_scores
+        from apps.analytics.models import EmploymentStage
+        try:
+            stage = EmploymentStage.objects.get(intern=record.intern, phase='PHASE_2')
+            scores = get_aggregated_scores(record.intern, stage.phase_start_date, timezone.now().date())
+            perf_score = scores['overall_score']
+        except Exception:
+            perf_score = None
+
+        record.status      = 'APPROVED'
+        record.approved_by = request.user
+        record.approved_at = timezone.now()
+        record.performance_score_at_disbursement = perf_score
+        record.save(update_fields=['status', 'approved_by', 'approved_at', 'performance_score_at_disbursement'])
+
+        return Response(StipendRecordSerializer(record).data)
+
+    @action(detail=True, methods=['patch'], url_path='disburse')
+    def disburse(self, request, pk=None):
+        record = self.get_object()
+        if record.status != 'APPROVED':
+            return Response({'detail': 'Only APPROVED records can be disbursed.'}, status=400)
+
+        record.status       = 'DISBURSED'
+        record.disbursed_at = timezone.now()
+        record.save(update_fields=['status', 'disbursed_at'])
+
+        return Response(StipendRecordSerializer(record).data)
+
+    @action(detail=True, methods=['patch'], url_path='hold')
+    def hold(self, request, pk=None):
+        record = self.get_object()
+        record.status = 'HELD'
+        record.notes  = request.data.get('reason', '')
+        record.save(update_fields=['status', 'notes'])
+        return Response(StipendRecordSerializer(record).data)
+
+
+import csv
+from django.http import HttpResponse
+
+class StipendPayrollExportView(APIView):
+    """
+    GET /api/admin/stipend/export/?month=2026-07-01&status=DISBURSED
+    Downloads a CSV of stipend records for payroll processing.
     """
     permission_classes = [IsAdminOnly]
 
-    def post(self, request):
-        phase = request.data.get('phase')
-        if not phase:
-            return Response({'detail': 'phase is required.'}, status=400)
+    def get(self, request):
+        month_param  = request.query_params.get('month')
+        status_param = request.query_params.get('status', 'APPROVED')
+
+        qs = StipendRecord.objects.filter(status=status_param).select_related('intern', 'approved_by')
+        if month_param:
+            qs = qs.filter(month=month_param)
+
+        response = HttpResponse(content_type='text/csv')
+        filename = f"payroll_{month_param or 'all'}_{status_param.lower()}.csv"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            'Intern ID', 'Full Name', 'Email',
+            'Month', 'Amount (INR)', 'Status',
+            'Approved By', 'Approved At', 'Disbursed At',
+            'Performance Score at Disbursement', 'Notes'
+        ])
+
+        for record in qs:
+            writer.writerow([
+                record.intern.pk,
+                record.intern.get_full_name(),
+                record.intern.email,
+                record.month.strftime('%B %Y'),
+                str(record.amount),
+                record.get_status_display(),
+                record.approved_by.get_full_name() if record.approved_by else '',
+                record.approved_at.strftime('%Y-%m-%d %H:%M') if record.approved_at else '',
+                record.disbursed_at.strftime('%Y-%m-%d %H:%M') if record.disbursed_at else '',
+                str(record.performance_score_at_disbursement) if record.performance_score_at_disbursement else '',
+                record.notes,
+            ])
+
+        return response
+
+
+class ConversionScoreView(APIView):
+    """
+    GET /api/conversion-score/
+    Intern: sees their own score.
+    Manager/Admin: pass ?intern_id= to see any intern's score.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from apps.analytics.models import ConversionScore
+
+        if request.user.role == 'INTERN':
+            try:
+                score = ConversionScore.objects.get(intern=request.user)
+                return Response(ConversionScoreSerializer(score).data)
+            except ConversionScore.DoesNotExist:
+                return Response({'detail': 'Conversion score not yet computed. Available after Phase 2 begins.'}, status=404)
+
+        intern_id = request.query_params.get('intern_id')
+        if not intern_id:
+            scores = ConversionScore.objects.all().select_related('intern')
+            return Response(ConversionScoreSerializer(scores, many=True).data)
 
         try:
-            criteria = CertificationCriteria.objects.filter(
-                phase=phase, is_active=True
-            ).latest('created_at')
-        except CertificationCriteria.DoesNotExist:
-            return Response(
-                {'detail': f'No active CertificationCriteria found for phase {phase}.'},
-                status=404
-            )
-
-        checks = [
-            ('overall_score',      'min_overall_score'),
-            ('productivity_score', 'min_productivity_score'),
-            ('quality_score',      'min_quality_score'),
-            ('engagement_score',   'min_engagement_score'),
-            ('attendance_pct',     'min_attendance_pct'),
-        ]
-
-        results = []
-        passed = True
-        for score_key, criteria_key in checks:
-            threshold = getattr(criteria, criteria_key, None)
-            value     = float(request.data.get(score_key, 0))
-            if threshold is not None:
-                met = value >= threshold
-                if not met:
-                    passed = False
-                results.append({
-                    'metric':      score_key,
-                    'value':       value,
-                    'threshold':   threshold,
-                    'met':         met,
-                })
-
-        return Response({
-            'phase':          phase,
-            'overall_passed': passed,
-            'checks':         results,
-            'criteria_id':    criteria.pk,
-        })
+            score = ConversionScore.objects.get(intern_id=intern_id)
+            return Response(ConversionScoreSerializer(score).data)
+        except ConversionScore.DoesNotExist:
+            return Response({'detail': 'Not found.'}, status=404)

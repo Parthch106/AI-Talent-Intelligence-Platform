@@ -6,6 +6,7 @@ from .models import (
     WeeklyReport,
     PerformanceMetrics,
     MonthlyEvaluationReport,
+    WeeklyReportV2,
     # V2 ML Pipeline Models
     JobRole,
     Application,
@@ -26,7 +27,66 @@ from .models import (
     PhaseEvaluation,
     CertificationCriteria,
     IoTDevice,
+    CertificationRecord,
 )
+
+from django.utils import timezone
+from django.utils.html import format_html
+
+
+@admin.register(CertificationRecord)
+class CertificationRecordAdmin(admin.ModelAdmin):
+    list_display = (
+        'intern', 'cert_type', 'issue_date', 'overall_score_at_issue',
+        'is_revoked', 'view_certificate'
+    )
+    list_filter = ('cert_type', 'is_revoked', 'issue_date')
+    search_fields = ('intern__email', 'intern__full_name', 'unique_cert_id')
+    readonly_fields = (
+        'unique_cert_id', 'issue_date', 'certificate_file',
+        'overall_score_at_issue', 'scores_snapshot', 'criteria_snapshot',
+        'revoked_at', 'revoked_by'
+    )
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('unique_cert_id', 'intern', 'cert_type', 'issue_date', 'certificate_file')
+        }),
+        ('Performance Snapshot', {
+            'fields': ('overall_score_at_issue', 'scores_snapshot', 'criteria_snapshot'),
+            'classes': ('collapse',),
+        }),
+        ('Revocation Status', {
+            'fields': ('is_revoked', 'revoked_at', 'revoked_by', 'revocation_reason')
+        }),
+    )
+    actions = ['revoke_certificates', 'reinstate_certificates']
+
+    @admin.display(description='Certificate')
+    def view_certificate(self, obj):
+        if obj.certificate_file:
+            return format_html(
+                '<a href="{}" target="_blank" class="button">View PDF</a>',
+                obj.certificate_file.url
+            )
+        return "Not Generated"
+
+    @admin.action(description='Revoke selected certificates')
+    def revoke_certificates(self, request, queryset):
+        queryset.update(
+            is_revoked=True,
+            revoked_at=timezone.now(),
+            revoked_by=request.user
+        )
+        self.message_user(request, f"{queryset.count()} certificates revoked.")
+
+    @admin.action(description='Reinstate selected certificates')
+    def reinstate_certificates(self, request, queryset):
+        queryset.update(
+            is_revoked=False,
+            revoked_at=None,
+            revoked_by=None
+        )
+        self.message_user(request, f"{queryset.count()} certificates reinstated.")
 
 
 # Customize Admin Site Header
@@ -283,6 +343,39 @@ class PhaseEvaluationAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related(
             'intern', 'employment_stage', 'evaluated_by'
         )
+
+
+@admin.register(WeeklyReportV2)
+class WeeklyReportV2Admin(admin.ModelAdmin):
+    list_display = (
+        'intern', 'week_start', 'week_number', 'is_auto_generated',
+        'overall_weekly_score', 'red_flag', 'manager_reviewed'
+    )
+    list_filter = (
+        'is_auto_generated', 'red_flag', 'manager_reviewed', 'week_start'
+    )
+    search_fields = ('intern__username', 'intern__email')
+    readonly_fields = ('created_at',)
+    fieldsets = (
+        ('Basic Info', {
+            'fields': ('intern', 'week_start', 'week_end', 'week_number', 'is_auto_generated')
+        }),
+        ('Metrics', {
+            'fields': (
+                'tasks_assigned', 'tasks_completed', 'tasks_overdue', 'attendance_pct',
+                'productivity_score', 'quality_score', 'overall_weekly_score', 'cumulative_overall_score'
+            )
+        }),
+        ('AI Analysis', {
+            'fields': ('ai_narrative', 'ai_top_achievement', 'ai_concern_area', 'ai_growth_note')
+        }),
+        ('Flags & Mismatch', {
+            'fields': ('red_flag', 'red_flag_reasons', 'self_report_mismatch', 'self_report_mismatch_details')
+        }),
+        ('Review', {
+            'fields': ('manager_reviewed', 'manager_comment', 'reviewed_by', 'reviewed_at')
+        }),
+    )
 
 
 @admin.register(IoTDevice)

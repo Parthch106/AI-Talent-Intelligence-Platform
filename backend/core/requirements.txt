@@ -53,3 +53,13 @@ langchain-groq>=0.1.0
 
 # Better PDF extraction (layout-aware, markdown output)
 pymupdf4llm>=0.0.17
+
+# Phase 2 — Certification Engine
+weasyprint==62.3
+qrcode[pil]==7.4.2
+Pillow>=10.0.0
+django-celery-beat==2.6.0
+groq==0.9.0
+
+# Phase 5
+textblob==0.18.0

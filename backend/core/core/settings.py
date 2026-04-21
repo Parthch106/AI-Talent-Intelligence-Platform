@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "apps.notifications",
     "corsheaders",
     'rest_framework',
+    'django_celery_beat',
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -165,6 +166,35 @@ SITE_NAME = "AIMs"
 SITE_HEADER = "AIMs Talent Intelligence"
 SITE_TITLE = "AIMs - Advanced Intern Management System"
 INDEX_TITLE = "Welcome to AIMs - Advanced Intern Management System"
+
+# ==============================================================================
+# PHASE 2 — CERTIFICATION ENGINE SETTINGS
+# ==============================================================================
+
+# WeasyPrint — base URL for resolving relative CSS/image URLs inside templates
+WEASYPRINT_BASEURL = BASE_DIR / 'apps' / 'analytics' / 'templates'
+
+# Certificate PDF storage
+CERTIFICATE_STORAGE_PATH = BASE_DIR / 'media' / 'certificates'
+
+# Frontend base URL — used to build /verify/{uuid}/ QR code links
+FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://localhost:5173')
+
+# Company branding for certificates
+COMPANY_NAME = os.environ.get('COMPANY_NAME', 'AIMS Technologies')
+COMPANY_LOGO_URL = os.environ.get('COMPANY_LOGO_URL', '') 
+
+
+# ==============================================================================
+# PHASE 3 — WEEKLY REPORT ENGINE SETTINGS
+# ==============================================================================
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+GROQ_MODEL   = 'llama3-8b-8192'
+
+# Celery configuration adjustments
+CELERY_TIMEZONE = 'Asia/Kolkata'
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/

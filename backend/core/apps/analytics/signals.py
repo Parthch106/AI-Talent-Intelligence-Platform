@@ -75,8 +75,23 @@ def connect_task_tracking_signals():
     """Connect TaskTracking signals - call this from AppConfig.ready()"""
     from django.db.models.signals import post_save
     from django.dispatch import receiver
-    from apps.analytics.models import TaskTracking
+    from apps.analytics.models import TaskTracking, PhaseEvaluation
     
+    @receiver(post_save, sender=PhaseEvaluation)
+    def on_phase_evaluation_saved(sender, instance, created, **kwargs):
+        """
+        Fires every time a PhaseEvaluation is saved.
+        Triggers the criteria evaluation + certificate generation Celery pipeline
+        ONLY when:
+          1. The decision is 'PROMOTE' (manager explicitly promoting)
+          2. The criteria evaluation hasn't already run for this evaluation
+        """
+        if instance.decision == 'PROMOTE':
+            # Avoid re-triggering if a certificate already exists
+            if not hasattr(instance, 'certificate'):
+                from .tasks import run_criteria_evaluation
+                run_criteria_evaluation.delay(instance.pk)
+
     @receiver(post_save, sender=TaskTracking)
     def task_status_changed(sender, instance, created, **kwargs):
         """

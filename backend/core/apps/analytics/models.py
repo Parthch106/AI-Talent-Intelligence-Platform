@@ -717,6 +717,77 @@ class CertificationCriteria(models.Model):
     def __str__(self):
         return f"{self.get_phase_display()} Criteria — {'Active' if self.is_active else 'Inactive'} (created {self.created_at.date()})"
 
+import uuid
+
+
+class CertificationRecord(models.Model):
+    """
+    Stores the final result of a successful phase gate evaluation.
+    Once issued, this record is considered immutable (except for revocation status).
+    """
+
+    CERT_TYPE_CHOICES = [
+        ('PHASE_1', 'Internship Completion Certificate'),
+        ('PHASE_2', 'Stipend Internship Certificate'),
+        ('PPO',     'Pre-Placement Offer Certificate'),
+    ]
+
+    unique_cert_id        = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        help_text="Unique identifier for public verification"
+    )
+    intern                 = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='certificates'
+    )
+    phase_evaluation       = models.OneToOneField(
+        'PhaseEvaluation',
+        on_delete=models.PROTECT,
+        related_name='certificate',
+        help_text="Evaluation that triggered this certificate"
+    )
+    cert_type              = models.CharField(max_length=10, choices=CERT_TYPE_CHOICES)
+    issue_date             = models.DateField(auto_now_add=True)
+
+    # Branded PDF file storage
+    certificate_file       = models.FileField(
+        upload_to='certificates/%Y/%m/',
+        null=True, blank=True
+    )
+
+    # Score snapshot at the time of issuance
+    overall_score_at_issue = models.FloatField()
+    scores_snapshot        = models.JSONField(
+        default=dict,
+        help_text="Full breakdown of metrics at the time of issuance"
+    )
+    criteria_snapshot      = models.JSONField(
+        default=dict,
+        help_text="Snapshot of the gate criteria used for this certificate"
+    )
+
+    # Revocation controls
+    is_revoked             = models.BooleanField(default=False)
+    revoked_at             = models.DateTimeField(null=True, blank=True)
+    revoked_by             = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='revoked_certificates'
+    )
+    revocation_reason      = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name        = 'Certification Record'
+        verbose_name_plural = 'Certification Records'
+        ordering            = ['-issue_date']
+
+    def __str__(self):
+        return f"{self.intern.email} — {self.get_cert_type_display()} ({self.issue_date})"
+
 
 class PhaseEvaluation(models.Model):
     """
@@ -1773,3 +1844,157 @@ class RLAgentState(models.Model):
 
     def __str__(self):
         return f"{self.intern.email} | ε={self.epsilon:.3f} | Episodes={self.total_episodes}"
+
+class WeeklyReportV2(models.Model):
+    """
+    V2 Automated Weekly Report Engine.
+    Stores system-generated reports (is_auto_generated=True) 
+    and intern self-submitted reports (is_auto_generated=False).
+    """
+
+    intern = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='weekly_reports_v2'
+    )
+    week_start = models.DateField()           # Always a Monday
+    week_end = models.DateField()             # Always the following Sunday
+    week_number = models.IntegerField()       # Sequential week in intern's current phase (1–26)
+    is_auto_generated = models.BooleanField(default=False)   # True = system, False = intern-submitted
+
+    # ── Task metrics for the week ──────────────────────────────────────────────
+    tasks_assigned = models.IntegerField(default=0)
+    tasks_completed = models.IntegerField(default=0)
+    tasks_in_progress = models.IntegerField(default=0)
+    tasks_overdue = models.IntegerField(default=0)
+    avg_task_quality_rating = models.FloatField(null=True, blank=True)   # 0–5 rating scale
+    total_estimated_hours = models.FloatField(default=0)
+    total_actual_hours = models.FloatField(default=0)
+    hour_variance_pct = models.FloatField(null=True, blank=True)   # (actual - estimated) / estimated × 100
+
+    # ── Attendance for the week ────────────────────────────────────────────────
+    attendance_days = models.IntegerField(default=0)
+    expected_days = models.IntegerField(default=5)
+    late_check_ins = models.IntegerField(default=0)
+    attendance_pct = models.FloatField(default=0.0)   # attendance_days / expected_days × 100
+
+    # ── Performance scores (this week only) ───────────────────────────────────
+    productivity_score = models.FloatField(null=True, blank=True)
+    quality_score = models.FloatField(null=True, blank=True)
+    engagement_score = models.FloatField(null=True, blank=True)
+    growth_score = models.FloatField(null=True, blank=True)
+    overall_weekly_score = models.FloatField(null=True, blank=True)
+
+    # ── Week-over-week deltas (positive = improving) ───────────────────────────
+    productivity_delta = models.FloatField(null=True, blank=True)
+    quality_delta = models.FloatField(null=True, blank=True)
+    overall_delta = models.FloatField(null=True, blank=True)
+
+    # ── Phase cumulative running average at end of this week ──────────────────
+    cumulative_overall_score = models.FloatField(null=True, blank=True)
+
+    # ── AI-generated narrative (Groq — populated async after report creation) ─
+    ai_narrative = models.TextField(blank=True)           # 3-sentence summary
+    ai_top_achievement = models.CharField(max_length=500, blank=True)
+    ai_concern_area = models.CharField(max_length=500, blank=True)
+    ai_growth_note = models.CharField(max_length=500, blank=True)
+
+    # ── Red flags ─────────────────────────────────────────────────────────────
+    red_flag = models.BooleanField(default=False)
+    red_flag_reasons = models.JSONField(default=list)   # List of human-readable strings
+
+    # ── Self-report cross-reference ────────────────────────────────────────────
+    # For auto-generated reports: FK to the intern-submitted report for the same week (if exists)
+    intern_self_report = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='system_counterpart'
+    )
+    self_report_mismatch = models.BooleanField(default=False)
+    self_report_mismatch_details = models.JSONField(default=list)   # List of discrepancy strings
+
+    # ── Manager review ─────────────────────────────────────────────────────────
+    manager_reviewed = models.BooleanField(default=False)
+    manager_comment = models.TextField(blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_reports_v2'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-week_start']
+        # One system report + one intern report max per week per intern
+        unique_together = [['intern', 'week_start', 'is_auto_generated']]
+        verbose_name = "Weekly Report V2"
+        verbose_name_plural = "Weekly Reports V2"
+
+    def __str__(self):
+        kind = 'Auto' if self.is_auto_generated else 'Intern'
+        return f"{self.intern.email} — Week {self.week_number} ({self.week_start}) [{kind}]"
+
+    @property
+    def completion_rate(self):
+        """Tasks completed as a percentage of tasks assigned."""
+        if not self.tasks_assigned:
+            return 0.0
+        return round((self.tasks_completed / self.tasks_assigned) * 100, 1)
+
+    @property
+    def hour_efficiency(self):
+        """Positive = came in under estimated hours; negative = over-ran."""
+        if not self.total_estimated_hours:
+            return None
+        return round(
+            ((self.total_estimated_hours - self.total_actual_hours) / self.total_estimated_hours) * 100, 1
+        )
+
+class ConversionScore(models.Model):
+    """
+    12-month ML aggregate score for the full-time offer decision.
+    One record per intern — updated in-place every Monday via Celery Beat.
+    auto_now=True on computed_at means every save updates the timestamp.
+    """
+    intern       = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='conversion_score'
+    )
+    computed_at  = models.DateTimeField(auto_now=True)
+
+    # ── Component scores (weighted ensemble) ──────────────────────────────────
+    # Is performance IMPROVING over the 12-month window?
+    performance_trend_score    = models.FloatField(default=0.0)
+
+    # Absolute level — average of all WeeklyReport overall_weekly_score
+    absolute_performance_score = models.FloatField(default=0.0)
+
+    # Skills gained relative to skill set at Phase 1 start
+    skill_growth_delta         = models.FloatField(default=0.0)
+
+    # NLP sentiment trend over all manager feedback + comments
+    manager_sentiment_trend    = models.FloatField(default=0.0)
+
+    # Percentile rank within the intern's cohort (0–100)
+    peer_comparison_percentile = models.FloatField(default=0.0)
+
+    # ── Final composite ────────────────────────────────────────────────────────
+    # Weighted combination: 0.30 / 0.25 / 0.20 / 0.15 / 0.10
+    composite_score            = models.FloatField(default=0.0)
+
+    # ── Audit trail ───────────────────────────────────────────────────────────
+    model_version   = models.CharField(max_length=20, default='v1.0')
+    feature_vector  = models.JSONField(default=dict)   # Input features stored for audit/retraining
+
+    class Meta:
+        ordering = ['-computed_at']
+
+    def __str__(self):
+        return f"{self.intern.username} — {self.composite_score:.1f}% (v{self.model_version})"

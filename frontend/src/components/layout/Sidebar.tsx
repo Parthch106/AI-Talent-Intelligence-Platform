@@ -5,7 +5,8 @@ import {
     LayoutDashboard, Users, FolderKanban, MessageSquare,
     FileText, Brain, Monitor, Settings, ChevronRight,
     LogOut, User, Upload, Target, BookOpen, Activity,
-    Home, CheckSquare, Calendar, FileText as ReportIcon, Layers
+    Home, CheckSquare, Calendar, FileText as ReportIcon, Layers,
+    ClipboardList, GitBranch, BarChart2, TrendingUp
 } from 'lucide-react';
 
 interface NavItem {
@@ -54,6 +55,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
         { name: 'Analysis', path: '/analytics/skill-intelligence', icon: <Brain size={20} />, roles: ['ADMIN', 'MANAGER'] },
         { name: 'Learning Path', path: '/analytics/learning-paths', icon: <BookOpen size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
         { name: 'Performance', path: '/analytics/performance', icon: <Activity size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
+        { name: 'Report Analytics', path: '/analytics/weekly-reports', icon: <TrendingUp size={20} />, roles: ['ADMIN'], badge: 'V2' },
     ];
 
     // Monitoring sub-pages (separate pages, not tabs)
@@ -61,13 +63,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
         { name: 'Overview', path: '/management/overview', icon: <Home size={18} />, roles: ['ADMIN', 'MANAGER'] },
         { name: 'Tasks', path: '/management/tasks', icon: <CheckSquare size={18} />, roles: ['ADMIN', 'MANAGER'] },
         { name: 'Attendance', path: '/management/attendance', icon: <Calendar size={18} />, roles: ['ADMIN', 'MANAGER'] },
-        { name: 'Reports', path: '/management/reports', icon: <ReportIcon size={18} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Reports (V1)', path: '/management/reports', icon: <ReportIcon size={18} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Weekly Reports', path: '/management/weekly-reports', icon: <BarChart2 size={18} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
     ];
 
     const internNavItems: NavItem[] = [
         { name: 'Upload Report', path: '/workspace/submit-report', icon: <Upload size={20} />, roles: ['INTERN'] },
         { name: 'My Tasks', path: '/workspace/my-tasks', icon: <Target size={20} />, roles: ['INTERN'] },
         { name: 'My Attendance', path: '/workspace/my-attendance', icon: <Monitor size={20} />, roles: ['INTERN'] },
+        { name: 'Weekly Reports', path: '/workspace/weekly-reports', icon: <ClipboardList size={20} />, roles: ['INTERN'], badge: 'V2' },
+        { name: 'Career Timeline', path: '/career/phase-timeline', icon: <GitBranch size={20} />, roles: ['INTERN'], badge: 'V2' },
     ];
 
     const isActive = (path: string) => {

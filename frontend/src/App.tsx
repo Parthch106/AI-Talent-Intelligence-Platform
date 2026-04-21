@@ -33,6 +33,13 @@ const AITaskGenerator = lazy(() => import('./pages/AITaskGenerator'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const TaskDetailPage = lazy(() => import('./pages/TaskDetailPage'));
 
+// V2 Phase 4 pages
+const WeeklyReportsInternPage   = lazy(() => import('./pages/WeeklyReportsInternPage'));
+const WeeklyReportsManagerPage  = lazy(() => import('./pages/WeeklyReportsManagerPage'));
+const WeeklyReportsAdminPage    = lazy(() => import('./pages/WeeklyReportsAdminPage'));
+const PhaseTimelinePage         = lazy(() => import('./pages/PhaseTimelinePage'));
+
+
 const AITaskRedirect: React.FC = () => {
   const { internId } = useParams();
   return <Navigate to={internId ? `/tools/ai-task-generator/${internId}` : "/tools/ai-task-generator"} replace />;
@@ -95,18 +102,35 @@ const App: React.FC = () => {
                   <Route path="/workspace/tasks/details" element={<TaskDetailPage />} />
                   <Route path="/workspace/tasks/:taskId" element={<TaskDetailPage />} />
                   <Route path="/workspace/my-attendance" element={<MyAttendance />} />
+                  <Route path="/workspace/weekly-reports" element={<WeeklyReportsInternPage />} />
                   <Route path="/upload-report" element={<Navigate to="/workspace/submit-report" replace />} />
                   <Route path="/my-tasks" element={<Navigate to="/workspace/my-tasks" replace />} />
                   <Route path="/my-attendance" element={<Navigate to="/workspace/my-attendance" replace />} />
+                  
+                  {/* Performance & Analytics */}
+                  <Route path="/analytics/learning-paths" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><LearningPath /></ProtectedRoute>} />
+                  <Route path="/analytics/performance" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><PerformanceAnalytics /></ProtectedRoute>} />
+                  <Route path="/learning-path" element={<Navigate to="/analytics/learning-paths" replace />} />
+                  <Route path="/performance" element={<Navigate to="/analytics/performance" replace />} />
+                  
+                  {/* AI Tools */}
+                  <Route path="/tools/ai-task-generator/:internId?" element={<AITaskGenerator />} />
+                  <Route path="/monitoring/ai-tasks/:internId?" element={<AITaskRedirect />} />
+
+                  {/* V2 Career & Reports */}
+                  <Route path="/career/phase-timeline" element={<PhaseTimelinePage />} />
+                  <Route path="/management/weekly-reports" element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+                      <WeeklyReportsManagerPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/analytics/weekly-reports" element={
+                    <ProtectedRoute allowedRoles={['ADMIN']}>
+                      <WeeklyReportsAdminPage />
+                    </ProtectedRoute>
+                  } />
                 </Route>
 
-                <Route path="/analytics/learning-paths" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><LearningPath /></ProtectedRoute>} />
-                <Route path="/analytics/performance" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><PerformanceAnalytics /></ProtectedRoute>} />
-                <Route path="/learning-path" element={<Navigate to="/analytics/learning-paths" replace />} />
-                <Route path="/performance" element={<Navigate to="/performance" replace />} />
-                
-                <Route path="/tools/ai-task-generator/:internId?" element={<AITaskGenerator />} />
-                <Route path="/monitoring/ai-tasks/:internId?" element={<AITaskRedirect />} />
               </Route>
 
                 {/* Catch all */}
