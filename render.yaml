@@ -1,0 +1,53 @@
+services:
+  # 1. Main Django Web Service
+  - type: web
+    name: ai-talent-backend
+    env: python
+    rootDir: backend
+    plan: starter # Recommend starter for AI models
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+    startCommand: gunicorn core.wsgi:application
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: core.settings
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ai-talent-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: ai-talent-redis
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+
+  # 2. Celery Worker for Background Tasks
+  - type: worker
+    name: ai-talent-worker
+    env: python
+    rootDir: backend
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A core worker -l info
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ai-talent-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: ai-talent-redis
+          property: connectionString
+
+# 3. Managed PostgreSQL Database
+databases:
+  - name: ai-talent-db
+    plan: free
+
+# 4. Managed Redis for Celery
+repo: https://github.com/Parthch106/AI-Talent-Intelligence-Platform
+# (Note: Redis on Render usually needs to be added manually or via private network)

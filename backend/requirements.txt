@@ -9,6 +9,7 @@ python-decouple>=3.8
 python-dotenv>=1.0.0
 gunicorn>=21.0.0
 whitenoise>=6.0.0
+dj-database-url>=2.1.0
 
 # =============================================================================
 # Authentication
