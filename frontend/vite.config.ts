@@ -87,42 +87,23 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // Priority 1: Large libraries that should be on their own
-            if (id.includes('recharts')) {
-              return 'vendor-charts';
-            }
-            if (id.includes('lucide-react')) {
-              return 'vendor-icons';
-            }
-            if (id.includes('@supabase')) {
-              return 'vendor-supabase';
-            }
-            if (id.includes('react-markdown') || id.includes('remark-gfm')) {
-              return 'vendor-markdown';
-            }
-
-            // Priority 2: React core (keep together to avoid circular dependencies)
-            if (
-              id.includes('react/') || 
-              id.includes('react-dom/') || 
-              id.includes('react-router/') || 
-              id.includes('react-router-dom/') ||
-              id.includes('scheduler/')
-            ) {
+            // Group 1: React Core & Router (Essential for resolving circularity)
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router') || id.includes('scheduler')) {
               return 'vendor-react';
             }
-
-            // Priority 3: Utility groups
-            if (
-              id.includes('axios') || 
-              id.includes('react-datepicker') || 
-              id.includes('date-fns') ||
-              id.includes('@dnd-kit')
-            ) {
-              return 'vendor-utils';
+            // Group 2: Large UI & Charting libs
+            if (id.includes('recharts') || id.includes('lucide-react')) {
+              return 'vendor-ui';
             }
-
-            // Fallback for other node_modules
+            // Group 3: Backend & Data libs
+            if (id.includes('@supabase') || id.includes('axios')) {
+              return 'vendor-data';
+            }
+            // Group 4: Markdown & Processing
+            if (id.includes('react-markdown') || id.includes('remark')) {
+              return 'vendor-markdown';
+            }
+            // Default: Everything else node_modules
             return 'vendor';
           }
         },

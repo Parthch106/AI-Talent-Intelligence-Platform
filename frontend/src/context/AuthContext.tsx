@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 interface User {
     id: number | string;
@@ -44,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // 2. Listen to Supabase Auth Changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
             if (event === 'SIGNED_IN' && session) {
                 const supabaseUser: User = {
                     id: session.user.id,
