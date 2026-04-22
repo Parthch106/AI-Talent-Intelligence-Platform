@@ -123,7 +123,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
                 const response = await axios.get('/projects/assignments/', { params: { intern_id: internId } });
                 const assignments = response.data.results || response.data;
                 const uniqueProjects = Array.from(new Set(assignments.map((a: { project: { id: number, name: string } }) => JSON.stringify({id: a.project.id, name: a.project.name}))))
-                    .map((s: string) => JSON.parse(s));
+                    .map((s: unknown) => JSON.parse(s as string));
                 setProjects(uniqueProjects);
             } else {
                 const response = await axios.get('/projects/projects/');
@@ -224,7 +224,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
     const paginatedTasks = finalFilteredTasks.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
     const openEvaluationPage = (task: Task) => {
-        const path = user?.role === 'INTERN' ? `/workspace/tasks/${task.id}` : `/management/tasks/${task.id}`;
+        const path = userRole === 'INTERN' ? `/workspace/tasks/${task.id}` : `/management/tasks/${task.id}`;
         navigate(path);
     };
 
@@ -279,7 +279,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
     };
 
     // Sub-components
-    const TaskCard = ({ task }: { task: Task }) => (
+    const TaskCard = ({ task }: { task: Task, idx?: number }) => (
         <div className="group relative bg-[var(--card-bg)] border border-[var(--border-color)] rounded-[32px] overflow-hidden p-8 transition-all duration-500 hover:bg-purple-500/[0.02] hover:border-purple-500/20 hover:shadow-2xl dark:hover:shadow-black/50">
             {/* Checkbox for bulk selection */}
             {userRole !== 'ADMIN' && (

@@ -113,8 +113,13 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
     // Reset pagination on filter change
     useEffect(() => setCurrentPage(1), [statusFilter, monthFilter, yearFilter]);
 
-    const getStatusBadge = (status: string) => {
-        const variants: Record<string, string> = { 'PRESENT': 'success', 'ABSENT': 'danger', 'LATE': 'warning', 'WORK_FROM_HOME': 'purple' };
+    const getStatusBadge = (status: string): 'success' | 'danger' | 'warning' | 'purple' | 'info' => {
+        const variants: Record<string, 'success' | 'danger' | 'warning' | 'purple'> = { 
+            'PRESENT': 'success', 
+            'ABSENT': 'danger', 
+            'LATE': 'warning', 
+            'WORK_FROM_HOME': 'purple' 
+        };
         return variants[status] || 'info';
     };
 

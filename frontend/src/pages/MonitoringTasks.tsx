@@ -191,7 +191,7 @@ const MonitoringTasksPage: React.FC = () => {
                 return;
             }
 
-            fetchHeatmapData(targetId);
+            fetchHeatmapData(targetId as number);
 
             const params: Record<string, string | number> = { 
                 intern_id: targetId,
@@ -215,7 +215,7 @@ const MonitoringTasksPage: React.FC = () => {
         fetchData();
         const targetId = user?.role === 'INTERN' ? user?.id : selectedIntern;
         if (targetId) {
-            fetchAvailableSkills(targetId);
+            fetchAvailableSkills(targetId as number);
         }
     }, [fetchData, user?.role, user?.id, selectedIntern]);
 

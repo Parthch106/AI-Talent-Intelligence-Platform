@@ -110,7 +110,7 @@ const CriteriaConfigurationPage: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <Card noPadding className="border-[var(--border-color)] bg-[var(--card-bg)] backdrop-blur-xl">
+          <Card padding="none" className="border-[var(--border-color)] bg-[var(--card-bg)] backdrop-blur-xl">
             <div className="p-6 border-b border-[var(--border-color)] flex items-center gap-2 bg-white/[0.02]">
                 <div className="p-2 bg-purple-500/10 rounded-lg">
                     <Settings2 size={18} className="text-purple-400" />
@@ -178,7 +178,7 @@ const CriteriaConfigurationPage: React.FC = () => {
         </div>
 
         <div className="space-y-8">
-          <Card noPadding className="border-purple-500/20 bg-purple-500/[0.02] relative overflow-hidden group">
+          <Card padding="none" className="border-purple-500/20 bg-purple-500/[0.02] relative overflow-hidden group">
             <div className="p-6 border-b border-purple-500/10 flex items-center gap-2">
                 <div className="p-2 bg-purple-500/10 rounded-lg">
                     <BarChart3 size={18} className="text-purple-400" />
@@ -223,7 +223,7 @@ const CriteriaConfigurationPage: React.FC = () => {
             </div>
           </Card>
 
-          <Card noPadding className="border-[var(--border-color)] bg-[var(--card-bg)]">
+          <Card padding="none" className="border-[var(--border-color)] bg-[var(--card-bg)]">
              <div className="p-6 border-b border-[var(--border-color)] flex items-center gap-2">
                 <div className="p-2 bg-indigo-500/10 rounded-lg">
                     <Clock size={18} className="text-indigo-400" />

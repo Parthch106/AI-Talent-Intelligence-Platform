@@ -28,7 +28,7 @@ const ReportTimeline: React.FC<Props> = ({
 
   if (!reports.length) {
     return (
-      <Card noPadding className="py-24 flex flex-col items-center justify-center gap-6 border-dashed border-2 border-[var(--border-color)] bg-white/[0.01]">
+      <Card padding="none" className="py-24 flex flex-col items-center justify-center gap-6 border-dashed border-2 border-[var(--border-color)] bg-white/[0.01]">
         <div className="p-6 bg-white/[0.02] rounded-full border border-[var(--border-color)]">
             <ClipboardList size={48} className="text-[var(--text-muted)] opacity-20" />
         </div>

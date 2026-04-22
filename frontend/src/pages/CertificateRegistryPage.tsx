@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { Settings2, Filter, Search, Award, CheckCircle, XCircle, FileBadge } from 'lucide-react';
 import { Card, Button, Badge, LoadingSpinner, StatsCard } from '../components/common';
 import api from '../api/axios';
 
@@ -69,10 +70,10 @@ const CertificateRegistryPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatsCard label="Total Issued" value={certs.length} color="#818cf8" />
-        <StatsCard label="Active" value={certs.filter(c => !c.is_revoked).length} color="#34d399" />
-        <StatsCard label="Revoked" value={certs.filter(c => c.is_revoked).length} color="#f87171" />
-        <StatsCard label="PPO Certificates" value={certs.filter(c => c.cert_type === 'PPO').length} color="#fbbf24" />
+        <StatsCard title="Total Issued" value={certs.length} icon={<Award size={20} />} gradient="from-indigo-600 to-purple-600" />
+        <StatsCard title="Active" value={certs.filter(c => !c.is_revoked).length} icon={<CheckCircle size={20} />} gradient="from-emerald-600 to-teal-600" />
+        <StatsCard title="Revoked" value={certs.filter(c => c.is_revoked).length} icon={<XCircle size={20} />} gradient="from-rose-600 to-red-600" />
+        <StatsCard title="PPO Certificates" value={certs.filter(c => c.cert_type === 'PPO').length} icon={<FileBadge size={20} />} gradient="from-amber-600 to-orange-600" />
       </div>
 
       {/* Filters */}
@@ -124,7 +125,7 @@ const CertificateRegistryPage: React.FC = () => {
                   <div className="text-[10px] font-mono text-gray-500 truncate w-32">{cert.unique_cert_id}</div>
                 </td>
                 <td className="px-6 py-4">
-                  <Badge variant={cert.cert_type === 'PPO' ? 'success' : 'primary'}>
+                  <Badge variant={cert.cert_type === 'PPO' ? 'success' : 'indigo'}>
                     {cert.cert_type_display}
                   </Badge>
                 </td>

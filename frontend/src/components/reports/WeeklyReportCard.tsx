@@ -101,7 +101,7 @@ const WeeklyReportCard: React.FC<Props> = ({
   };
 
   return (
-    <Card noPadding className={`group border-[var(--border-color)] bg-[var(--card-bg)] hover:border-[var(--text-muted)] transition-all duration-500 overflow-hidden ${report.red_flag ? 'ring-1 ring-red-500/30' : reviewed ? 'ring-1 ring-emerald-500/20' : ''}`}>
+    <Card padding="none" className={`group border-[var(--border-color)] bg-[var(--card-bg)] hover:border-[var(--text-muted)] transition-all duration-500 overflow-hidden ${report.red_flag ? 'ring-1 ring-red-500/30' : reviewed ? 'ring-1 ring-emerald-500/20' : ''}`}>
       {/* Header Section */}
       <div 
         onClick={() => setExpanded(!expanded)}

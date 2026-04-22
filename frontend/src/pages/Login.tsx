@@ -164,7 +164,7 @@ const Login: React.FC = () => {
                                 <input type="checkbox" className="w-4 h-4 rounded border-[var(--border-color)] bg-[var(--bg-color)] text-purple-500 focus:ring-purple-500/50 cursor-pointer" />
                                 <span className="text-[var(--text-dim)] group-hover:text-[var(--text-main)] transition-colors">Remember me</span>
                             </label>
-                            <Link to="/auth/forgot-password" size="sm" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">
+                            <Link to="/auth/forgot-password" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">
                                 Forgot password?
                             </Link>
                         </div>

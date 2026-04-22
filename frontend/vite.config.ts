@@ -82,25 +82,47 @@ export default defineConfig({
     },
   },
   build: {
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // IMPORTANT: Check specifics FIRST before broad 'react' match
-            // lucide-react contains 'react' so it must be checked before the generic react check
+            // Priority 1: Large libraries that should be on their own
+            if (id.includes('recharts')) {
+              return 'vendor-charts';
+            }
             if (id.includes('lucide-react')) {
               return 'vendor-icons';
             }
-            if (id.includes('react-datepicker')) {
-              return 'vendor-utils';
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase';
             }
-            if (id.includes('react-dom') || id.includes('react-router') || id.includes('/react/')) {
+            if (id.includes('react-markdown') || id.includes('remark-gfm')) {
+              return 'vendor-markdown';
+            }
+
+            // Priority 2: React core (keep together to avoid circular dependencies)
+            if (
+              id.includes('react/') || 
+              id.includes('react-dom/') || 
+              id.includes('react-router/') || 
+              id.includes('react-router-dom/') ||
+              id.includes('scheduler/')
+            ) {
               return 'vendor-react';
             }
-            if (id.includes('axios') || id.includes('date-fns')) {
+
+            // Priority 3: Utility groups
+            if (
+              id.includes('axios') || 
+              id.includes('react-datepicker') || 
+              id.includes('date-fns') ||
+              id.includes('@dnd-kit')
+            ) {
               return 'vendor-utils';
             }
-            // All other node_modules go into vendor
+
+            // Fallback for other node_modules
             return 'vendor';
           }
         },

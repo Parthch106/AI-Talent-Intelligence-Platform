@@ -76,7 +76,7 @@ const PhaseGateDashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {interns.map((intern) => (
-          <Card key={intern.id} noPadding className="group border-[var(--border-color)] bg-[var(--card-bg)] hover:border-emerald-500/50 transition-all duration-500 backdrop-blur-xl relative overflow-hidden">
+          <Card key={intern.id} padding="none" className="group border-[var(--border-color)] bg-[var(--card-bg)] hover:border-emerald-500/50 transition-all duration-500 backdrop-blur-xl relative overflow-hidden">
             <div className="p-6 space-y-6">
               <div className="flex justify-between items-start">
                 <div className="space-y-1">

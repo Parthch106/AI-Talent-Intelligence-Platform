@@ -80,7 +80,7 @@ const MonitoringAttendancePage: React.FC = () => {
             const targetId = user?.role === 'INTERN' ? user?.id : selectedIntern;
             if (!targetId) return;
 
-            fetchHeatmapData(targetId);
+            fetchHeatmapData(targetId as number);
 
             const params: Record<string, unknown> = { 
                 intern_id: targetId,

@@ -114,7 +114,7 @@ const StipendManagementPage: React.FC = () => {
 
       <Card 
         className="overflow-hidden border-[var(--border-color)] bg-[var(--card-bg)] backdrop-blur-xl"
-        noPadding
+        padding="none"
       >
         <div className="p-6 border-b border-[var(--border-color)] flex justify-between items-center bg-white/[0.02]">
             <div className="flex items-center gap-2">

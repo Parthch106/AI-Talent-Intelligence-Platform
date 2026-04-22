@@ -126,7 +126,7 @@ const FullTimeOfferBuilderPage: React.FC = () => {
       {/* Offer List */}
       <div className="grid grid-cols-1 gap-6">
         {offers.map((offer) => (
-          <Card key={offer.id} noPadding className="group border-[var(--border-color)] bg-[var(--card-bg)] hover:border-blue-500/50 transition-all duration-500 backdrop-blur-xl relative overflow-hidden">
+          <Card key={offer.id} padding="none" className="group border-[var(--border-color)] bg-[var(--card-bg)] hover:border-blue-500/50 transition-all duration-500 backdrop-blur-xl relative overflow-hidden">
             <div className="p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
               <div className="flex items-center gap-5">
                 <div className="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20 group-hover:scale-110 transition-transform duration-500">
@@ -199,7 +199,7 @@ const FullTimeOfferBuilderPage: React.FC = () => {
       {/* Offer Generation Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-fade-in">
-          <Card noPadding className="w-full max-w-2xl border-[var(--border-color)] bg-[var(--card-bg)] shadow-2xl animate-scale-in">
+          <Card padding="none" className="w-full max-w-2xl border-[var(--border-color)] bg-[var(--card-bg)] shadow-2xl animate-scale-in">
             <div className="p-6 border-b border-[var(--border-color)] flex items-center justify-between bg-white/[0.02]">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">

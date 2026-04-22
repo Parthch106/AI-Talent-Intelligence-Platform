@@ -180,7 +180,7 @@ const MonitoringDashboard: React.FC = () => {
             setLoading(false);
             return;
         }
-        const targetId = selectedIntern || user?.id;
+        const targetId = (user?.role === 'INTERN' ? user.id : selectedIntern) as number;
         try {
             const [tasksRes, attendanceRes, performanceRes, reportsRes] = await Promise.all([
                 axios.get('/analytics/tasks/', { params: { intern_id: targetId } }),
@@ -245,19 +245,20 @@ const MonitoringDashboard: React.FC = () => {
         } else if (user?.role === 'INTERN') {
             // For interns, fetch data directly
             fetchData();
-            if (user.id) fetchAvailableSkills(user.id);
+            if (user.id) fetchAvailableSkills(user.id as number);
         }
     }, [user?.role, user?.id, fetchData, fetchInterns, fetchAvailableSkills]);
 
     // Fetch data when tab changes or selectedIntern is set - with proper chaining
     useEffect(() => {
+        const targetId = (user?.role === 'INTERN' ? user.id : selectedIntern) as number;
         // For managers, ensure an intern is selected
         if ((user?.role === 'ADMIN' || user?.role === 'MANAGER')) {
             if (interns.length > 0 && !selectedIntern) {
                 setSelectedIntern(interns[0].id);
             } else if (selectedIntern) {
                 fetchData();
-                fetchAvailableSkills(selectedIntern);
+                fetchAvailableSkills(targetId);
             }
         } else if (user?.role === 'INTERN') {
             // For interns, always fetch data

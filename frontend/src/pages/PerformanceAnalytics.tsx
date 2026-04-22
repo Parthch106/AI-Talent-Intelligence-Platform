@@ -58,7 +58,7 @@ const PerformanceAnalytics: React.FC = () => {
     // For Intern role, ensure selectedInternId is set to their own ID
     useEffect(() => {
         if (user?.role === 'INTERN') {
-            setSelectedInternId(user.id);
+            setSelectedInternId(user.id as number);
         }
     }, [user, setSelectedInternId]);
 

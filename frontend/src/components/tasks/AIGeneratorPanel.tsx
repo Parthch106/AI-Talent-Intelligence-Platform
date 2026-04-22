@@ -59,7 +59,7 @@ const AIGeneratorPanel: React.FC<AIGeneratorPanelProps> = ({
             const res = await axios.get('/projects/assignments/', { params: { intern_id: selectedIntern } });
             const assignments = res.data.results || res.data;
             const uniqueProjects = Array.from(new Set(assignments.map((a: { project: { id: number; name: string } }) => JSON.stringify({id: a.project.id, name: a.project.name}))))
-                .map((s: string) => JSON.parse(s));
+                .map((s: unknown) => JSON.parse(s as string));
             setProjects(uniqueProjects);
         } catch {
             console.error("Error fetching intern context");
