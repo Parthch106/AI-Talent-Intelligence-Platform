@@ -43,11 +43,13 @@ services:
           name: ai-talent-redis
           property: connectionString
 
-# 3. Managed PostgreSQL Database
+  # 3. Redis Instance for Celery
+  - type: redis
+    name: ai-talent-redis
+    plan: free # Note: Free redis is available in some regions
+    ipAllowList: [] # Allow all internal traffic
+
+# Managed PostgreSQL Database
 databases:
   - name: ai-talent-db
     plan: free
-
-# 4. Managed Redis for Celery
-repo: https://github.com/Parthch106/AI-Talent-Intelligence-Platform
-# (Note: Redis on Render usually needs to be added manually or via private network)
