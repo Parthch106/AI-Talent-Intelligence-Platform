@@ -1,6 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
-import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 interface User {
     id: number | string;
@@ -34,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
 
     useEffect(() => {
-        // 1. Initial check for legacy storage
+        // Initial check for storage
         const storedUser = localStorage.getItem('user');
         if (token && storedUser) {
             try {
@@ -43,29 +41,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.error("Failed to parse user from local storage", e);
             }
         }
-
-        // 2. Listen to Supabase Auth Changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-            if (event === 'SIGNED_IN' && session) {
-                const supabaseUser: User = {
-                    id: session.user.id,
-                    email: session.user.email || '',
-                    role: (session.user.user_metadata?.role as string) || 'USER',
-                    full_name: (session.user.user_metadata?.full_name as string) || '',
-                };
-                setUser(supabaseUser);
-                setToken(session.access_token);
-            } else if (event === 'SIGNED_OUT') {
-                setUser(null);
-                setToken(null);
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-            }
-        });
-
-        return () => {
-            subscription.unsubscribe();
-        };
     }, [token]);
 
     const login = (newToken: string, newUser: User) => {
@@ -75,8 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(newUser);
     };
 
-    const logout = async () => {
-        await supabase.auth.signOut();
+    const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setToken(null);

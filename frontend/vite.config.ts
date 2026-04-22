@@ -102,7 +102,7 @@ export default defineConfig({
               return 'vendor-ui';
             }
             // Group 3: Backend & Data libs
-            if (id.includes('@supabase') || id.includes('axios')) {
+            if (id.includes('axios')) {
               return 'vendor-data';
             }
             // Group 4: Markdown & Processing

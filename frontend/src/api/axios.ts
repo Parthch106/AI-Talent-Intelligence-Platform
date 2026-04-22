@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { supabase } from '@/lib/supabase';
 
 
 const api = axios.create({
@@ -13,17 +12,9 @@ const api = axios.create({
 
 api.interceptors.request.use(
     async (config) => {
-        // Try to get legacy token from localStorage
-        let token = localStorage.getItem('token');
+        // Get token from localStorage
+        const token = localStorage.getItem('token');
         
-        // Fallback: Check for Supabase session if legacy token is missing
-        if (!token) {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                token = session.access_token;
-            }
-        }
-
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
         }
