@@ -418,15 +418,19 @@ const LearningPath: React.FC = () => {
             ? { target_role: targetRole }
             : { type: 'skill', skills: selectedSkills, title: customPathTitle || 'Custom Skill Path', basics_only: basicsOnly };
 
-        toast.promise(api.post(`/analytics/learning-path/${effectiveInternId}/`, payload), {
-            loading: 'Synthesizing adaptive roadmap through neural graph...',
-            success: (res) => {
-                loadPath(effectiveInternId);
-                if (isManagerOrAdmin) fetchRecommendation(effectiveInternId);
-                return type === 'role' ? 'Learning path successfully anchored' : 'Custom skill path successfully anchored';
-            },
-            error: 'Failed to synthesize adaptive roadmap'
-        });
+        const internIdNum = Number(effectiveInternId);
+        toast.promise(
+            api.post(`/analytics/learning-path/${internIdNum}/`, payload).then(res => {
+                loadPath(internIdNum);
+                if (isManagerOrAdmin) fetchRecommendation(internIdNum);
+                return res;
+            }),
+            {
+                loading: 'Synthesizing adaptive roadmap through neural graph...',
+                success: type === 'role' ? 'Learning path successfully anchored' : 'Custom skill path successfully anchored',
+                error: 'Failed to synthesize adaptive roadmap'
+            }
+        );
     };
 
     const handleSuggestSkills = async () => {
@@ -458,46 +462,55 @@ const LearningPath: React.FC = () => {
     const handleGenerateMilestoneTask = async (skill: string, index: number) => {
         if (!effectiveInternId) return;
         
-        toast.promise(api.post('/analytics/learning-path/generate-milestone-task/', {
-            intern_id: effectiveInternId,
-            milestone_index: index,
-            skill: skill,
-            goal: aiGoal || targetRole,
-            basics_only: basicsOnly
-        }), {
-            loading: 'Building hands-on neural task prototype...',
-            success: async (res) => {
+        const internIdNum = Number(effectiveInternId);
+        toast.promise(
+            api.post('/analytics/learning-path/generate-milestone-task/', {
+                intern_id: internIdNum,
+                milestone_index: index,
+                skill: skill,
+                goal: aiGoal || targetRole,
+                basics_only: basicsOnly
+            }).then(res => {
                 if (res.data.task) {
-                    const pathRes = await api.get(`/analytics/learning-path/${effectiveInternId}/`);
-                    setPath(pathRes.data);
-                    const updatedMilestone = pathRes.data.milestones[index];
-                    if (updatedMilestone) setActiveMilestoneModal(updatedMilestone);
-                    return `AI task prototype generated for ${skill}`;
+                    api.get(`/analytics/learning-path/${internIdNum}/`).then(pathRes => {
+                        setPath(pathRes.data);
+                        const updatedMilestone = pathRes.data.milestones[index];
+                        if (updatedMilestone) setActiveMilestoneModal(updatedMilestone);
+                    });
                 }
-                return 'Prototype generation failed';
-            },
-            error: 'Neural task synthesis protocol failure'
-        });
+                return res;
+            }),
+            {
+                loading: 'Building hands-on neural task prototype...',
+                success: `AI task prototype generated for ${skill}`,
+                error: 'Neural task synthesis protocol failure'
+            }
+        );
     };
 
     const handleReviewMilestoneTask = async (index: number, action: 'APPROVE' | 'REJECT') => {
         if (!effectiveInternId) return;
         
-        toast.promise(api.post('/analytics/learning-path/review-milestone-task/', {
-            intern_id: effectiveInternId,
-            milestone_index: index,
-            action: action
-        }), {
-            loading: 'Synchronizing mentor review decision...',
-            success: async (res) => {
-                const pathRes = await api.get(`/analytics/learning-path/${effectiveInternId}/`);
-                setPath(pathRes.data);
-                const updatedMilestone = pathRes.data.milestones[index];
-                if (updatedMilestone) setActiveMilestoneModal(updatedMilestone);
-                return res.data.message || `Task ${action === 'APPROVE' ? 'authorized' : 'decommissioned'}`;
-            },
-            error: 'Review synchronization failure'
-        });
+        const internIdNum = Number(effectiveInternId);
+        toast.promise(
+            api.post('/analytics/learning-path/review-milestone-task/', {
+                intern_id: internIdNum,
+                milestone_index: index,
+                action: action
+            }).then(res => {
+                api.get(`/analytics/learning-path/${internIdNum}/`).then(pathRes => {
+                    setPath(pathRes.data);
+                    const updatedMilestone = pathRes.data.milestones[index];
+                    if (updatedMilestone) setActiveMilestoneModal(updatedMilestone);
+                });
+                return res;
+            }),
+            {
+                loading: 'Synchronizing mentor review decision...',
+                success: `Task ${action === 'APPROVE' ? 'authorized' : 'decommissioned'}`,
+                error: 'Review synchronization failure'
+            }
+        );
     };
 
     const handleInternSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -516,12 +529,13 @@ const LearningPath: React.FC = () => {
 
     useEffect(() => {
         if (effectiveInternId) {
-            loadPath(effectiveInternId);
-            loadOptimalDiff(effectiveInternId);
-            loadTasks(effectiveInternId);
+            const internIdNum = Number(effectiveInternId);
+            loadPath(internIdNum);
+            loadOptimalDiff(internIdNum);
+            loadTasks(internIdNum);
             fetchAvailableSkills();
             setTaskPage(1);
-            if (isManagerOrAdmin) fetchRecommendation(effectiveInternId);
+            if (isManagerOrAdmin) fetchRecommendation(internIdNum);
         }
     }, [effectiveInternId, loadPath, loadOptimalDiff, loadTasks, fetchRecommendation, fetchAvailableSkills, isManagerOrAdmin]);
 
@@ -1098,7 +1112,7 @@ const LearningPath: React.FC = () => {
                             <RLRecommendationCard
                                 recommendation={recommendation}
                                 loading={loadingRec}
-                                onRefresh={() => fetchRecommendation(effectiveInternId)}
+                                onRefresh={() => fetchRecommendation(Number(effectiveInternId))}
                             />
                         )}
 
