@@ -78,11 +78,18 @@ class DashboardStatsView(APIView):
             data['role'] = 'ADMIN'
             
         elif str(user.role) == str(User.Role.MANAGER):
-            # My Interns (assigned to my projects)
+            # My Interns (In my department)
             try:
-                my_interns_count = InternProfile.objects.filter(user__assigned_projects__project__mentor=user).distinct().count()
-                data['total_interns'] = my_interns_count
+                if not user.department:
+                    data['total_interns'] = 0
+                else:
+                    my_interns_count = User.objects.filter(
+                        role=User.Role.INTERN,
+                        department=user.department
+                    ).count()
+                    data['total_interns'] = my_interns_count
             except Exception as e:
+                logger.error(f"Error calculating department interns for manager {user.email}: {e}")
                 data['total_interns'] = 0
             
             # My Projects

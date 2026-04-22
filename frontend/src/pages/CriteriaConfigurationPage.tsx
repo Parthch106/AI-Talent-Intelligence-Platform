@@ -35,7 +35,7 @@ const CriteriaConfigurationPage: React.FC = () => {
 
   const handlePreview = async () => {
     setPreviewLoading(true);
-    toast.promise(previewCriteria(activeCriteria), {
+    toast.promise(previewCriteria({ ...activeCriteria, phase: selectedPhase }), {
       loading: 'Analyzing cohort impact...',
       success: (result) => {
         setPreview(result);
@@ -50,9 +50,10 @@ const CriteriaConfigurationPage: React.FC = () => {
   };
 
   const handleSave = async () => {
+    const dataToSave = { ...activeCriteria, phase: selectedPhase, is_active: true };
     const saveAction = activeCriteria.id 
-      ? createCriteria({ ...activeCriteria, id: undefined, is_active: true })
-      : createCriteria({ ...activeCriteria, is_active: true });
+      ? createCriteria({ ...dataToSave, id: undefined })
+      : createCriteria(dataToSave);
 
     toast.promise(saveAction, {
       loading: 'Updating protocol thresholds...',

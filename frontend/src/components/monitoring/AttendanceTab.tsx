@@ -19,6 +19,7 @@ interface AttendanceTabProps {
     setMonthFilter: (value: number | 'all') => void;
     yearFilter: number | 'all';
     setYearFilter: (value: number | 'all') => void;
+    canEdit?: boolean;
 }
 
 // Sub-component for individual Stat Cards
@@ -55,7 +56,8 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
     monthFilter,
     setMonthFilter,
     yearFilter,
-    setYearFilter
+    setYearFilter,
+    canEdit
 }) => {
     const attendanceArray = useMemo(() => Array.isArray(attendance) ? attendance : [], [attendance]);
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -123,7 +125,7 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
                     <h2 className="text-2xl font-bold text-[var(--text-main)]">Attendance Tracking</h2>
                     <p className="text-[var(--text-dim)] mt-1">Monitor daily attendance records</p>
                 </div>
-                <Button onClick={onMarkAttendance} icon={<Plus size={18} />} gradient="emerald">Mark Attendance</Button>
+                {canEdit && <Button onClick={onMarkAttendance} icon={<Plus size={18} />} gradient="emerald">Mark Attendance</Button>}
             </div>
 
             <div className="flex flex-wrap items-center gap-6 p-1">

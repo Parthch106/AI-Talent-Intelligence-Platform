@@ -56,8 +56,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
         { name: 'Analysis', path: '/analytics/skill-intelligence', icon: <Brain size={20} />, roles: ['ADMIN', 'MANAGER'] },
         { name: 'Learning Path', path: '/analytics/learning-paths', icon: <BookOpen size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
         { name: 'Performance', path: '/analytics/performance', icon: <Activity size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
-        { name: 'Report Analytics', path: '/analytics/weekly-reports', icon: <TrendingUp size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
-        { name: 'Criteria Config', path: '/analytics/criteria', icon: <Zap size={20} />, roles: ['ADMIN'], badge: 'V2' },
     ];
 
     // Monitoring sub-pages (separate pages, not tabs)
@@ -66,16 +64,24 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
         { name: 'Tasks', path: '/management/tasks', icon: <CheckSquare size={18} />, roles: ['ADMIN', 'MANAGER'] },
         { name: 'Attendance', path: '/management/attendance', icon: <Calendar size={18} />, roles: ['ADMIN', 'MANAGER'] },
         { name: 'Reports (V1)', path: '/management/reports', icon: <ReportIcon size={18} />, roles: ['ADMIN', 'MANAGER'] },
+    ];
+
+    const careerNavItems: NavItem[] = [
         { name: 'Weekly Reports', path: '/management/weekly-reports', icon: <BarChart2 size={18} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
-        { name: 'Stipends', path: '/management/stipends', icon: <CreditCard size={18} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
-        { name: 'Phase Gates', path: '/management/phase-gates', icon: <Award size={18} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
-        { name: 'PPO Offers', path: '/management/offers', icon: <Send size={18} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
+        { name: 'Stipend Manager', path: '/management/stipends', icon: <CreditCard size={18} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
+        { name: 'Phase Gate Review', path: '/management/phase-gates', icon: <Award size={18} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
+        { name: 'PPO Offer Builder', path: '/management/offers', icon: <Send size={18} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
+        { name: 'Certification Registry', path: '/analytics/certificates', icon: <FileText size={18} />, roles: ['ADMIN'], badge: 'V2' },
+        { name: 'Gate Criteria', path: '/analytics/criteria', icon: <Zap size={18} />, roles: ['ADMIN'], badge: 'V2' },
     ];
 
     const internNavItems: NavItem[] = [
         { name: 'Upload Report', path: '/workspace/submit-report', icon: <Upload size={20} />, roles: ['INTERN'] },
         { name: 'My Tasks', path: '/workspace/my-tasks', icon: <Target size={20} />, roles: ['INTERN'] },
         { name: 'My Attendance', path: '/workspace/my-attendance', icon: <Monitor size={20} />, roles: ['INTERN'] },
+    ];
+
+    const internCareerNavItems: NavItem[] = [
         { name: 'Weekly Reports', path: '/workspace/weekly-reports', icon: <ClipboardList size={20} />, roles: ['INTERN'], badge: 'V2' },
         { name: 'Career Timeline', path: '/career/phase-timeline', icon: <GitBranch size={20} />, roles: ['INTERN'], badge: 'V2' },
     ];
@@ -292,6 +298,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
                     </div>
                 )}
 
+                {/* Career Management Navigation */}
+                {filterByRole(careerNavItems).length > 0 && (
+                    <div className="mb-4">
+                        <div className={`px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 transition-all duration-500 overflow-hidden whitespace-nowrap ${isExpanded ? 'opacity-100 max-h-8' : 'opacity-0 max-h-0'}`}>
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)] flex-shrink-0" />
+                            <span>Career Pipeline (V2)</span>
+                        </div>
+                        <ul className="space-y-0.5">
+                            {filterByRole(careerNavItems).map((item) => renderNavItem(item, 'admin'))}
+                        </ul>
+                    </div>
+                )}
+
                 {/* Intern Navigation */}
                 {filterByRole(internNavItems).length > 0 && (
                     <div className="mb-4">
@@ -301,6 +320,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
                         </div>
                         <ul className="space-y-0.5">
                             {filterByRole(internNavItems).map((item) => renderNavItem(item, 'intern'))}
+                        </ul>
+                    </div>
+                )}
+
+                {/* Intern Career Navigation */}
+                {filterByRole(internCareerNavItems).length > 0 && (
+                    <div className="mb-4">
+                        <div className={`px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 transition-all duration-500 overflow-hidden whitespace-nowrap ${isExpanded ? 'opacity-100 max-h-8' : 'opacity-0 max-h-0'}`}>
+                            <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)] flex-shrink-0" />
+                            <span>My Career (V2)</span>
+                        </div>
+                        <ul className="space-y-0.5">
+                            {filterByRole(internCareerNavItems).map((item) => renderNavItem(item, 'intern'))}
                         </ul>
                     </div>
                 )}

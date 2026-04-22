@@ -40,7 +40,11 @@ from apps.analytics.models import (
 )
 from apps.analytics.serializers import (
     WeeklyReportV2Serializer,
-    WeeklyReportCommentV2Serializer
+    WeeklyReportCommentV2Serializer,
+    CertificationRecordSerializer,
+    EmploymentStageSerializer,
+    CertificationCriteriaSerializer,
+    PhaseEvaluationSerializer,
 )
 from apps.analytics.services.weekly_report_parser import parse_weekly_report
 from apps.notifications.signals import (
@@ -93,11 +97,18 @@ class DashboardStatsView(APIView):
             data['role'] = 'ADMIN'
             
         elif str(user.role) == str(User.Role.MANAGER):
-            # My Interns (assigned to my projects)
+            # My Interns (In my department)
             try:
-                my_interns_count = InternProfile.objects.filter(user__assigned_projects__project__mentor=user).distinct().count()
-                data['total_interns'] = my_interns_count
+                if not user.department:
+                    data['total_interns'] = 0
+                else:
+                    my_interns_count = User.objects.filter(
+                        role=User.Role.INTERN,
+                        department=user.department
+                    ).count()
+                    data['total_interns'] = my_interns_count
             except Exception as e:
+                logger.error(f"Error calculating department interns for manager {user.email}: {e}")
                 data['total_interns'] = 0
             
             # My Projects
@@ -436,9 +447,15 @@ class TaskTrackingView(APIView):
         """Create a new task tracking entry."""
         user = request.user
 
-        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+        if user.role == User.Role.ADMIN:
             return Response(
-                {'error': 'Permission denied'},
+                {'error': 'Admins have read-only access to tasks. Only Managers can create tasks.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if user.role != User.Role.MANAGER:
+            return Response(
+                {'error': 'Permission denied. Only managers can create tasks.'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -489,6 +506,12 @@ class TaskTrackingView(APIView):
     def patch(self, request, task_id=None):
         """Update task status."""
         user = request.user
+
+        if user.role == User.Role.ADMIN:
+            return Response(
+                {'error': 'Admins have read-only access to tasks. Status updates are reserved for Interns and Managers.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         
         if not task_id:
             task_id = request.data.get('task_id')
@@ -585,6 +608,46 @@ class TaskTrackingView(APIView):
             'actual_hours': task.actual_hours
         })
 
+    def delete(self, request, task_id=None):
+        """Delete a task."""
+        user = request.user
+
+        if user.role != User.Role.MANAGER:
+            return Response(
+                {'error': 'Permission denied. Only managers can delete tasks.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if not task_id:
+            task_id = request.data.get('task_id')
+
+        if not task_id:
+            return Response(
+                {'error': 'task_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            task = TaskTracking.objects.get(id=task_id)
+        except TaskTracking.DoesNotExist:
+            return Response(
+                {'error': 'Task not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Validate manager access to intern's department
+        target_intern = User.objects.get(id=task.intern_id)
+        if target_intern.department != user.department:
+            return Response(
+                {'error': 'You can only delete tasks for interns in your department'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        task.delete()
+        return Response({
+            'message': 'Task deleted successfully'
+        }, status=status.HTTP_200_OK)
+
 
 class TaskEvaluationView(APIView):
     """
@@ -663,9 +726,15 @@ class TaskEvaluationView(APIView):
         """Update task evaluation (for managers to submit evaluation)."""
         user = request.user
         
-        if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
+        if user.role == User.Role.ADMIN:
             return Response(
-                {'error': 'Permission denied. Only managers and admins can evaluate tasks.'},
+                {'error': 'Admins have read-only access to task evaluations. Only Managers can evaluate tasks.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if user.role != User.Role.MANAGER:
+            return Response(
+                {'error': 'Permission denied. Only managers can evaluate tasks.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -894,8 +963,15 @@ class AttendanceRecordView(APIView):
     def post(self, request):
         """Create or update attendance record."""
         user = request.user
+        
+        # Admins cannot mark or update attendance
+        if user.role == User.Role.ADMIN:
+            return Response(
+                {'error': 'Admins have read-only access to attendance data.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
-        # Interns can mark their own attendance
+        # Interns can mark their own attendance, Managers can mark for interns
         intern_id = request.data.get('intern_id', user.id)
         date = request.data.get('date')
         status_val = request.data.get('status', 'PRESENT')
@@ -2609,8 +2685,24 @@ class AIChatBotView(APIView):
             from apps.analytics.services.chatbot_service import get_chatbot_service
             service = get_chatbot_service()
             
-            # Optionally add user context for personalization
+            # Add user context for personalization
             user_context = f"User Name: {request.user.full_name or request.user.email}, Role: {request.user.role}"
+            
+            # Add V2 specific context if available for Interns
+            if str(request.user.role) == 'INTERN':
+                try:
+                    profile = InternProfileV2.objects.get(user=request.user)
+                    user_context += f", Current Stage: {profile.get_status_display()}"
+                    
+                    # Try to fetch latest prediction
+                    app = Application.objects.filter(intern=request.user).first()
+                    if app:
+                        pred = ModelPrediction.objects.filter(application=app).first()
+                        if pred:
+                            user_context += f", AI Suitability Score: {round(pred.suitability_score * 100, 1)}%"
+                except Exception:
+                    pass
+            
             history_with_context = chat_history + [{"role": "system", "content": f"Personalized context: {user_context}"}]
             
             result = service.get_response(user_message, chat_history=history_with_context)
@@ -2679,9 +2771,7 @@ class EmploymentStageViewSet(viewsets.ModelViewSet):
             return EmploymentStage.objects.filter(intern=user).select_related('intern', 'promoted_by')
         return EmploymentStage.objects.all().select_related('intern', 'promoted_by')
 
-    def get_serializer_class(self):
-        from apps.analytics.serializers import EmploymentStageSerializer
-        return EmploymentStageSerializer
+    serializer_class = EmploymentStageSerializer
 
     def perform_create(self, serializer):
         serializer.save()
@@ -2713,12 +2803,9 @@ class PhaseEvaluationViewSet(viewsets.ModelViewSet):
             return PhaseEvaluation.objects.filter(intern=user).select_related('intern', 'employment_stage', 'evaluated_by')
         return PhaseEvaluation.objects.all().select_related('intern', 'employment_stage', 'evaluated_by')
 
-    def get_serializer_class(self):
-        from apps.analytics.serializers import PhaseEvaluationSerializer
-        return PhaseEvaluationSerializer
+    serializer_class = PhaseEvaluationSerializer
 
     def perform_create(self, serializer):
-        from apps.analytics.serializers import PhaseEvaluationSerializer
         stage_id = self.request.data.get('employment_stage')
         try:
             stage = EmploymentStage.objects.get(pk=stage_id)
@@ -2840,33 +2927,113 @@ class CertificationCriteriaViewSet(viewsets.ModelViewSet):
             return [IsManager()]
         return [IsAdmin()]
     queryset = CertificationCriteria.objects.all().select_related('created_by')
-    def get_serializer_class(self):
-        from apps.analytics.serializers import CertificationCriteriaSerializer
-        return CertificationCriteriaSerializer
+    serializer_class = CertificationCriteriaSerializer
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+
+class CertificationRecordViewSet(viewsets.ModelViewSet):
+    """
+    Admin: /api/analytics/admin/certificates/
+    Intern: /api/analytics/certificates/me/
+    """
+    serializer_class = CertificationRecordSerializer
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve'] and str(self.request.user.role) == 'INTERN':
+            return [permissions.IsAuthenticated()]
+        return [IsAdmin()]
+
+    def get_queryset(self):
+        user = self.request.user
+        if str(user.role) == 'INTERN':
+            return CertificationRecord.objects.filter(intern=user).select_related('intern')
+        return CertificationRecord.objects.all().select_related('intern')
+
+    @action(detail=True, methods=['patch'], url_path='revoke')
+    def revoke_cert(self, request, pk=None):
+        from django.utils import timezone
+        cert = self.get_object()
+        if cert.is_revoked:
+            return Response({'detail': 'Already revoked.'}, status=400)
+        
+        reason = request.data.get('reason')
+        if not reason:
+            return Response({'detail': 'Reason is required.'}, status=400)
+            
+        cert.is_revoked = True
+        cert.revocation_reason = reason
+        cert.revoked_at = timezone.now()
+        cert.revoked_by = request.user
+        cert.save()
+        return Response(CertificationRecordSerializer(cert).data)
 
 
 class CriteriaPreviewView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     def post(self, request):
-        from .services.certification_service import evaluate_criteria
+        """
+        Calculates how many interns would pass/fail if the proposed thresholds were applied.
+        """
+        from .services.certification_service import evaluate_criteria, get_aggregated_scores
+        from apps.accounts.models import InternProfile
+        from django.utils import timezone
+        
         phase = request.data.get('phase')
-        if not phase: return Response({'detail': 'phase is required.'}, status=400)
+        if not phase: 
+            return Response({'detail': 'phase is required.'}, status=400)
+            
+        # Create a mock criteria object with the proposed thresholds
+        mock_criteria = CertificationCriteria(
+            phase=phase,
+            min_overall_score=request.data.get('min_overall_score', 0),
+            min_productivity_score=request.data.get('min_productivity_score', 0),
+            min_quality_score=request.data.get('min_quality_score', 0),
+            min_engagement_score=request.data.get('min_engagement_score', 0),
+            min_attendance_pct=request.data.get('min_attendance_pct', 0),
+            min_weekly_reports_submitted=request.data.get('min_weekly_reports_submitted', 0),
+        )
+
+        # Get interns in the corresponding status
+        # PHASE_1 gate affects ACTIVE_INTERN, PHASE_2 affects STIPEND_INTERN
+        target_status = 'ACTIVE_INTERN' if phase == 'PHASE_1' else 'STIPEND_INTERN'
+        if phase == 'PPO': target_status = 'STIPEND_INTERN'
+        
+        profiles = InternProfile.objects.filter(status=target_status).select_related('user')
+        
+        would_pass = 0
+        would_fail = 0
+        
+        for profile in profiles:
+            # Aggregate scores for the last 6 months (typical phase duration)
+            start_date = profile.join_date or (timezone.now().date() - timezone.timedelta(days=180))
+            scores = get_aggregated_scores(profile.user, start_date, timezone.now().date())
+            
+            eval_result = evaluate_criteria(scores, mock_criteria)
+            if eval_result['passed']:
+                would_pass += 1
+            else:
+                would_fail += 1
+        
+        # Calculate delta compared to current active criteria if it exists
         try:
-            criteria = CertificationCriteria.objects.filter(phase=phase, is_active=True).latest('created_at')
+            active_criteria = CertificationCriteria.objects.filter(phase=phase, is_active=True).latest('created_at')
+            current_pass = 0
+            for profile in profiles:
+                start_date = profile.join_date or (timezone.now().date() - timezone.timedelta(days=180))
+                scores = get_aggregated_scores(profile.user, start_date, timezone.now().date())
+                if evaluate_criteria(scores, active_criteria)['passed']:
+                    current_pass += 1
+            delta = would_pass - current_pass
         except:
-            return Response({'detail': 'No active criteria.'}, status=404)
-        scores = {
-            'overall_score': float(request.data.get('overall_score', 0)),
-            'productivity_score': float(request.data.get('productivity_score', 0)),
-            'quality_score': float(request.data.get('quality_score', 0)),
-            'engagement_score': float(request.data.get('engagement_score', 0)),
-            'attendance_pct': float(request.data.get('attendance_pct', 0)),
-            'weekly_reports_submitted': int(request.data.get('weekly_reports_submitted', 0)),
-        }
-        result = evaluate_criteria(scores, criteria)
-        return Response(result)
+            delta = 0
+
+        return Response({
+            'would_pass': would_pass,
+            'would_fail': would_fail,
+            'total_affected': would_pass + would_fail,
+            'delta': delta
+        })
 
 
 from rest_framework.decorators import api_view, permission_classes
@@ -2892,11 +3059,17 @@ def verify_certificate(request, unique_cert_id):
     return JsonResponse({
         'valid':        not cert.is_revoked,
         'is_revoked':   cert.is_revoked,
+        'unique_id':    str(cert.unique_cert_id),
         'intern_name':  cert.intern.full_name or cert.intern.email,
+        'intern_email': cert.intern.email,
         'phase':        cert.cert_type,
+        'phase_display': cert.get_cert_type_display(),
         'issued_at':    str(cert.issue_date) if cert.issue_date else None,
         'revoked_at':   str(cert.revoked_at.date()) if cert.revoked_at else None,
         'revoke_reason': cert.revocation_reason if cert.is_revoked else None,
+        'scores':       cert.scores_snapshot,
+        'criteria':     cert.criteria_snapshot,
+        'overall_score': cert.overall_score_at_issue,
     })
 
 

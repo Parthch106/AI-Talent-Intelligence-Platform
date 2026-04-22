@@ -433,7 +433,8 @@ const MonitoringTasksPage: React.FC = () => {
                         <TasksTab
                             tasks={tasks}
                             onAddTask={() => openModal('task')}
-                            canCreate={user?.role === 'ADMIN' || user?.role === 'MANAGER'}
+                            canCreate={user?.role === 'MANAGER'}
+                            userRole={user?.role || 'INTERN'}
                             onStatusChange={handleTaskStatusChange}
                             onRefresh={fetchData}
                             internId={selectedIntern || undefined}

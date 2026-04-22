@@ -47,6 +47,7 @@ const StipendManagementPage     = lazy(() => import('./pages/StipendManagementPa
 const CriteriaConfigurationPage = lazy(() => import('./pages/CriteriaConfigurationPage'));
 const PhaseGateDashboard        = lazy(() => import('./pages/PhaseGateDashboard'));
 const FullTimeOfferBuilderPage  = lazy(() => import('./pages/FullTimeOfferBuilderPage'));
+const PublicVerifyPage         = lazy(() => import('./pages/PublicVerifyPage'));
 
 
 const AITaskRedirect: React.FC = () => {
@@ -68,6 +69,7 @@ const App: React.FC = () => {
                 <Route path="/auth/forgot-password" element={<ForgotPassword />} />
                 <Route path="/auth/verify-otp" element={<VerifyOTP />} />
                 <Route path="/auth/reset-password" element={<ResetPassword />} />
+                <Route path="/verify/:certId" element={<PublicVerifyPage />} />
                 <Route path="/staff-onboarding-portal-v2" element={<StaffPortal />} />
                 <Route path="/login" element={<Navigate to="/auth/login" replace />} />
                 <Route path="/register" element={<Navigate to="/auth/register" replace />} />

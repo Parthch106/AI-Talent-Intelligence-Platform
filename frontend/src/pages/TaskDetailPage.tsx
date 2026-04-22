@@ -376,7 +376,7 @@ const TaskDetailPage: React.FC = () => {
                                 <ChevronRight size={18} />
                             </button>
                         </div>
-                        {isManager && (
+                        {user?.role === 'MANAGER' && (
                             <Button 
                                 variant="outline" 
                                 size="sm" 
@@ -505,8 +505,9 @@ const TaskDetailPage: React.FC = () => {
                                                 {[1,2,3,4,5].map(s => (
                                                     <button 
                                                         key={s} 
+                                                        disabled={user?.role === 'ADMIN'}
                                                         onClick={() => setEvaluation({...evaluation, quality_rating: s})}
-                                                        className={`w-12 h-12 rounded-xl transition-all flex items-center justify-center ${s <= evaluation.quality_rating ? 'bg-amber-500 shadow-lg shadow-amber-500/20 text-white rotate-3 scale-110' : 'text-slate-600 hover:text-amber-500/50'}`}
+                                                        className={`w-12 h-12 rounded-xl transition-all flex items-center justify-center ${s <= evaluation.quality_rating ? 'bg-amber-500 shadow-lg shadow-amber-500/20 text-white rotate-3 scale-110' : 'text-slate-600 hover:text-amber-500/50'} ${user?.role === 'ADMIN' ? 'cursor-default' : ''}`}
                                                     >
                                                         <Star size={24} fill={s <= evaluation.quality_rating ? 'currentColor' : 'none'} strokeWidth={s <= evaluation.quality_rating ? 0 : 2} />
                                                     </button>
@@ -525,9 +526,10 @@ const TaskDetailPage: React.FC = () => {
                                                 />
                                                 <input 
                                                     type="range" min="0" max="100" 
+                                                    disabled={user?.role === 'ADMIN'}
                                                     value={evaluation.code_review_score} 
                                                     onChange={(e) => setEvaluation({...evaluation, code_review_score: parseInt(e.target.value)})}
-                                                    className="absolute inset-0 w-full opacity-0 cursor-pointer" 
+                                                    className={`absolute inset-0 w-full opacity-0 ${user?.role === 'ADMIN' ? 'cursor-default' : 'cursor-pointer'}`}
                                                 />
                                             </div>
                                         </div>
@@ -537,16 +539,18 @@ const TaskDetailPage: React.FC = () => {
                                             <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-dim)]">Incidents / Bugs Flagged</label>
                                             <div className="flex items-center gap-6">
                                                 <button 
+                                                    disabled={user?.role === 'ADMIN'}
                                                     onClick={() => setEvaluation({...evaluation, bug_count: Math.max(0, evaluation.bug_count - 1)})}
-                                                    className="w-16 h-16 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-2xl flex items-center justify-center text-red-400 hover:bg-red-500/10 hover:border-red-500/30 transition-all text-2xl font-black"
+                                                    className={`w-16 h-16 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-2xl flex items-center justify-center text-red-400 hover:bg-red-500/10 hover:border-red-500/30 transition-all text-2xl font-black ${user?.role === 'ADMIN' ? 'cursor-default opacity-50' : ''}`}
                                                 >-</button>
                                                 <div className="flex-1 flex flex-col items-center">
                                                     <span className="text-4xl font-black text-[var(--text-main)] font-mono">{evaluation.bug_count}</span>
                                                     <span className="text-[8px] font-black uppercase text-[var(--text-dim)] tracking-widest mt-1">Total Issues</span>
                                                 </div>
                                                 <button 
+                                                    disabled={user?.role === 'ADMIN'}
                                                     onClick={() => setEvaluation({...evaluation, bug_count: evaluation.bug_count + 1})}
-                                                    className="w-16 h-16 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-2xl flex items-center justify-center text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all text-2xl font-black"
+                                                    className={`w-16 h-16 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-2xl flex items-center justify-center text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all text-2xl font-black ${user?.role === 'ADMIN' ? 'cursor-default opacity-50' : ''}`}
                                                 >+</button>
                                             </div>
                                         </div>
@@ -557,33 +561,45 @@ const TaskDetailPage: React.FC = () => {
                                     <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-dim)]">Strategic Feedback</label>
                                     <textarea 
                                         rows={5}
+                                        readOnly={user?.role === 'ADMIN'}
                                         value={evaluation.mentor_feedback}
                                         onChange={(e) => setEvaluation({...evaluation, mentor_feedback: e.target.value})}
-                                        className="w-full bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-[32px] px-8 py-6 text-sm text-[var(--text-main)] focus:border-purple-500/50 outline-none transition-all resize-none shadow-inner placeholder-[var(--text-muted)]"
-                                        placeholder="Provide deep architectural and practical feedback..."
+                                        className={`w-full bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-[32px] px-8 py-6 text-sm text-[var(--text-main)] focus:border-purple-500/50 outline-none transition-all resize-none shadow-inner placeholder-[var(--text-muted)] ${user?.role === 'ADMIN' ? 'cursor-default' : ''}`}
+                                        placeholder={user?.role === 'ADMIN' ? 'No feedback provided' : 'Provide deep architectural and practical feedback...'}
                                     />
                                 </div>
 
                                 <div className="flex items-center justify-between gap-6">
-                                    <button 
-                                        onClick={() => setEvaluation({...evaluation, rework_required: !evaluation.rework_required})}
-                                        className={`flex-1 flex items-center justify-center gap-4 p-6 rounded-[32px] border transition-all duration-500 group ${evaluation.rework_required ? 'bg-red-500 border-red-400 shadow-[0_0_30px_rgba(239,68,68,0.4)] text-white' : 'bg-[var(--bg-muted)] border-[var(--border-color)] text-[var(--text-dim)] hover:border-red-500/30 hover:text-red-400'}`}
-                                    >
-                                        <AlertTriangle size={24} className={evaluation.rework_required ? 'animate-bounce' : ''} />
-                                        <div className="text-left">
-                                            <p className="text-xs font-black uppercase tracking-widest">Mark for Rework</p>
-                                            <p className={`text-[10px] font-bold ${evaluation.rework_required ? 'text-white/80' : 'text-[var(--text-muted)]'}`}>Flags as incomplete</p>
+                                    {user?.role === 'MANAGER' && (
+                                        <button 
+                                            onClick={() => setEvaluation({...evaluation, rework_required: !evaluation.rework_required})}
+                                            className={`flex-1 flex items-center justify-center gap-4 p-6 rounded-[32px] border transition-all duration-500 group ${evaluation.rework_required ? 'bg-red-500 border-red-400 shadow-[0_0_30px_rgba(239,68,68,0.4)] text-white' : 'bg-[var(--bg-muted)] border-[var(--border-color)] text-[var(--text-dim)] hover:border-red-500/30 hover:text-red-400'}`}
+                                        >
+                                            <AlertTriangle size={24} className={evaluation.rework_required ? 'animate-bounce' : ''} />
+                                            <div className="text-left">
+                                                <p className="text-xs font-black uppercase tracking-widest">Mark for Rework</p>
+                                                <p className={`text-[10px] font-bold ${evaluation.rework_required ? 'text-white/80' : 'text-[var(--text-muted)]'}`}>Flags as incomplete</p>
+                                            </div>
+                                        </button>
+                                    )}
+                                    {user?.role === 'MANAGER' && (
+                                        <Button 
+                                            fullWidth 
+                                            gradient="purple" 
+                                            className="p-6 text-xs font-black tracking-[0.3em] uppercase hover:shadow-[0_0_40px_rgba(168,85,247,0.5)] shadow-2xl transition-all scale-100 active:scale-95"
+                                            onClick={handleSubmitEvaluation}
+                                            disabled={updating}
+                                        >
+                                            {updating ? 'Processing...' : 'Submit Evaluation'}
+                                        </Button>
+                                    )}
+                                    {user?.role === 'ADMIN' && (
+                                        <div className="w-full p-6 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-[32px] text-center">
+                                            <p className="text-xs font-black uppercase tracking-widest text-[var(--text-dim)] flex items-center justify-center gap-3">
+                                                <Award size={18} className="text-purple-400" /> Evaluation Records are Read-Only for Admins
+                                            </p>
                                         </div>
-                                    </button>
-                                    <Button 
-                                        fullWidth 
-                                        gradient="purple" 
-                                        className="p-6 text-xs font-black tracking-[0.3em] uppercase hover:shadow-[0_0_40px_rgba(168,85,247,0.5)] shadow-2xl transition-all scale-100 active:scale-95"
-                                        onClick={handleSubmitEvaluation}
-                                        disabled={updating}
-                                    >
-                                        {updating ? 'Processing...' : 'Submit Evaluation'}
-                                    </Button>
+                                    )}
                                 </div>
                             </Card>
                         ) : (
@@ -750,7 +766,7 @@ const TaskDetailPage: React.FC = () => {
                 >
                     <ChevronRight size={18} />
                 </button>
-                {isManager && (
+                {user?.role === 'MANAGER' && (
                     <Button 
                         fullWidth 
                         gradient="purple" 

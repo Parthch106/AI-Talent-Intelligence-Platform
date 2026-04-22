@@ -244,6 +244,7 @@ const MonitoringAttendancePage: React.FC = () => {
                             <AttendanceTab 
                                 attendance={attendance} 
                                 onMarkAttendance={openModal} 
+                                canEdit={user?.role === 'MANAGER' || user?.role === 'INTERN'}
                                 monthFilter={monthFilter}
                                 setMonthFilter={setMonthFilter}
                                 yearFilter={yearFilter}

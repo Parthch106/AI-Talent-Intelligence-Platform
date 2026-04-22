@@ -59,6 +59,7 @@ interface TasksTabProps {
     setDateFilter?: (date: string | null) => void;
     initialView?: 'grid' | 'list' | 'board';
     externalStatusFilter?: string | null;
+    userRole?: string;
 }
 
 const TasksTab: React.FC<TasksTabProps> = ({ 
@@ -74,7 +75,8 @@ const TasksTab: React.FC<TasksTabProps> = ({
     setYearFilter,
     dateFilter,
     initialView,
-    externalStatusFilter
+    externalStatusFilter,
+    userRole
 }) => {
     const tasksArray = Array.isArray(tasks) ? tasks : [];
 
@@ -280,16 +282,18 @@ const TasksTab: React.FC<TasksTabProps> = ({
     const TaskCard = ({ task }: { task: Task }) => (
         <div className="group relative bg-[var(--card-bg)] border border-[var(--border-color)] rounded-[32px] overflow-hidden p-8 transition-all duration-500 hover:bg-purple-500/[0.02] hover:border-purple-500/20 hover:shadow-2xl dark:hover:shadow-black/50">
             {/* Checkbox for bulk selection */}
-            <button
-                onClick={() => toggleTaskSelection(task.id)}
-                className="absolute top-4 left-4 z-10 p-1.5 rounded-lg border transition-all opacity-0 group-hover:opacity-100"
-            >
-                {selectedTasks.has(task.id) ? (
-                    <Check size={16} className="text-purple-400" />
-                ) : (
-                    <Square size={16} className="text-[var(--text-muted)]" />
-                )}
-            </button>
+            {userRole !== 'ADMIN' && (
+                <button
+                    onClick={() => toggleTaskSelection(task.id)}
+                    className="absolute top-4 left-4 z-10 p-1.5 rounded-lg border transition-all opacity-0 group-hover:opacity-100"
+                >
+                    {selectedTasks.has(task.id) ? (
+                        <Check size={16} className="text-purple-400" />
+                    ) : (
+                        <Square size={16} className="text-[var(--text-muted)]" />
+                    )}
+                </button>
+            )}
 
             <div className="flex justify-between items-start mb-6">
                 <div className="space-y-2 ml-6">
@@ -326,18 +330,20 @@ const TasksTab: React.FC<TasksTabProps> = ({
                              task.status.replace('_', ' ')}
                         </span>
                     </div>
-                    <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] p-1 rounded-xl glass-effect">
-                        {getAvailableStatuses(task).map((opt) => (
-                            <button
-                                key={opt.value}
-                                onClick={() => handleStatusChange(task.id, opt.value)}
-                                title={opt.label}
-                                className={`p-1.5 rounded-lg transition-all ${task.status === opt.value ? 'bg-purple-500/20 text-purple-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)] hover:bg-white/5'}`}
-                            >
-                                {<opt.icon size={14} className={opt.iconColor} />}
-                            </button>
-                        ))}
-                    </div>
+                    {userRole !== 'ADMIN' && (
+                        <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] p-1 rounded-xl glass-effect">
+                            {getAvailableStatuses(task).map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    onClick={() => handleStatusChange(task.id, opt.value)}
+                                    title={opt.label}
+                                    className={`p-1.5 rounded-lg transition-all ${task.status === opt.value ? 'bg-purple-500/20 text-purple-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)] hover:bg-white/5'}`}
+                                >
+                                    {<opt.icon size={14} className={opt.iconColor} />}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
             <h3 
@@ -365,7 +371,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
                             onClick={() => openEvaluationPage(task)}
                             className="px-4 py-1.5 rounded-lg border border-purple-400 bg-purple-600 !text-white shadow-[0_0_15px_rgba(147,51,234,0.4)] transition-all font-black uppercase tracking-widest text-[10px] hover:bg-purple-500 hover:scale-105 active:scale-95"
                         >
-                            {task.status === 'SUBMITTED' ? 'Evaluate Now' : 'Details'}
+                            {userRole === 'ADMIN' ? 'Details' : (task.status === 'SUBMITTED' ? 'Evaluate Now' : 'Details')}
                         </button>
                     )}
                 </div>
@@ -389,16 +395,18 @@ const TasksTab: React.FC<TasksTabProps> = ({
     const TaskListItem = ({ task }: { task: Task }) => (
         <div className="bg-[var(--card-bg)] hover:bg-purple-500/[0.03] border border-[var(--border-color)] hover:border-purple-500/20 rounded-2xl p-4 flex items-center gap-4 transition-all group">
             {/* Checkbox for bulk selection */}
-            <button
-                onClick={() => toggleTaskSelection(task.id)}
-                className="shrink-0"
-            >
-                {selectedTasks.has(task.id) ? (
-                    <Check size={16} className="text-purple-400" />
-                ) : (
-                    <Square size={16} className="text-[var(--text-muted)]" />
-                )}
-            </button>
+            {userRole !== 'ADMIN' && (
+                <button
+                    onClick={() => toggleTaskSelection(task.id)}
+                    className="shrink-0"
+                >
+                    {selectedTasks.has(task.id) ? (
+                        <Check size={16} className="text-purple-400" />
+                    ) : (
+                        <Square size={16} className="text-[var(--text-muted)]" />
+                    )}
+                </button>
+            )}
 
             {/* ID Column */}
             <div className="w-20 shrink-0 text-[10px] font-mono text-[var(--text-muted)] tracking-tighter truncate">{task.task_id}</div>
@@ -423,20 +431,22 @@ const TasksTab: React.FC<TasksTabProps> = ({
             </div>
 
             {/* Status Picker Column */}
-            <div className="w-40 shrink-0 flex justify-center">
-                <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] p-1 rounded-xl">
-                    {getAvailableStatuses(task).map((opt) => (
-                        <button
-                            key={opt.value}
-                            onClick={() => handleStatusChange(task.id, opt.value)}
-                            title={opt.label}
-                            className={`p-1.5 rounded-lg transition-all ${task.status === opt.value ? 'bg-purple-500/20 text-purple-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)] hover:bg-white/5'}`}
-                        >
-                            {<opt.icon size={14} className={opt.iconColor} />}
-                        </button>
-                    ))}
+            {userRole !== 'ADMIN' && (
+                <div className="w-40 shrink-0 flex justify-center">
+                    <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] p-1 rounded-xl">
+                        {getAvailableStatuses(task).map((opt) => (
+                            <button
+                                key={opt.value}
+                                onClick={() => handleStatusChange(task.id, opt.value)}
+                                title={opt.label}
+                                className={`p-1.5 rounded-lg transition-all ${task.status === opt.value ? 'bg-purple-500/20 text-purple-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)] hover:bg-white/5'}`}
+                            >
+                                {<opt.icon size={14} className={opt.iconColor} />}
+                            </button>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Priority Column */}
             <div className="w-24 shrink-0 flex justify-center">
@@ -457,7 +467,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
                             onClick={() => openEvaluationPage(task)}
                             className="bg-purple-600 !text-white hover:bg-purple-500 border-none shadow-[0_0_12px_rgba(147,51,234,0.3)] whitespace-nowrap"
                         >
-                            {task.status === 'SUBMITTED' ? 'Evaluate Now' : 'Details'}
+                            {userRole === 'ADMIN' ? 'Details' : (task.status === 'SUBMITTED' ? 'Evaluate Now' : 'Details')}
                         </Button>
                     )}
                 </div>
@@ -599,7 +609,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
             )}
 
             {/* Bulk Action Bar */}
-            {selectedTasks.size > 0 && (
+            {selectedTasks.size > 0 && userRole !== 'ADMIN' && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 
                     flex items-center gap-3 px-6 py-3 
                     bg-[var(--bg-muted)] border border-purple-500/50 

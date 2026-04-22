@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include, re_path
+from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse
@@ -23,6 +24,7 @@ def spa_catch_all(request, *args, **kwargs):
 
 
 urlpatterns = [
+    path("favicon.ico", RedirectView.as_view(url="/static/favicon.ico")),
     path("admin/", admin.site.urls),
     path("accounts/", include("apps.accounts.urls")),
     path("interns/", include("apps.interns.urls")),

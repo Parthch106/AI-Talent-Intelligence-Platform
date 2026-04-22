@@ -54,6 +54,7 @@ from .views import (
     CertificateRevokeView,
     CertificateReinstateView,
     WeeklyReportBulkPDFExportView,
+    CertificationRecordViewSet,
 )
 from .views_talent_intelligence import (
     AnalyzeInternView,
@@ -71,6 +72,7 @@ v2_router.register(r'stages',         EmploymentStageViewSet,       basename='em
 v2_router.register(r'evaluations',    PhaseEvaluationViewSet,       basename='phase-evaluation')
 v2_router.register(r'reports-v2',     WeeklyReportV2ViewSet,        basename='weekly-report-v2')
 v2_router.register(r'admin/criteria', CertificationCriteriaViewSet, basename='certification-criteria')
+v2_router.register(r'admin/certificates', CertificationRecordViewSet, basename='certification-record')
 v2_router.register(r'offers-v2',      FullTimeOfferViewSet,         basename='full-time-offer')
 
 urlpatterns = [
@@ -102,6 +104,7 @@ urlpatterns = [
 
     path('tasks/', TaskTrackingView.as_view(), name='task-tracking'),
     path('tasks/create/', TaskTrackingView.as_view(), name='task-create'),
+    path('tasks/<int:task_id>/', TaskTrackingView.as_view(), name='task-detail'),
     path('tasks/<int:task_id>/update-status/', TaskTrackingView.as_view(), name='task-update-status'),
     path('tasks/<int:task_id>/evaluate/', TaskEvaluationView.as_view(), name='task-evaluate'),
     path('tasks/evaluate/', TaskEvaluationView.as_view(), name='task-evaluate-list'),
