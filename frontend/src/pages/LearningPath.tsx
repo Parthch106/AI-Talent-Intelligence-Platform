@@ -10,6 +10,7 @@ import { useMonitoring } from '../context/MonitoringContext';
 import api from '../api/axios';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
+import { toast } from 'react-hot-toast';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -413,25 +414,19 @@ const LearningPath: React.FC = () => {
             return;
         }
 
-        setLoadingGenerate(true);
-        setError('');
-        try {
-            const payload = type === 'role' 
-                ? { target_role: targetRole }
-                : { type: 'skill', skills: selectedSkills, title: customPathTitle || 'Custom Skill Path', basics_only: basicsOnly };
+        const payload = type === 'role' 
+            ? { target_role: targetRole }
+            : { type: 'skill', skills: selectedSkills, title: customPathTitle || 'Custom Skill Path', basics_only: basicsOnly };
 
-            const res = await api.post(`/analytics/learning-path/${effectiveInternId}/`, payload);
-            if (res.status === 200 || res.status === 201) {
-                setSuccessMsg(type === 'role' ? 'Learning path generated!' : 'Custom skill path generated!');
-                setTimeout(() => setSuccessMsg(''), 3000);
+        toast.promise(api.post(`/analytics/learning-path/${effectiveInternId}/`, payload), {
+            loading: 'Synthesizing adaptive roadmap through neural graph...',
+            success: (res) => {
                 loadPath(effectiveInternId);
                 if (isManagerOrAdmin) fetchRecommendation(effectiveInternId);
-            }
-        } catch {
-            setError('Failed to generate path');
-        } finally {
-            setLoadingGenerate(false);
-        }
+                return type === 'role' ? 'Learning path successfully anchored' : 'Custom skill path successfully anchored';
+            },
+            error: 'Failed to synthesize adaptive roadmap'
+        });
     };
 
     const handleSuggestSkills = async () => {
@@ -441,91 +436,68 @@ const LearningPath: React.FC = () => {
         }
         if (!effectiveInternId) { setError('Select an intern first'); return; }
 
-        setIsSuggesting(true);
-        setAiRationale('');
-        setError('');
-        try {
-            const response = await api.post('/analytics/llm/suggest-path/', {
-                intern_id: effectiveInternId,
-                goal: aiGoal,
-                basics_only: basicsOnly
-            });
-            
-            if (response.data.suggested_skills) {
-                setSelectedSkills(response.data.suggested_skills);
-                setAiRationale(response.data.rationale);
-                setCustomPathTitle(`${aiGoal} Focus`);
-                setSuccessMsg('AI suggestions received!');
-                setTimeout(() => setSuccessMsg(''), 3000);
-            }
-        } catch (err: any) {
-            console.error("Error fetching AI suggestions:", err);
-            setError("Failed to get AI suggestions.");
-        } finally {
-            setIsSuggesting(false);
-        }
+        toast.promise(api.post('/analytics/llm/suggest-path/', {
+            intern_id: effectiveInternId,
+            goal: aiGoal,
+            basics_only: basicsOnly
+        }), {
+            loading: 'Querying neural matrix for optimal skill sequences...',
+            success: (response) => {
+                if (response.data.suggested_skills) {
+                    setSelectedSkills(response.data.suggested_skills);
+                    setAiRationale(response.data.rationale);
+                    setCustomPathTitle(`${aiGoal} Focus`);
+                    return 'AI suggestions successfully synthesized';
+                }
+                return 'Synthesis complete with zero findings';
+            },
+            error: 'Neural matrix query interrupted'
+        });
     };
 
     const handleGenerateMilestoneTask = async (skill: string, index: number) => {
         if (!effectiveInternId) return;
-        setIsGeneratingTask(true);
-        setActiveMilestoneIndex(index);
-        setError('');
-        try {
-            const res = await api.post('/analytics/learning-path/generate-milestone-task/', {
-                intern_id: effectiveInternId,
-                milestone_index: index,
-                skill: skill,
-                goal: aiGoal || targetRole,
-                basics_only: basicsOnly
-            });
-            if (res.data.task) {
-                setSuccessMsg(`AI Task generated for ${skill}!`);
-                setTimeout(() => setSuccessMsg(''), 3000);
-                
-                // Refresh path AND active modal to show new details immediately
-                const pathRes = await api.get(`/analytics/learning-path/${effectiveInternId}/`);
-                setPath(pathRes.data);
-                
-                // Update the active modal state with the fresh milestone data
-                const updatedMilestone = pathRes.data.milestones[index];
-                if (updatedMilestone) {
-                    setActiveMilestoneModal(updatedMilestone);
+        
+        toast.promise(api.post('/analytics/learning-path/generate-milestone-task/', {
+            intern_id: effectiveInternId,
+            milestone_index: index,
+            skill: skill,
+            goal: aiGoal || targetRole,
+            basics_only: basicsOnly
+        }), {
+            loading: 'Building hands-on neural task prototype...',
+            success: async (res) => {
+                if (res.data.task) {
+                    const pathRes = await api.get(`/analytics/learning-path/${effectiveInternId}/`);
+                    setPath(pathRes.data);
+                    const updatedMilestone = pathRes.data.milestones[index];
+                    if (updatedMilestone) setActiveMilestoneModal(updatedMilestone);
+                    return `AI task prototype generated for ${skill}`;
                 }
-            }
-        } catch {
-            setError('Failed to generate AI task');
-        } finally {
-            setIsGeneratingTask(false);
-        }
+                return 'Prototype generation failed';
+            },
+            error: 'Neural task synthesis protocol failure'
+        });
     };
 
     const handleReviewMilestoneTask = async (index: number, action: 'APPROVE' | 'REJECT') => {
         if (!effectiveInternId) return;
-        setIsReviewingTask(true);
-        setError('');
-        try {
-            const res = await api.post('/analytics/learning-path/review-milestone-task/', {
-                intern_id: effectiveInternId,
-                milestone_index: index,
-                action: action
-            });
-            setSuccessMsg(res.data.message || `Task ${action === 'APPROVE' ? 'Approved' : 'Rejected'}`);
-            setTimeout(() => setSuccessMsg(''), 3000);
-
-            // Refresh path AND active modal
-            const pathRes = await api.get(`/analytics/learning-path/${effectiveInternId}/`);
-            setPath(pathRes.data);
-
-            const updatedMilestone = pathRes.data.milestones[index];
-            if (updatedMilestone) {
-                setActiveMilestoneModal(updatedMilestone);
-            }
-        } catch {
-            setError('Failed to review task');
-        } finally {
-            setIsReviewingTask(false);
-        }
+        
+        toast.promise(api.post('/analytics/learning-path/review-milestone-task/', {
+            intern_id: effectiveInternId,
+            milestone_index: index,
+            action: action
+        }), {
+            loading: 'Synchronizing mentor review decision...',
+            success: async (res) => {
+                const pathRes = await api.get(`/analytics/learning-path/${effectiveInternId}/`);
+                setPath(pathRes.data);
+                const updatedMilestone = pathRes.data.milestones[index];
+                if (updatedMilestone) setActiveMilestoneModal(updatedMilestone);
+                return res.data.message || `Task ${action === 'APPROVE' ? 'authorized' : 'decommissioned'}`;
+            },
+            error: 'Review synchronization failure'
+        });
     };
 
     const handleInternSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {

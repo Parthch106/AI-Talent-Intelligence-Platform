@@ -56,7 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
         { name: 'Analysis', path: '/analytics/skill-intelligence', icon: <Brain size={20} />, roles: ['ADMIN', 'MANAGER'] },
         { name: 'Learning Path', path: '/analytics/learning-paths', icon: <BookOpen size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
         { name: 'Performance', path: '/analytics/performance', icon: <Activity size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
-        { name: 'Report Analytics', path: '/analytics/weekly-reports', icon: <TrendingUp size={20} />, roles: ['ADMIN'], badge: 'V2' },
+        { name: 'Report Analytics', path: '/analytics/weekly-reports', icon: <TrendingUp size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'V2' },
         { name: 'Criteria Config', path: '/analytics/criteria', icon: <Zap size={20} />, roles: ['ADMIN'], badge: 'V2' },
     ];
 
@@ -136,37 +136,44 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
         }[section];
 
         return (
-            <li key={item.path} className="relative">
+            <li key={item.path} className="relative px-1">
                 <Link
                     to={item.path}
                     onMouseEnter={() => isTaskItem && handleMouseEnter(item.path)}
                     onMouseLeave={() => isTaskItem && handleMouseLeave()}
-                    className={`relative flex items-center px-4 py-1.5 rounded-xl transition-all duration-500 group overflow-hidden ${active
+                    className={`relative flex items-center h-12 rounded-xl transition-all duration-500 group overflow-hidden ${active
                         ? 'text-white'
                         : 'text-slate-500 hover:text-slate-200'
-                        } ${isExpanded ? 'gap-4' : 'gap-0 justify-center'}`}
+                        }`}
                 >
                     {active && (
-                        <div className={`absolute inset-0 ${sectionStyles.activeBg} dark:bg-white/[0.03] border ${sectionStyles.activeBorder} dark:border-white/5 rounded-2xl`}>
-                            <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b ${sectionStyles.indicator} rounded-r-full ${sectionStyles.shadow}`}></div>
+                        <div className={`absolute inset-0 ${sectionStyles.activeBg} border ${sectionStyles.activeBorder} rounded-xl transition-all duration-500`}>
+                            <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b ${sectionStyles.indicator} rounded-r-full ${sectionStyles.shadow}`}></div>
                         </div>
                     )}
-                    <span className={`relative z-10 transition-all duration-500 ${active
-                        ? `${sectionStyles.icon} scale-110`
-                        : `group-hover:scale-110 ${sectionStyles.icon} opacity-60 group-hover:opacity-100`
-                        }`}>
-                        {item.icon}
-                    </span>
                     
-                    <span className={`relative z-10 text-sm font-bold tracking-tight transition-all duration-500 whitespace-nowrap overflow-hidden ${isExpanded ? 'w-auto opacity-100 ml-0' : 'w-0 opacity-0 ml-0'} ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-200'}`}>
+                    <div className="relative z-10 w-14 h-12 flex items-center justify-center flex-shrink-0 transition-all duration-500">
+                        <span className={`transition-all duration-500 ${active
+                            ? `${sectionStyles.icon} scale-110`
+                            : `group-hover:scale-110 ${sectionStyles.icon} opacity-60 group-hover:opacity-100`
+                            }`}>
+                            {item.icon}
+                        </span>
+                        {active && !isExpanded && (
+                            <div className={`absolute inset-2 ${sectionStyles.glow} border ${sectionStyles.activeBorder} rounded-xl -z-10`} />
+                        )}
+                    </div>
+                    
+                    <span className={`relative z-10 text-sm font-bold tracking-tight transition-all duration-500 whitespace-nowrap overflow-hidden ${isExpanded ? 'max-w-[200px] opacity-100 ml-1' : 'max-w-0 opacity-0 ml-0'} ${active ? 'text-[var(--text-main)]' : 'text-slate-500 group-hover:text-slate-200'}`}>
                         {item.name}
                     </span>
 
                     {item.badge && isExpanded && (
-                        <span className="relative z-10 ml-auto px-2 py-0.5 text-[8px] font-black bg-purple-500/10 text-purple-400 rounded-md border border-purple-500/20 uppercase tracking-widest leading-none animate-in fade-in zoom-in duration-500">
+                        <span className="relative z-10 ml-auto mr-4 px-2 py-0.5 text-[8px] font-black bg-purple-500/10 text-purple-400 rounded-md border border-purple-500/20 uppercase tracking-widest leading-none animate-in fade-in zoom-in duration-500">
                             {item.badge}
                         </span>
                     )}
+                    
                     {active && isExpanded && (
                         <div className={`absolute right-[-10%] top-[-10%] w-24 h-24 ${sectionStyles.glow} blur-2xl rounded-full`} />
                     )}
@@ -226,18 +233,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
         <aside 
             onMouseEnter={() => setIsExpanded(true)}
             onMouseLeave={() => setIsExpanded(false)}
-            className={`fixed left-0 top-0 h-screen bg-[var(--sidebar-bg)] backdrop-blur-3xl text-[var(--text-main)] flex flex-col z-40 border-r border-[var(--border-color)] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-2xl ${isExpanded ? 'w-64' : 'w-20'}`}
+            className={`fixed left-0 top-0 h-screen bg-[var(--sidebar-bg)] backdrop-blur-3xl text-[var(--text-main)] flex flex-col z-40 border-r border-[var(--border-color)] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-2xl will-change-[width] ${isExpanded ? 'w-64' : 'w-20'}`}
         >
             {/* Logo Section */}
-            <div className={`border-b border-[var(--border-color)] transition-all duration-500 ${isExpanded ? 'p-6' : 'p-4 flex justify-center'}`}>
+            <div className={`border-b border-[var(--border-color)] transition-all duration-500 p-4 ${isExpanded ? 'px-6' : 'flex justify-center'}`}>
                 <Link to="/" className="flex items-center gap-4 group">
-                    <div className="relative">
+                    <div className="relative flex-shrink-0">
                         <div className="absolute -inset-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl blur-xl opacity-0 group-hover:opacity-40 transition-opacity duration-500"></div>
                         <div className="relative w-10 h-10 bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-600 rounded-xl flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
                             <Target size={20} className="text-white" />
                         </div>
                     </div>
-                    <div className={`transition-all duration-500 overflow-hidden whitespace-nowrap ${isExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0'}`}>
+                    <div className={`transition-all duration-500 overflow-hidden whitespace-nowrap ${isExpanded ? 'max-w-[150px] opacity-100' : 'max-w-0 opacity-0'}`}>
                         <h1 className="text-xl font-heading font-black tracking-tighter bg-gradient-to-r from-[var(--text-main)] via-purple-400 to-[var(--text-main)] bg-clip-text text-transparent uppercase">
                             AIMs
                         </h1>
@@ -250,12 +257,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
             <nav className="flex-1 overflow-y-auto py-4 px-3 sidebar-nav">
                 {/* Main Navigation */}
                 <div className="mb-4">
-                    {isExpanded && (
-                        <div className="px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 animate-in fade-in duration-500">
-                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)] flex-shrink-0" />
-                            <span>Main Menu</span>
-                        </div>
-                    )}
+                    <div className={`px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 transition-all duration-500 overflow-hidden whitespace-nowrap ${isExpanded ? 'opacity-100 max-h-8' : 'opacity-0 max-h-0'}`}>
+                        <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)] flex-shrink-0" />
+                        <span>Main Menu</span>
+                    </div>
                     <ul className="space-y-0.5">
                         {mainNavItems.map((item) => renderNavItem(item, 'main'))}
                     </ul>
@@ -264,12 +269,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
                 {/* Admin Navigation */}
                 {filterByRole(adminNavItems).length > 0 && (
                     <div className="mb-4">
-                        {isExpanded && (
-                            <div className="px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 animate-in fade-in duration-500">
-                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)] flex-shrink-0" />
-                                <span>Analytics</span>
-                            </div>
-                        )}
+                        <div className={`px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 transition-all duration-500 overflow-hidden whitespace-nowrap ${isExpanded ? 'opacity-100 max-h-8' : 'opacity-0 max-h-0'}`}>
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)] flex-shrink-0" />
+                            <span>Analytics</span>
+                        </div>
                         <ul className="space-y-0.5">
                             {filterByRole(adminNavItems).map((item) => renderNavItem(item, 'admin'))}
                         </ul>
@@ -279,12 +282,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
                 {/* Monitoring Navigation */}
                 {filterByRole(monitoringNavItems).length > 0 && (
                     <div className="mb-4">
-                        {isExpanded && (
-                            <div className="px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 animate-in fade-in duration-500">
-                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)] flex-shrink-0" />
-                                <span>Monitoring</span>
-                            </div>
-                        )}
+                        <div className={`px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 transition-all duration-500 overflow-hidden whitespace-nowrap ${isExpanded ? 'opacity-100 max-h-8' : 'opacity-0 max-h-0'}`}>
+                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)] flex-shrink-0" />
+                            <span>Monitoring</span>
+                        </div>
                         <ul className="space-y-0.5">
                             {filterByRole(monitoringNavItems).map((item) => renderNavItem(item, 'monitoring'))}
                         </ul>
@@ -294,12 +295,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
                 {/* Intern Navigation */}
                 {filterByRole(internNavItems).length > 0 && (
                     <div className="mb-4">
-                        {isExpanded && (
-                            <div className="px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 animate-in fade-in duration-500">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] flex-shrink-0" />
-                                <span>My Workspace</span>
-                            </div>
-                        )}
+                        <div className={`px-4 mb-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] flex items-center gap-3 transition-all duration-500 overflow-hidden whitespace-nowrap ${isExpanded ? 'opacity-100 max-h-8' : 'opacity-0 max-h-0'}`}>
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] flex-shrink-0" />
+                            <span>My Workspace</span>
+                        </div>
                         <ul className="space-y-0.5">
                             {filterByRole(internNavItems).map((item) => renderNavItem(item, 'intern'))}
                         </ul>
@@ -308,17 +307,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
             </nav>
 
             {/* Bottom Section */}
-            <div className={`p-3 border-t border-[var(--border-color)] space-y-1`}>
-                <button className={`flex items-center rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-300 w-full group ${isExpanded ? 'gap-3 px-3 py-2.5' : 'justify-center p-3'}`}>
-                    <Settings size={20} className="group-hover:rotate-90 transition-transform duration-300 flex-shrink-0" />
-                    {isExpanded && <span className="font-medium">Settings</span>}
-                </button>
+            <div className={`p-3 border-t border-[var(--border-color)]`}>
                 <button
                     onClick={logout}
-                    className={`flex items-center rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 w-full group ${isExpanded ? 'gap-3 px-3 py-2.5' : 'justify-center p-3'}`}
+                    className={`flex items-center h-12 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 w-full group overflow-hidden`}
                 >
-                    <LogOut size={20} className="group-hover:-translate-x-1 transition-transform duration-300 flex-shrink-0" />
-                    {isExpanded && <span className="font-medium">Sign Out</span>}
+                    <div className="w-14 h-12 flex items-center justify-center flex-shrink-0">
+                        <LogOut size={20} className="group-hover:-translate-x-1 transition-transform duration-300" />
+                    </div>
+                    <span className={`font-bold text-sm transition-all duration-500 whitespace-nowrap overflow-hidden ${isExpanded ? 'max-w-[150px] opacity-100 ml-1' : 'max-w-0 opacity-0 ml-0'}`}>
+                        Sign Out
+                    </span>
                 </button>
             </div>
 

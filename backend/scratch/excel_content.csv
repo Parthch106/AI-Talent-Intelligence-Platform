@@ -1,0 +1,73 @@
+Department,Name,Joining Date,Ending Date,Duration
+,SOC,,,
+1.0,Jenish Babariya,EMPLOYEE,,
+2.0,Uzair Nalbandh,EMPLOYEE,,
+3.0,Vesuwala Mahek Manishkumar,2026-01-01 00:00:00,2026-06-30,6 Months
+4.0,Devanshi Sunilbhai Mali,2026-01-01 00:00:00,2026-06-30,6 Months
+5.0,Panchal Krishna Anil,2026-01-05 00:00:00,2026-07-04,6 Months
+6.0,Bhoye Ankit Prakashbhai,2026-01-01 00:00:00,2026-04-15,3.5 Months
+7.0,Smith Surati,2026-01-05 00:00:00,2026-07-04,6 Months
+8.0,Upadhyay Brijesh Sanjaybhai ,2026-01-01 00:00:00,2026-06-30,6 Months
+9.0,Patel Het Kiritkumar,2026-01-05 00:00:00,2026-07-04,6 Months
+10.0,Jadhav Vaibhav Vikassingh,2026-01-05 00:00:00,2026-07-04,6 Months
+11.0,Shaikh Mohammed Sohel Mohammed Irfan,2025-09-01 00:00:00,2026-05-01,6 Months
+12.0,Pathan Zahid Afzal Khan,2025-09-01 00:00:00,2026-05-01,6 Months
+13.0,Ansari Mohammed Sauban ,2026-03-16 00:00:00,2026-09-15,6 Months
+14.0,Umar Afzal Hunani,2026-03-01 00:00:00,2026-09-01,6 Months
+15.0,Vruxali Rajeshbhai Borsaniya,2026-04-07 00:00:00,2026-07-06,3 Months
+,,,,
+,VAPT,,,
+1.0,Nilesh Tank,EMPLOYEE,,
+2.0,Moksha Shah,EMPLOYEE,,
+3.0,Khengar Drumil,,,
+4.0,Sipwala Aysha Wasimahmed,2026-01-12 00:00:00,2026-04-11,3 Months
+5.0,Desai Vinayak Pareshkumar,2026-01-12 00:00:00,2026-07-12,6 Months
+6.0,Doshi Sanyami Yogendra,2026-01-12 00:00:00,2026-04-11,3 Months
+7.0,Matholiya Sanket Vinodkumar,2026-02-01 00:00:00,2026-04-30,3 Months
+8.0,Dobariya Nisarg Satishbhai,2026-01-19 00:00:00,2026-07-19,6 Months
+9.0,Bahuguna Rhythm Ravindra,2026-02-01 00:00:00,2026-08-01,6 Months
+10.0,Vaghela Shubham Pareshkumar,2025-12-15 00:00:00,2026-06-14,6 Months
+11.0,Khambhati Hardik Manishbhai,2026-01-23 00:00:00,2026-05-23,4 Months
+12.0,Patel  Jugal Kaushikkumar,2026-01-27 00:00:00,2026-04-27,3 Months
+13.0,Daksh Jain,2026-04-13 00:00:00,,
+,,,,
+,Developer,,,
+1.0,Sagar Rana,EMPLOYEE,,
+2.0,Deep Chauhan,EMPLOYEE,,
+3.0,Dhruvit Gadara,EMPLOYEE,,
+4.0,Krunal Rana,EMPLOYEE,,
+5.0,Priyam Tagadiya,EMPLOYEE,,
+6.0,Vasu Kapdiya,EMPLOYEE,,
+7.0,Jay Rahulbhai Chaudhari,2026-01-27 00:00:00,2026-04-26,3 Months
+8.0,Patel Hetvik Mukeshkumar,2026-01-19 00:00:00,2026-07-18,6 Months
+9.0,Tarang Rajesh Gotawala,2026-01-10 00:00:00,2026-07-09,6 Months
+10.0, Neel Niteshbhai Patel,2026-01-23 00:00:00,2026-04-22,3 Months
+11.0,Sindhi Rahiyah Jakirhusen,2026-01-10 00:00:00,2026-07-09,6 Months
+12.0,Patel Zeelkumar Mukeshbhai,2026-01-01 00:00:00,2026-06-30,6 Months
+13.0,Memon Mohammad Ayan Anwar,2026-01-04 00:00:00,2026-07-03,6 Months
+,,,,
+,Data Analyst,,,
+1.0,Shaikh Faizan,EMPLOYEE,,
+2.0,Lad Hetvi Dharmendra,2026-01-27 00:00:00,2026-04-26,3 Months
+3.0,Kapadia Vyoma  Ritesh,2026-01-27 00:00:00,2026-04-26,3 Months
+4.0,Chawla Vikash,2026-01-23 00:00:00,2026-04-22,3 Months
+5.0,Mayank Patel,2026-01-23 00:00:00,2026-04-22,3 Months
+6.0,Ridham Goti,2026-01-23 00:00:00,2026-07-22,6 Months
+7.0,Ronit Jagdishchandra Pandulkar,2025-12-16 00:00:00,2026-06-15,6 Months
+,,,,
+,AI/ML,,,
+1.0,Jay Kanavia,EMPLOYEE,,
+2.0,Patel Daksh,EMPLOYEE,,
+3.0,Patel Jiya Mohitbhai,2026-02-02 00:00:00,2026-08-01,6 Months
+4.0,Mahek M Gheewala,2025-07-01 00:00:00,2026-06-30,12 Months
+5.0,Karan Vishalbhai Mistry,2026-03-16 00:00:00,2026-09-15,6 Months
+6.0,Parth Chauhan,2026-02-02 00:00:00,2026-07-31,6 Months
+7.0,Keval Mahendrakumar Kalariya,2026-02-02 00:00:00,2026-08-01,6 Months
+,,,,
+,GRC,,,
+1.0,Patel  Sujal Hemantbhai,2026-02-02 00:00:00,2026-08-01,6 Months
+,,,,
+,Cloud,,,
+1.0,Sumera Qureshi,,,
+2.0,Amla Bilal,,,
+3.0,Shadab Shaikh,,,

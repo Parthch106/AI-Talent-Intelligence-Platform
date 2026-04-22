@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, User, TrendingUp, Brain, Award, AlertTriangle, CheckCircle, ChevronDown, RefreshCw, FileText, Target, Shield, Zap, Mail, Building, Briefcase, Code, GraduationCap, ExternalLink } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import Card from '../components/common/Card';
@@ -186,8 +187,16 @@ const AnalysisPage: React.FC = () => {
             setIntelligence(response.data);
         } catch (err: unknown) {
             console.error('Intelligence API Error:', err);
-            const apiError = err as { response?: { data?: { detail?: string } } };
-            setError(apiError.response?.data?.detail || 'Failed to fetch intelligence data');
+            const apiError = err as { response?: { status?: number, data?: { detail?: string } } };
+            const errorMessage = apiError.response?.data?.detail || 'Failed to fetch intelligence data';
+            
+            if (apiError.response?.status === 404) {
+                toast.error(`Analysis Not Found: ${errorMessage}`, { id: 'analysis-404' });
+            } else {
+                toast.error(errorMessage);
+            }
+            
+            setError(errorMessage);
             setIntelligence(null);
         } finally {
             setLoading(false);
@@ -235,7 +244,9 @@ const AnalysisPage: React.FC = () => {
         } catch (err: unknown) {
             console.error('Compute Intelligence Error:', err);
             const apiError = err as { response?: { data?: { error?: string; detail?: string } } };
-            setError(apiError.response?.data?.error || apiError.response?.data?.detail || 'Failed to compute intelligence');
+            const errorMessage = apiError.response?.data?.error || apiError.response?.data?.detail || 'Failed to compute intelligence';
+            toast.error(errorMessage);
+            setError(errorMessage);
         } finally {
             setComputing(false);
         }

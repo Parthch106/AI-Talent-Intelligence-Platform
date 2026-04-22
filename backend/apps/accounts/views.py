@@ -1,14 +1,40 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import RegisterSerializer, StaffRegisterSerializer, LoginSerializer, UserSerializer
-from .models import User
-from rest_framework.permissions import IsAuthenticated
+from .serializers import (
+    RegisterSerializer, StaffRegisterSerializer, LoginSerializer, UserSerializer,
+    PasswordResetRequestSerializer, OTPVerifySerializer, PasswordResetConfirmSerializer
+)
+from .models import User, VerificationOTP, PasswordResetToken
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.contrib.auth import update_session_auth_hash
 from .permissions import IsAdmin, IsManager, IsIntern
+from django.conf import settings
+from django.core.mail import send_mail
+from django.utils import timezone
+import random
+import string
+import secrets
+import requests
+
+
+
+
+class DepartmentListView(APIView):
+    """
+    GET /api/accounts/departments/
+    
+    Returns a list of unique departments currently in the system.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        departments = User.objects.exclude(department='').values_list('department', flat=True).distinct()
+        return Response({'departments': sorted(list(departments))}, status=status.HTTP_200_OK)
 
 
 class RegisterView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
@@ -21,6 +47,7 @@ class RegisterView(APIView):
 
 
 class StaffRegisterView(APIView):
+    permission_classes = [IsAdmin]
     def post(self, request):
         serializer = StaffRegisterSerializer(data=request.data)
         if serializer.is_valid():
@@ -33,10 +60,114 @@ class StaffRegisterView(APIView):
 
 
 class LoginView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        if serializer.is_valid():
+            return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            
+            user = User.objects.filter(email=email).first()
+            if user:
+                # Generate 6-digit OTP
+                otp_code = ''.join(random.choices(string.digits, k=6))
+                expires_at = timezone.now() + timezone.timedelta(minutes=10)
+                
+                VerificationOTP.objects.create(
+                    user=user,
+                    email=email,
+                    otp_code=otp_code,
+                    purpose='RESET',
+                    expires_at=expires_at
+                )
+                
+                # Render and Send Email
+                try:
+                    from django.template.loader import render_to_string
+                    from core.settings import EMAIL_SENDER
+                    
+                    html_content = render_to_string('emails/otp_email.html', {
+                        'otp_code': otp_code,
+                        'user': user
+                    })
+                    
+                    EMAIL_SENDER.send(
+                        receivers=[email],
+                        subject=f"Password Reset OTP - {settings.SITE_NAME}",
+                        html=html_content
+                    )
+                except Exception as e:
+                    print(f"Email Error: {str(e)}")
+                    return Response(
+                        {"error": "Failed to send OTP. Please check email configuration."}, 
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE
+                    )
+                
+            return Response({"message": "If an account exists with this email, an OTP has been sent."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetVerifyOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = OTPVerifySerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            otp_code = serializer.validated_data['otp_code']
+            
+            otp = VerificationOTP.objects.filter(
+                email=email, 
+                otp_code=otp_code, 
+                purpose='RESET',
+                is_verified=False
+            ).first()
+            
+            if otp and not otp.is_expired():
+                otp.is_verified = True
+                otp.save()
+                
+                # Generate Reset Token
+                reset_token = secrets.token_urlsafe(32)
+                PasswordResetToken.objects.create(user=otp.user, token=reset_token)
+                
+                return Response({"reset_token": reset_token}, status=status.HTTP_200_OK)
+            
+            return Response({"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        if serializer.is_valid():
+            token = serializer.validated_data['reset_token']
+            new_password = serializer.validated_data['new_password']
+            
+            reset_token_obj = PasswordResetToken.objects.filter(token=token, is_used=False).first()
+            if reset_token_obj and reset_token_obj.is_valid():
+                user = reset_token_obj.user
+                user.set_password(new_password)
+                user.save()
+                
+                reset_token_obj.is_used = True
+                reset_token_obj.save()
+                
+                return Response({"message": "Password reset successful"}, status=status.HTTP_200_OK)
+            
+            return Response({"error": "Invalid or expired reset token"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserProfileView(APIView):
@@ -51,7 +182,13 @@ class UserProfileView(APIView):
         if 'full_name' in request.data:
             user.full_name = request.data['full_name']
         if 'department' in request.data:
-            user.department = request.data['department']
+            if user.role == 'ADMIN':
+                user.department = request.data['department']
+            else:
+                # Silently ignore or you could return an error. 
+                # Given the user context, better to return an error if they tried to change it.
+                if user.department != request.data['department']:
+                    return Response({'error': 'Only administrators can change departments.'}, status=status.HTTP_403_FORBIDDEN)
         user.save()
         serializer = UserSerializer(user)
         return Response(serializer.data)
@@ -234,7 +371,7 @@ class StipendRecordViewSet(viewsets.ModelViewSet):
     serializer_class = StipendRecordSerializer
 
     def get_permissions(self):
-        if self.action == 'list' and self.request.user.role == 'INTERN':
+        if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]
         return [IsAdmin()]
 
@@ -242,7 +379,11 @@ class StipendRecordViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role == 'INTERN':
             return StipendRecord.objects.filter(intern=user)
-        return StipendRecord.objects.all().select_related('intern', 'approved_by')
+        
+        queryset = StipendRecord.objects.all().select_related('intern', 'approved_by')
+        if user.role == 'MANAGER' and user.department:
+            queryset = queryset.filter(intern__department=user.department)
+        return queryset
 
     @action(detail=True, methods=['patch'], url_path='approve')
     def approve(self, request, pk=None):

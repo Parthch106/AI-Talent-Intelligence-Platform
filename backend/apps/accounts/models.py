@@ -207,3 +207,39 @@ class StipendRecord(models.Model):
             f"{self.month.strftime('%B %Y')} — "
             f"₹{self.amount} ({self.get_status_display()})"
         )
+
+
+class VerificationOTP(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='otps',
+        null=True,
+        blank=True
+    )
+    email = models.EmailField()
+    otp_code = models.CharField(max_length=6)
+    purpose = models.CharField(max_length=20, choices=[('RESET', 'Password Reset'), ('VERIFY', 'Email Verification')])
+    is_verified = models.BooleanField(default=False)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+    def __str__(self):
+        return f"{self.email} - {self.otp_code} ({self.purpose})"
+
+
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reset_tokens')
+    token = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+
+    def is_valid(self):
+        # 15 minutes validity
+        return not self.is_used and (timezone.now() < self.created_at + timezone.timedelta(minutes=15))

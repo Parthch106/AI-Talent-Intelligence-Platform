@@ -1,6 +1,19 @@
 import React from 'react';
 import type { EmploymentStage } from '../../types/reports';
 import ConversionProbabilityGauge from './ConversionProbabilityGauge';
+import { Card, Badge } from '../common';
+import { 
+  GraduationCap, 
+  Briefcase, 
+  Rocket, 
+  Check, 
+  Target, 
+  Activity, 
+  Calendar,
+  ChevronRight,
+  TrendingUp,
+  Info
+} from 'lucide-react';
 
 interface Props {
   stages: EmploymentStage[];
@@ -13,22 +26,22 @@ const PHASE_META = [
     phase: 'PHASE_1' as const,
     label: 'Standard Internship',
     sublabel: 'Months 1–6',
-    icon: '🎓',
-    color: '#6366f1',
+    icon: <GraduationCap size={20} />,
+    color: 'indigo',
   },
   {
     phase: 'PHASE_2' as const,
     label: 'Stipend Internship',
     sublabel: 'Months 7–12',
-    icon: '💼',
-    color: '#0ea5e9',
+    icon: <Briefcase size={20} />,
+    color: 'blue',
   },
   {
     phase: 'FULL_TIME' as const,
-    label: 'Full-Time Employment',
+    label: 'Full-Time Transition',
     sublabel: 'Month 13+',
-    icon: '🚀',
-    color: '#10b981',
+    icon: <Rocket size={20} />,
+    color: 'emerald',
   },
 ];
 
@@ -41,16 +54,16 @@ const PhaseTimeline: React.FC<Props> = ({ stages, currentStatus, conversionScore
     return 'locked';
   };
 
-  return (
-    <div style={{ padding: '24px 0' }}>
+  const getColorClass = (color: string, state: string) => {
+    if (state === 'locked') return 'border-[var(--border-color)] text-[var(--text-muted)] bg-[var(--bg-muted)]';
+    if (state === 'active') return `border-${color}-500/50 text-${color}-400 bg-${color}-500/10 ring-4 ring-${color}-500/5`;
+    return `border-${color}-500 text-white bg-${color}-500 shadow-[0_0_20px_rgba(var(--${color}-500-rgb),0.3)]`;
+  };
 
-      {/* Phase steps row */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 0,
-        position: 'relative',
-      }}>
+  return (
+    <div className="py-8 space-y-12">
+      {/* Phase Track */}
+      <div className="flex flex-col lg:flex-row items-start justify-between gap-8 relative px-4">
         {PHASE_META.map((meta, index) => {
           const state = getPhaseState(meta.phase);
           const stage = stageMap[meta.phase];
@@ -58,127 +71,106 @@ const PhaseTimeline: React.FC<Props> = ({ stages, currentStatus, conversionScore
 
           return (
             <React.Fragment key={meta.phase}>
-              {/* Phase node */}
-              <div style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
-                {/* Circle */}
-                <div style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '50%',
-                  margin: '0 auto 10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '22px',
-                  border: `3px solid ${state === 'locked' ? '#374151' : meta.color}`,
-                  background: state === 'completed'
-                    ? meta.color
-                    : state === 'active'
-                      ? `${meta.color}22`
-                      : '#111827',
-                  transition: 'all 0.3s',
-                  position: 'relative',
-                  zIndex: 2,
-                }}>
-                  {state === 'completed' ? '✓' : meta.icon}
-                </div>
-
-                {/* Phase label */}
-                <div style={{
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  color: state === 'locked' ? '#4b5563' : '#e5e7eb',
-                  marginBottom: '3px',
-                }}>
-                  {meta.label}
-                </div>
-                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>
-                  {meta.sublabel}
-                </div>
-
-                {/* Dates */}
-                {stage && (
-                  <div style={{ fontSize: '10px', color: '#9ca3af', lineHeight: 1.5 }}>
-                    <div>
-                      ▶ {new Date(stage.phase_start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </div>
-                    {stage.phase_end_date && (
-                      <div>
-                        ■ {new Date(stage.phase_end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </div>
+              {/* Phase Node */}
+              <div className="flex-1 w-full lg:w-auto text-center space-y-4 group">
+                <div className="relative inline-block">
+                    {/* Visual Connector Line (for mobile) */}
+                    {!isLast && (
+                        <div className="absolute top-1/2 left-full w-full h-px bg-gradient-to-r from-[var(--border-color)] to-transparent lg:hidden" />
                     )}
-                  </div>
-                )}
+                    
+                    <div className={`w-16 h-16 rounded-[24px] mx-auto flex items-center justify-center text-xl border-2 transition-all duration-500 relative z-10 ${
+                        state === 'completed' ? `bg-${meta.color}-500 border-${meta.color}-400 shadow-[0_0_30px_rgba(var(--${meta.color}-rgb),0.2)]` :
+                        state === 'active' ? `bg-${meta.color}-500/10 border-${meta.color}-500/40 animate-pulse` :
+                        'bg-white/[0.02] border-[var(--border-color)] opacity-40'
+                    }`}>
+                        {state === 'completed' ? <Check size={28} className="text-white" /> : 
+                         <span className={state === 'active' ? `text-${meta.color}-400` : 'text-[var(--text-muted)]'}>{meta.icon}</span>}
+                    </div>
+                </div>
 
-                {/* Score badge for completed phases */}
-                {stage?.conversion_score !== null && stage?.conversion_score !== undefined && (
-                  <div style={{
-                    marginTop: '6px',
-                    display: 'inline-block',
-                    background: `${meta.color}22`,
-                    color: meta.color,
-                    borderRadius: '6px',
-                    padding: '2px 8px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                  }}>
-                    {stage.conversion_score.toFixed(1)}%
+                <div className="space-y-1">
+                    <h3 className={`font-heading font-black text-sm uppercase tracking-tight transition-colors duration-300 ${state === 'locked' ? 'text-[var(--text-muted)]' : 'text-[var(--text-main)]'}`}>
+                        {meta.label}
+                    </h3>
+                    <p className="text-[10px] font-black text-[var(--text-dim)] uppercase tracking-widest opacity-60">
+                        {meta.sublabel}
+                    </p>
+                </div>
+
+                {stage && (
+                  <div className="pt-2 flex flex-col items-center gap-1.5">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/[0.03] border border-[var(--border-color)] rounded-full">
+                        <Calendar size={10} className="text-[var(--text-muted)]" />
+                        <span className="text-[9px] font-black text-[var(--text-dim)] uppercase tracking-widest leading-none">
+                            {new Date(stage.phase_start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        </span>
+                        {stage.phase_end_date && (
+                            <>
+                                <ChevronRight size={10} className="text-[var(--text-muted)]" />
+                                <span className="text-[9px] font-black text-[var(--text-dim)] uppercase tracking-widest leading-none">
+                                    {new Date(stage.phase_end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                </span>
+                            </>
+                        )}
+                    </div>
+                    {stage.conversion_score !== null && (
+                        <Badge className={`text-[9px] font-black ${stage.conversion_score >= 75 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                            GATE SCORE: {stage.conversion_score.toFixed(1)}%
+                        </Badge>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Connector line (not after last) */}
+              {/* Desktop Connector Line */}
               {!isLast && (
-                <div style={{
-                  width: '60px',
-                  height: '3px',
-                  marginTop: '26px',
-                  background: getPhaseState(PHASE_META[index + 1].phase) !== 'locked'
-                    ? `linear-gradient(to right, ${meta.color}, ${PHASE_META[index + 1].color})`
-                    : '#374151',
-                  borderRadius: '2px',
-                  flexShrink: 0,
-                }} />
+                <div className="hidden lg:block flex-shrink-0 w-12 h-px bg-[var(--border-color)] mt-8" />
               )}
             </React.Fragment>
           );
         })}
       </div>
 
-      {/* FTE conversion gauge */}
-      <div style={{
-        marginTop: '32px',
-        padding: '20px',
-        background: 'rgba(16, 185, 129, 0.06)',
-        border: '1px solid rgba(16, 185, 129, 0.2)',
-        borderRadius: '14px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '24px',
-        flexWrap: 'wrap',
-      }}>
-        <ConversionProbabilityGauge score={conversionScore ?? null} size={160} />
-        <div style={{ flex: 1, minWidth: '200px' }}>
-          <h3 style={{ color: '#10b981', margin: '0 0 8px', fontSize: '16px', fontWeight: 700 }}>
-            Full-Time Conversion Score
-          </h3>
-          <p style={{ color: '#9ca3af', fontSize: '13px', lineHeight: 1.6, margin: 0 }}>
-            Your conversion probability is computed from performance trends,
-            skill growth, attendance, and peer comparison across your entire
-            internship journey. Updated every Monday.
-          </p>
-          {conversionScore === null && (
-            <p style={{
-              marginTop: '10px',
-              color: '#6b7280',
-              fontSize: '12px',
-              background: 'rgba(255,255,255,0.04)',
-              borderRadius: '6px',
-              padding: '8px 12px',
-            }}>
-              ⏳ Score becomes available after completing Phase 1 and entering Phase 2.
-            </p>
-          )}
+      {/* Conversion Analytics Panel */}
+      <div className="relative group mx-4">
+        <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 rounded-[32px] blur opacity-50"></div>
+        <div className="relative glass-card bg-emerald-500/[0.02] border border-emerald-500/20 p-8 rounded-[32px] flex flex-col md:flex-row items-center gap-10">
+            <div className="relative">
+                <div className="absolute inset-0 bg-emerald-500/10 blur-3xl animate-pulse rounded-full"></div>
+                <div className="relative z-10">
+                    <ConversionProbabilityGauge score={conversionScore ?? null} size={180} />
+                </div>
+            </div>
+            
+            <div className="flex-1 space-y-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-500/10 rounded-xl">
+                        <TrendingUp size={20} className="text-emerald-400" />
+                    </div>
+                    <h3 className="text-xl font-heading font-black text-emerald-400 uppercase tracking-tight">Transition Probability Intelligence</h3>
+                </div>
+                
+                <p className="text-sm text-[var(--text-dim)] leading-relaxed font-medium">
+                    Your conversion score represents an aggregate performance vector derived from <span className="text-[var(--text-main)] font-black italic">velocity, technical mastery, and audit consistency</span>. This metric is refreshed every operational cycle to reflect your real-time trajectory towards full-time absorption.
+                </p>
+
+                {conversionScore === null ? (
+                    <div className="flex items-center gap-3 p-4 bg-white/[0.03] border border-dashed border-[var(--border-color)] rounded-2xl">
+                        <Info size={16} className="text-[var(--text-muted)]" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                            Trajectory data will materialize upon deployment into <span className="text-blue-400">Phase 2 — Stipend Deployment</span>.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+                        <Check size={16} className="text-emerald-400" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                            Proprietary AI model has validated your conversion trajectory. Keep maintaining momentum.
+                        </p>
+                    </div>
+                )}
+            </div>
         </div>
       </div>
     </div>

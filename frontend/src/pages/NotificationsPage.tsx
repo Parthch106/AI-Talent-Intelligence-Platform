@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Clock, Trash2, CheckCircle, AlertCircle, Mail, Filter, RefreshCw, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import api from '../api/axios';
+import { toast } from 'react-hot-toast';
 
 
 interface Notification {
@@ -58,13 +59,15 @@ const NotificationsPage: React.FC = () => {
 
     const markSelectedAsRead = async () => {
         if (selectedIds.length === 0) return;
-        try {
-            await api.post('/notifications/mark-read/', { notification_ids: selectedIds });
-            setNotifications(prev => prev.map(n => selectedIds.includes(n.id) ? { ...n, is_read: true } : n));
-            setSelectedIds([]);
-        } catch (err) {
-            console.error('Failed to mark selected as read:', err);
-        }
+        toast.promise(api.post('/notifications/mark-read/', { notification_ids: selectedIds }), {
+            loading: 'Synchronizing read states...',
+            success: () => {
+                setNotifications(prev => prev.map(n => selectedIds.includes(n.id) ? { ...n, is_read: true } : n));
+                setSelectedIds([]);
+                return 'Selected alerts acknowledged';
+            },
+            error: 'Failed to synchronize read states'
+        });
     };
 
     const deleteNotification = async (id: number) => {
@@ -79,35 +82,42 @@ const NotificationsPage: React.FC = () => {
 
     const deleteSelected = async () => {
         if (selectedIds.length === 0) return;
-        try {
-            await api.post('/notifications/delete/', { notification_ids: selectedIds });
-            setNotifications(prev => prev.filter(n => !selectedIds.includes(n.id)));
-            setTotalCount(prev => prev - selectedIds.length);
-            setSelectedIds([]);
-        } catch (err) {
-            console.error('Failed to delete selected:', err);
-        }
+        toast.promise(api.post('/notifications/delete/', { notification_ids: selectedIds }), {
+            loading: 'Purging selected records...',
+            success: () => {
+                const deletedCount = selectedIds.length;
+                setNotifications(prev => prev.filter(n => !selectedIds.includes(n.id)));
+                setTotalCount(prev => prev - deletedCount);
+                setSelectedIds([]);
+                return `${deletedCount} notifications permanently purged`;
+            },
+            error: 'Failed to execute purge'
+        });
     };
 
     const clearAll = async () => {
         if (!window.confirm('Are you sure you want to delete all notifications?')) return;
-        try {
-            await api.post('/notifications/delete/', { clear_all: true });
-            setNotifications([]);
-            setTotalCount(0);
-            setSelectedIds([]);
-        } catch (err) {
-            console.error('Failed to clear all:', err);
-        }
+        toast.promise(api.post('/notifications/delete/', { clear_all: true }), {
+            loading: 'Wiping entire notification registry...',
+            success: () => {
+                setNotifications([]);
+                setTotalCount(0);
+                setSelectedIds([]);
+                return 'Registry successfully cleared';
+            },
+            error: 'Registry wipe failed'
+        });
     };
 
     const markAllRead = async () => {
-        try {
-            await api.post('/notifications/mark-read/', {});
-            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-        } catch (err) {
-            console.error('Failed to mark all read:', err);
-        }
+        toast.promise(api.post('/notifications/mark-read/', {}), {
+            loading: 'Acknowledging all active alerts...',
+            success: () => {
+                setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+                return 'All notifications synchronized as read';
+            },
+            error: 'Acknowledge protocol failed'
+        });
     };
 
     const toggleSelect = (id: number) => {

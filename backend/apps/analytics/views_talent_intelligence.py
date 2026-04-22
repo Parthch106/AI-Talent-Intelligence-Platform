@@ -244,9 +244,15 @@ class JobRoleListView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        job_roles = JobRole.objects.all().values(
+        department = request.query_params.get('department')
+        queryset = JobRole.objects.all()
+        
+        if department:
+            queryset = queryset.filter(department=department)
+            
+        job_roles = queryset.values(
             'id', 'role_title', 'role_description', 
-            'mandatory_skills', 'preferred_skills'
+            'mandatory_skills', 'preferred_skills', 'department'
         )
         return Response({'job_roles': list(job_roles)})
 

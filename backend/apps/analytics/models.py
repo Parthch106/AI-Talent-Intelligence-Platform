@@ -942,6 +942,11 @@ class JobRole(models.Model):
         blank=True,
         help_text="Detailed role description"
     )
+    department = models.CharField(
+        max_length=100, 
+        blank=True, 
+        help_text="Department this role belongs to (e.g., Engineering, Marketing)"
+    )
     
     # Skill Requirements
     mandatory_skills = models.JSONField(

@@ -5,6 +5,7 @@ import { useMonitoring } from '../context/MonitoringContext';
 import { AttendanceTab } from '../components/monitoring';
 import { Card, AttendanceHeatmap, Modal, Button } from '../components/common';
 import { ChevronDown } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 // Types (matching MonitoringDashboard)
 interface Attendance {
@@ -102,16 +103,20 @@ const MonitoringAttendancePage: React.FC = () => {
 
     const handleMarkAttendance = async (e: React.FormEvent) => {
         e.preventDefault();
-        try {
-            await axios.post('/analytics/attendance/mark/', {
-                intern_id: selectedIntern,
-                ...attendanceForm
-            });
-            closeModal();
-            fetchData();
-        } catch (err) {
-            console.error('Error marking attendance:', err);
-        }
+        toast.promise(axios.post('/analytics/attendance/mark/', {
+            intern_id: selectedIntern,
+            ...attendanceForm
+        }), {
+            loading: 'Registering biometric log entry...',
+            success: () => {
+                closeModal();
+                fetchData();
+                return 'Attendance record successfully synchronized';
+            },
+            error: (err) => {
+                return (err as Error).message || 'Failed to register attendance log';
+            }
+        });
     };
 
     // Fetch data when page loads (for interns) or when selectedIntern changes

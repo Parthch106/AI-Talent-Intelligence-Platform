@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { UserPlus, Search, Filter, X, Mail, Phone, Building, ArrowRight, Eye, Edit, Award, BookOpen, Calendar, Clock, Star } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
@@ -317,31 +318,33 @@ const InternList: React.FC = () => {
         setSubmitting(true);
         setError('');
 
-        try {
+        const actionPromise = async () => {
             if (user?.role === 'MANAGER') {
-                // For managers, assign existing intern
-                if (!selectedInternId) {
-                    setError('Please select an intern');
-                    setSubmitting(false);
-                    return;
-                }
+                if (!selectedInternId) throw new Error('Please select an intern');
                 await api.post('/interns/assign-intern/', { intern_id: selectedInternId });
             } else {
-                // For admins, create new intern
                 await api.post('/interns/create/', newIntern);
             }
-            setShowAddModal(false);
-            setNewIntern({
-                user: { email: '', full_name: '', password: '' },
-                profile: { university: '', phone_number: '', skills: [] },
-            });
-            setSelectedInternId('');
-            fetchInterns();
-        } catch {
-            setError('Failed to add intern');
-        } finally {
-            setSubmitting(false);
-        }
+        };
+
+        toast.promise(actionPromise(), {
+            loading: isManager ? 'Assigning intern to department...' : 'Initializing new intern node...',
+            success: () => {
+                setShowAddModal(false);
+                setNewIntern({
+                    user: { email: '', full_name: '', password: '' },
+                    profile: { university: '', phone_number: '', skills: [] },
+                });
+                setSelectedInternId('');
+                fetchInterns();
+                setSubmitting(false);
+                return isManager ? 'Intern assigned successfully' : 'Intern created successfully';
+            },
+            error: (err) => {
+                setSubmitting(false);
+                return err.message || 'Failed to add intern';
+            }
+        });
     };
 
     const handleSkillChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -14,8 +14,10 @@ from pathlib import Path
 import os
 from datetime import timedelta
 from dotenv import load_dotenv
+from redmail import EmailSender
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
+# BASE_DIR resolves to the backend/ directory (parent of core/ config package)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load .env from multiple possible locations (settings dir, project root)
@@ -26,7 +28,7 @@ env_paths = [
 ]
 for env_path in env_paths:
     if os.path.exists(env_path):
-        load_dotenv(env_path)
+        load_dotenv(env_path, override=True)
 
 # Unset system-level GITHUB_TOKEN to avoid conflicts with AI_TALENT_GITHUB_TOKEN
 if 'GITHUB_TOKEN' in os.environ:
@@ -208,7 +210,7 @@ STATICFILES_DIRS = [
 
 # Media files (Uploads)
 MEDIA_URL = "media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "..", "core", "documents")
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 
 # Password validation
@@ -250,3 +252,28 @@ CORS_ALLOWED_ORIGINS = os.getenv(
 
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
+
+# =============================================================================
+# Email Settings (SMTP)
+# =============================================================================
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+
+# =============================================================================
+# Red Mail Configuration
+# =============================================================================
+from jinja2 import Environment, FileSystemLoader
+EMAIL_SENDER = EmailSender(
+    host=os.getenv('EMAIL_HOST', 'smtp.gmail.com'),
+    port=int(os.getenv('EMAIL_PORT', 587)),
+    username=os.getenv('EMAIL_HOST_USER'),
+    password=os.getenv('EMAIL_HOST_PASSWORD'),
+    use_starttls=os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+)
+EMAIL_SENDER.sender = f"AIMs Talent Platform <{os.getenv('EMAIL_HOST_USER')}>"
+EMAIL_SENDER.use_jinja = False

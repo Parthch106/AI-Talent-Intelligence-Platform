@@ -1415,7 +1415,7 @@ class DropoutRiskDashboardView(APIView):
     API endpoint for dropout risk dashboard.
     Shows interns at risk of dropping out.
     """
-    permission_classes = [User.Role.ADMIN, User.Role.MANAGER]
+    permission_classes = [IsManager]
 
     def get(self, request):
         """Get dropout risk summary for all interns."""
@@ -1479,7 +1479,7 @@ class PPOEligibilityDashboardView(APIView):
     API endpoint for PPO eligibility dashboard.
     Shows interns eligible for Pre-Placement Offers.
     """
-    permission_classes = [User.Role.ADMIN, User.Role.MANAGER]
+    permission_classes = [IsManager]
 
     def get(self, request):
         """Get PPO eligibility summary."""
@@ -2703,6 +2703,8 @@ class PhaseEvaluationViewSet(viewsets.ModelViewSet):
     CRUD for PhaseEvaluation records.
     """
     def get_permissions(self):
+        if self.action in ['list', 'retrieve', 'list_eligible', 'list_eligible_ppo']:
+            return [IsManager()]
         return [IsAdmin()]
 
     def get_queryset(self):
@@ -2744,10 +2746,16 @@ class PhaseEvaluationViewSet(viewsets.ModelViewSet):
         from django.utils import timezone
         from datetime import date
         
-        # Interns in ACTIVE_INTERN or STIPEND_INTERN
-        eligible_profiles = InternProfile.objects.filter(
+        # Filter by department for managers
+        user = self.request.user
+        queryset = InternProfile.objects.filter(
             status__in=['ACTIVE_INTERN', 'STIPEND_INTERN']
         ).select_related('user')
+
+        if str(user.role) == 'MANAGER' and user.department:
+            queryset = queryset.filter(user__department=user.department)
+        
+        eligible_profiles = queryset
         
         results = []
         for profile in eligible_profiles:
@@ -2792,10 +2800,16 @@ class PhaseEvaluationViewSet(viewsets.ModelViewSet):
         from apps.accounts.models import InternProfile
         from datetime import date
         
-        # Interns in STIPEND_INTERN
-        eligible_profiles = InternProfile.objects.filter(
+        # Filter by department for managers
+        user = self.request.user
+        queryset = InternProfile.objects.filter(
             status='STIPEND_INTERN'
         ).select_related('user')
+
+        if str(user.role) == 'MANAGER' and user.department:
+            queryset = queryset.filter(user__department=user.department)
+        
+        eligible_profiles = queryset
         
         results = []
         for profile in eligible_profiles:
@@ -2822,6 +2836,8 @@ class PhaseEvaluationViewSet(viewsets.ModelViewSet):
 
 class CertificationCriteriaViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [IsManager()]
         return [IsAdmin()]
     queryset = CertificationCriteria.objects.all().select_related('created_by')
     def get_serializer_class(self):
@@ -3052,9 +3068,13 @@ class FullTimeOfferViewSet(viewsets.ModelViewSet):
             return FullTimeOffer.objects.filter(intern=user).select_related(
                 'intern', 'conversion_score', 'issued_by'
             )
-        return FullTimeOffer.objects.all().select_related(
+        
+        queryset = FullTimeOffer.objects.all().select_related(
             'intern', 'conversion_score', 'issued_by'
         )
+        if user.role == 'MANAGER' and user.department:
+            queryset = queryset.filter(intern__department=user.department)
+        return queryset
 
     def perform_create(self, serializer):
         """Admin creates the offer. Triggers LLM onboarding plan generation."""

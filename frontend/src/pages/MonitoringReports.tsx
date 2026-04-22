@@ -5,6 +5,7 @@ import { useMonitoring } from '../context/MonitoringContext';
 import { WeeklyReportsTab } from '../components/monitoring';
 import { ChevronDown, CheckCircle, AlertTriangle, FileUp } from 'lucide-react';
 import { Modal, Button } from '../components/common';
+import { toast } from 'react-hot-toast';
 
 // Types (matching MonitoringDashboard)
 interface WeeklyReport {
@@ -83,30 +84,27 @@ const MonitoringReportsPage: React.FC = () => {
     const handleSubmitReport = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!pdfFile) {
-            setStatusMsg({ type: 'error', text: 'Please select a PDF file to upload' });
+            toast.error('Strategic documentation required: Please select a PDF file');
             return;
         }
 
-        setLoading(true);
-        try {
-            const formData = new FormData();
-            formData.append('pdf_report', pdfFile);
+        const formData = new FormData();
+        formData.append('pdf_report', pdfFile);
 
-            await axios.post('/analytics/weekly-reports/submit/', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
-
-            setStatusMsg({ type: 'success', text: 'Weekly report submitted successfully!' });
-            setShowSubmitModal(false);
-            setPdfFile(null);
-            fetchData();
-            setTimeout(() => setStatusMsg(null), 5000);
-        } catch (err: unknown) {
-            console.error('Error submitting report:', err);
-            const apiError = err as { response?: { data?: { error?: string } } };
-            setStatusMsg({ type: 'error', text: apiError.response?.data?.error || 'Failed to submit report' });
-        }
-        setLoading(false);
+        toast.promise(axios.post('/analytics/weekly-reports/submit/', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        }), {
+            loading: 'Injecting performance metrics into the analytical engine...',
+            success: () => {
+                setShowSubmitModal(false);
+                setPdfFile(null);
+                fetchData();
+                return 'Weekly report successfully synchronized and archived';
+            },
+            error: (err: any) => {
+                return err.response?.data?.error || 'Failed to synchronize performance report';
+            }
+        });
     };
 
     const getSelectedInternName = (): string => {

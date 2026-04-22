@@ -208,29 +208,33 @@ const FeedbackPage: React.FC = () => {
         setSubmitting(true);
         setError('');
 
-        try {
-            // Prepare feedback data - only include task_id and task_status for TASK type
-            const feedbackData = {
-                ...newFeedback,
-                ...(newFeedback.feedback_type !== 'TASK' && { task_status: null }),
-            };
-            await api.post('/feedback/', feedbackData);
-            setShowModal(false);
-            setNewFeedback({
-                recipient_id: 0,
-                feedback_type: 'WEEKLY',
-                task_status: '',
-                rating: 5,
-                comments: '',
-                strengths: '',
-                areas_for_improvement: '',
-            });
-            fetchData();
-        } catch {
-            setError('Failed to submit feedback');
-        } finally {
-            setSubmitting(false);
-        }
+        const feedbackData = {
+            ...newFeedback,
+            ...(newFeedback.feedback_type !== 'TASK' && { task_status: null }),
+        };
+
+        toast.promise(api.post('/feedback/', feedbackData), {
+            loading: 'Synthesizing and transmitting feedback review...',
+            success: () => {
+                setShowModal(false);
+                setNewFeedback({
+                    recipient_id: 0,
+                    feedback_type: 'WEEKLY',
+                    task_status: '',
+                    rating: 5,
+                    comments: '',
+                    strengths: '',
+                    areas_for_improvement: '',
+                });
+                fetchData();
+                setSubmitting(false);
+                return 'Performance feedback successfully archived';
+            },
+            error: (err) => {
+                setSubmitting(false);
+                return (err as Error).message || 'Failed to archive feedback';
+            }
+        });
     };
 
     const getFeedbackBadge = (type: string) => {

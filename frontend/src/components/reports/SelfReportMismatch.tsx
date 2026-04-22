@@ -1,4 +1,5 @@
 import React from 'react';
+import { AlertTriangle, ShieldCheck, User, Search } from 'lucide-react';
 
 interface Props {
   discrepancies: string[];
@@ -25,69 +26,64 @@ const SelfReportMismatch: React.FC<Props> = ({
 
   const rows: { label: string; sysKey: keyof typeof systemReport; unit?: string }[] = [
     { label: 'Tasks Completed', sysKey: 'tasks_completed' },
-    { label: 'Attendance Days', sysKey: 'attendance_days', unit: 'days' },
-    { label: 'Actual Hours', sysKey: 'total_actual_hours', unit: 'h' },
+    { label: 'Attendance Days', sysKey: 'attendance_days', unit: ' DAYS' },
+    { label: 'Actual Hours', sysKey: 'total_actual_hours', unit: 'H' },
     { label: 'Overdue Tasks', sysKey: 'tasks_overdue' },
   ];
 
   return (
-    <div style={{
-      background: 'rgba(251, 191, 36, 0.06)',
-      border: '1px solid #d97706',
-      borderRadius: '10px',
-      padding: '14px 16px',
-      marginTop: '12px',
-    }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        marginBottom: '12px',
-      }}>
-        <span style={{ fontSize: '16px' }}>🔍</span>
-        <span style={{ fontWeight: 700, color: '#fbbf24', fontSize: '13px' }}>
-          Self-Report Mismatch Detected
-        </span>
+    <div className="p-6 rounded-[32px] bg-amber-500/[0.02] border border-amber-500/20 space-y-6 relative overflow-hidden animate-in fade-in zoom-in-95 duration-500">
+      <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
+          <Search size={120} className="text-amber-500" />
       </div>
 
-      {/* Comparison table */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+      {/* Header */}
+      <div className="flex items-center gap-3">
+          <div className="p-2 bg-amber-500/10 rounded-lg text-amber-500">
+              <AlertTriangle size={20} />
+          </div>
+          <div>
+              <h4 className="text-sm font-heading font-black text-amber-400 uppercase tracking-tight">Audit Anomaly Detected</h4>
+              <p className="text-[9px] font-black text-amber-500/60 uppercase tracking-widest">Self-report data deviation from system records</p>
+          </div>
+      </div>
+
+      {/* Comparison grid */}
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
           <thead>
-            <tr>
-              <th style={{ textAlign: 'left', color: '#9ca3af', paddingBottom: '8px', fontWeight: 600 }}>
-                Field
+            <tr className="border-b border-amber-500/10">
+              <th className="text-left py-3 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em]">Data Parameter</th>
+              <th className="text-center py-3 px-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/10 rounded-full border border-blue-500/20 text-[9px] font-black text-blue-400 uppercase tracking-widest">
+                      <ShieldCheck size={10} /> System
+                  </div>
               </th>
-              <th style={{ textAlign: 'center', color: '#60a5fa', paddingBottom: '8px', fontWeight: 600 }}>
-                System Record
-              </th>
-              <th style={{ textAlign: 'center', color: '#fbbf24', paddingBottom: '8px', fontWeight: 600 }}>
-                Intern Reported
+              <th className="text-center py-3 px-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 rounded-full border border-amber-500/20 text-[9px] font-black text-amber-400 uppercase tracking-widest">
+                      <User size={10} /> Intern
+                  </div>
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-amber-500/5">
             {rows.map(({ label, sysKey, unit }) => {
               const sysVal = systemReport[sysKey];
               const selfVal = selfReport?.[sysKey] ?? '—';
               const isDiff = selfReport && Math.abs(Number(sysVal) - Number(selfVal)) > 0;
+              
               return (
-                <tr
-                  key={sysKey}
-                  style={{ background: isDiff ? 'rgba(251, 191, 36, 0.05)' : 'transparent' }}
-                >
-                  <td style={{ padding: '5px 0', color: '#d1d5db' }}>{label}</td>
-                  <td style={{ padding: '5px 8px', textAlign: 'center', color: '#93c5fd', fontWeight: 600 }}>
-                    {sysVal}{unit}
+                <tr key={sysKey} className={isDiff ? 'bg-amber-500/[0.01]' : ''}>
+                  <td className="py-4 text-xs font-black text-[var(--text-dim)] uppercase tracking-tight">{label}</td>
+                  <td className="py-4 px-4 text-center">
+                    <span className="text-xs font-heading font-black text-blue-400">
+                        {sysVal}{unit}
+                    </span>
                   </td>
-                  <td style={{
-                    padding: '5px 8px',
-                    textAlign: 'center',
-                    color: isDiff ? '#fcd34d' : '#d1d5db',
-                    fontWeight: isDiff ? 700 : 400,
-                  }}>
-                    {selfVal !== '—' ? `${selfVal}${unit ?? ''}` : '—'}
+                  <td className="py-4 px-4 text-center">
+                    <span className={`text-xs font-heading font-black ${isDiff ? 'text-amber-400 animate-pulse' : 'text-[var(--text-muted)]'}`}>
+                        {selfVal !== '—' ? `${selfVal}${unit ?? ''}` : '—'}
+                    </span>
                   </td>
                 </tr>
               );
@@ -96,14 +92,17 @@ const SelfReportMismatch: React.FC<Props> = ({
         </table>
       </div>
 
-      {/* Discrepancy reasons */}
-      <div style={{ marginTop: '10px', borderTop: '1px solid #44403c', paddingTop: '10px' }}>
-        <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '4px' }}>
-          Flagged discrepancies:
-        </p>
-        <ul style={{ margin: 0, padding: '0 0 0 14px', color: '#fcd34d', fontSize: '11px', lineHeight: 1.6 }}>
-          {discrepancies.map((d, i) => <li key={i}>{d}</li>)}
-        </ul>
+      {/* Alert details */}
+      <div className="pt-4 border-t border-amber-500/10 space-y-3">
+          <div className="text-[9px] font-black text-amber-500/50 uppercase tracking-[0.2em] ml-1">Deviation Markers</div>
+          <div className="space-y-2">
+            {discrepancies.map((d, i) => (
+                <div key={i} className="flex items-center gap-3 text-[11px] text-amber-300/70 font-bold px-4 py-2 bg-amber-500/[0.03] rounded-xl border border-amber-500/10">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                    {d}
+                </div>
+            ))}
+          </div>
       </div>
     </div>
   );

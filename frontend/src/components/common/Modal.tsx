@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -39,8 +40,8 @@ const Modal: React.FC<ModalProps> = ({
 }) => {
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <div
                 className="absolute inset-0 bg-[#050510]/80 backdrop-blur-md"
                 onClick={onClose}
@@ -61,7 +62,8 @@ const Modal: React.FC<ModalProps> = ({
                     {children}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

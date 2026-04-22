@@ -170,37 +170,41 @@ const TaskDetailPage: React.FC = () => {
     }, [task]);
 
     const handleUpdateStatus = async (newStatus: string) => {
-        try {
-            setUpdating(true);
-            // Use the specific update-status endpoint that interns have access to
-            await axios.patch(`/analytics/tasks/${task!.id}/update-status/`, { status: newStatus });
-            toast.success(`Status updated to ${newStatus.replace('_', ' ')}`);
-            fetchTaskDetails();
-        } catch (error) {
-            console.error('Error updating status:', error);
-            toast.error('Failed to update status');
-        } finally {
-            setUpdating(false);
-        }
+        setUpdating(true);
+        toast.promise(axios.patch(`/analytics/tasks/${task!.id}/update-status/`, { status: newStatus }), {
+            loading: `Transitioning task to ${newStatus.replace('_', ' ')}...`,
+            success: () => {
+                fetchTaskDetails();
+                setUpdating(false);
+                return `Status synchronized to ${newStatus.replace('_', ' ')}`;
+            },
+            error: (err) => {
+                setUpdating(false);
+                return (err as Error).message || 'Failed to update task lifecycle state';
+            }
+        });
     };
 
     const handleSubmitEvaluation = async () => {
-        try {
-            setUpdating(true);
-            const payload = {
-                task_id: task!.id,
-                ...evaluation,
-                status: evaluation.rework_required ? 'REWORK' : 'COMPLETED'
-            };
-            await axios.patch(`/analytics/tasks/evaluate/`, payload);
-            toast.success('Evaluation submitted successfully');
-            fetchTaskDetails();
-        } catch (error) {
-            console.error('Error submitting evaluation:', error);
-            toast.error('Failed to submit evaluation');
-        } finally {
-            setUpdating(false);
-        }
+        setUpdating(true);
+        const payload = {
+            task_id: task!.id,
+            ...evaluation,
+            status: evaluation.rework_required ? 'REWORK' : 'COMPLETED'
+        };
+
+        toast.promise(axios.patch(`/analytics/tasks/evaluate/`, payload), {
+            loading: 'Analyzing and committing performance data...',
+            success: () => {
+                fetchTaskDetails();
+                setUpdating(false);
+                return 'Performance appraisal successfully committed';
+            },
+            error: (err) => {
+                setUpdating(false);
+                return (err as Error).message || 'Failed to persist task evaluation';
+            }
+        });
     };
 
     const navigateToTask = (direction: 'next' | 'prev') => {

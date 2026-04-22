@@ -198,7 +198,14 @@ const TasksTab: React.FC<TasksTabProps> = ({
         return monthMatch && yearMatch;
     });
 
-    const filteredTasks = statusFilter ? monthYearFilteredTasks.filter(task => task.status === statusFilter) : monthYearFilteredTasks;
+    const filteredTasks = statusFilter 
+        ? monthYearFilteredTasks.filter(task => {
+            if (statusFilter === 'OVERDUE') {
+                return task.status !== 'COMPLETED' && task.status !== 'SUBMITTED' && new Date(task.due_date) < new Date();
+            }
+            return task.status === statusFilter;
+        }) 
+        : monthYearFilteredTasks;
     const projectFilteredTasks = projectFilter ? filteredTasks.filter(task => task.project && task.project.id === projectFilter) : filteredTasks;
 
     const finalFilteredTasks = dateFilter ? projectFilteredTasks.filter(task => {
@@ -306,17 +313,31 @@ const TasksTab: React.FC<TasksTabProps> = ({
                     </div>
                 </div>
                 {/* Direct Status Picker */}
-                <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] p-1 rounded-xl glass-effect">
-                    {getAvailableStatuses(task).map((opt) => (
-                        <button
-                            key={opt.value}
-                            onClick={() => handleStatusChange(task.id, opt.value)}
-                            title={opt.label}
-                            className={`p-1.5 rounded-lg transition-all ${task.status === opt.value ? 'bg-purple-500/20 text-purple-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)] hover:bg-white/5'}`}
-                        >
-                            {<opt.icon size={14} className={opt.iconColor} />}
-                        </button>
-                    ))}
+                <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-2 px-3 py-1 bg-[var(--bg-muted)]/50 rounded-lg border border-[var(--border-color)]">
+                        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Current Status:</span>
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${
+                            task.status === 'COMPLETED' ? 'text-emerald-400' : 
+                            (task.status !== 'SUBMITTED' && new Date(task.due_date) < new Date()) ? 'text-red-400' : 
+                            'text-blue-400'
+                        }`}>
+                            {task.status === 'COMPLETED' ? 'Complete' : 
+                             (task.status !== 'SUBMITTED' && new Date(task.due_date) < new Date()) ? 'Overdue' : 
+                             task.status.replace('_', ' ')}
+                        </span>
+                    </div>
+                    <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] p-1 rounded-xl glass-effect">
+                        {getAvailableStatuses(task).map((opt) => (
+                            <button
+                                key={opt.value}
+                                onClick={() => handleStatusChange(task.id, opt.value)}
+                                title={opt.label}
+                                className={`p-1.5 rounded-lg transition-all ${task.status === opt.value ? 'bg-purple-500/20 text-purple-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)] hover:bg-white/5'}`}
+                            >
+                                {<opt.icon size={14} className={opt.iconColor} />}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
             <h3 
@@ -482,7 +503,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
                     { id: 'SUBMITTED', label: 'Submitted', count: monthYearFilteredTasks.filter(t => t.status === 'SUBMITTED').length, color: 'yellow', icon: Clock, glowColor: 'bg-yellow-500' },
                     { id: 'COMPLETED', label: 'Completed', count: monthYearFilteredTasks.filter(t => t.status === 'COMPLETED').length, color: 'emerald', icon: CheckCircle, glowColor: 'bg-emerald-500' },
                     { id: 'BLOCKED', label: 'Blocked', count: monthYearFilteredTasks.filter(t => t.status === 'BLOCKED').length, color: 'red', icon: AlertTriangle, glowColor: 'bg-red-500' },
-                    { id: 'OVERDUE', label: 'Overdue', count: monthYearFilteredTasks.filter(t => t.status !== 'COMPLETED' && new Date(t.due_date) < new Date()).length, color: 'orange', icon: AlertTriangle, glowColor: 'bg-orange-500' },
+                    { id: 'OVERDUE', label: 'Overdue', count: monthYearFilteredTasks.filter(t => t.status !== 'COMPLETED' && t.status !== 'SUBMITTED' && new Date(t.due_date) < new Date()).length, color: 'orange', icon: AlertTriangle, glowColor: 'bg-orange-500' },
                 ].map((stat) => {
                     const isOverdue = stat.id === 'OVERDUE' && stat.count > 0;
                     return (

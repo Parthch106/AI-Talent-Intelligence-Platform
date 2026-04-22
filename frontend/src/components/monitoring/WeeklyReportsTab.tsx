@@ -53,10 +53,6 @@ const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({ reports, onSubmitRe
     return (
         <div className="space-y-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h2 className="text-3xl font-bold gradient-text">Weekly Reports</h2>
-                    <p className="text-[var(--text-dim)] mt-1">Track weekly progress and accomplishments</p>
-                </div>
                 {showSubmit && (
                     <Button
                         onClick={onSubmitReport}

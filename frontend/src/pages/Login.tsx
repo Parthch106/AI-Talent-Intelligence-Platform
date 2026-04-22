@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { useNavigate, Link } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 const Login: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -16,17 +17,32 @@ const Login: React.FC = () => {
         e.preventDefault();
         setIsLoading(true);
         setError('');
-        try {
-            const response = await api.post('/accounts/auth/login/', { email, password });
+
+        const loginPromise = async () => {
+            const response = await api.post('/accounts/auth/login/', { 
+                email, 
+                password
+            });
             const { access, user } = response.data;
             login(access, user);
-            navigate('/');
-        } catch (err: unknown) {
-            const apiError = err as { response?: { data?: { detail?: string } } };
-            setError(apiError.response?.data?.detail || 'Login failed');
-        } finally {
-            setIsLoading(false);
-        }
+            return user;
+        };
+
+        toast.promise(loginPromise(), {
+            loading: 'Authenticating credentials with neural core...',
+            success: (user) => {
+                navigate('/');
+                setIsLoading(false);
+                return `Access granted. Welcome back, ${user.full_name}`;
+            },
+            error: (err) => {
+                setIsLoading(false);
+                const apiError = err as { response?: { data?: { detail?: string } } };
+                const msg = apiError.response?.data?.detail || 'Authentication sequence failed';
+                setError(msg);
+                return msg;
+            }
+        });
     };
 
     return (
@@ -141,15 +157,16 @@ const Login: React.FC = () => {
                             </div>
                         </div>
 
+
                         {/* Remember Me & Forgot Password */}
                         <div className="flex items-center justify-between text-sm">
                             <label className="flex items-center gap-2 cursor-pointer group">
                                 <input type="checkbox" className="w-4 h-4 rounded border-[var(--border-color)] bg-[var(--bg-color)] text-purple-500 focus:ring-purple-500/50 cursor-pointer" />
                                 <span className="text-[var(--text-dim)] group-hover:text-[var(--text-main)] transition-colors">Remember me</span>
                             </label>
-                            <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">
+                            <Link to="/auth/forgot-password" size="sm" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">
                                 Forgot password?
-                            </a>
+                            </Link>
                         </div>
 
                         {/* Submit Button */}

@@ -33,6 +33,9 @@ const AITaskGenerator = lazy(() => import('./pages/AITaskGenerator'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const TaskDetailPage = lazy(() => import('./pages/TaskDetailPage'));
 const StaffPortal = lazy(() => import('./pages/StaffPortal'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const VerifyOTP = lazy(() => import('./pages/VerifyOTP'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 
 // V2 Phase 4 pages
 const WeeklyReportsInternPage   = lazy(() => import('./pages/WeeklyReportsInternPage'));
@@ -62,6 +65,9 @@ const App: React.FC = () => {
                 {/* Public Routes */}
                 <Route path="/auth/login" element={<Login />} />
                 <Route path="/auth/register" element={<Register />} />
+                <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+                <Route path="/auth/verify-otp" element={<VerifyOTP />} />
+                <Route path="/auth/reset-password" element={<ResetPassword />} />
                 <Route path="/staff-onboarding-portal-v2" element={<StaffPortal />} />
                 <Route path="/login" element={<Navigate to="/auth/login" replace />} />
                 <Route path="/register" element={<Navigate to="/auth/register" replace />} />
@@ -132,7 +138,7 @@ const App: React.FC = () => {
                     </ProtectedRoute>
                   } />
                    <Route path="/analytics/weekly-reports" element={
-                    <ProtectedRoute allowedRoles={['ADMIN']}>
+                    <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
                       <WeeklyReportsAdminPage />
                     </ProtectedRoute>
                   } />

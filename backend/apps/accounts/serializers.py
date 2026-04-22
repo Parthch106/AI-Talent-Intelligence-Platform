@@ -16,7 +16,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["email", "full_name", "password", "role", "department"]
+        fields = ["email", "full_name", "password", "role"]
 
     def create(self, validated_data):
         # Force role to INTERN for public registration
@@ -25,7 +25,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             password=validated_data["password"],
             full_name=validated_data["full_name"],
             role=User.Role.INTERN,
-            department=validated_data.get("department", ""),
+            department="",  # Only Admin can set department
         )
         return user
 
@@ -174,5 +174,23 @@ class StipendRecordSerializer(serializers.ModelSerializer):
             'disbursed_at', 'notes', 'performance_score_at_disbursement'
         ]
         read_only_fields = ['id', 'approved_at', 'disbursed_at']
+
+
+# ============================================================================
+# Auth Expansion: Password Reset & OTP Serializers
+# ============================================================================
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class OTPVerifySerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp_code = serializers.CharField(max_length=6)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    reset_token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True, min_length=8)
 
 

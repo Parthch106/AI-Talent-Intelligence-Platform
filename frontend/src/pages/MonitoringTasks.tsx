@@ -6,6 +6,7 @@ import { TasksTab } from '../components/monitoring';
 import { useSearchParams } from 'react-router-dom';
 import { Card, ContributionHeatmap, Modal, Button } from '../components/common';
 import { ChevronDown, Search, Check, X, Plus, Filter } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 // Types (matching MonitoringDashboard)
 interface Task {
@@ -129,29 +130,34 @@ const MonitoringTasksPage: React.FC = () => {
 
     const handleCreateTask = async (e: React.FormEvent): Promise<void> => {
         e.preventDefault();
-        try {
-            const taskPayload: Record<string, string | number | string[]> = {
-                title: taskForm.title,
-                description: taskForm.description,
-                priority: taskForm.priority,
-                due_date: taskForm.due_date,
-                estimated_hours: taskForm.estimated_hours,
-                intern_id: selectedIntern || 0,
-                skills_required: taskForm.skills_required
-            };
-            if (taskForm.project_assignment_id) {
-                taskPayload.project_assignment_id = parseInt(taskForm.project_assignment_id);
-            }
-            if (taskForm.project_module_id) {
-                taskPayload.project_module_id = parseInt(taskForm.project_module_id);
-            }
-            await axios.post('/analytics/tasks/create/', taskPayload);
-            closeModal();
-            setTaskForm({ title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] });
-            fetchData();
-        } catch (err) {
-            console.error('Error creating task:', err);
+        const taskPayload: Record<string, string | number | string[]> = {
+            title: taskForm.title,
+            description: taskForm.description,
+            priority: taskForm.priority,
+            due_date: taskForm.due_date,
+            estimated_hours: taskForm.estimated_hours,
+            intern_id: selectedIntern || 0,
+            skills_required: taskForm.skills_required
+        };
+        if (taskForm.project_assignment_id) {
+            taskPayload.project_assignment_id = parseInt(taskForm.project_assignment_id);
         }
+        if (taskForm.project_module_id) {
+            taskPayload.project_module_id = parseInt(taskForm.project_module_id);
+        }
+
+        toast.promise(axios.post('/analytics/tasks/create/', taskPayload), {
+            loading: 'Injecting task parameters into the neural pipeline...',
+            success: () => {
+                closeModal();
+                setTaskForm({ title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] });
+                fetchData();
+                return 'Task successfully initialized and assigned';
+            },
+            error: (err) => {
+                return (err as Error).message || 'Failed to initialize task sequence';
+            }
+        });
     };
 
     const fetchHeatmapData = React.useCallback(async (targetId: number): Promise<void> => {
@@ -215,12 +221,16 @@ const MonitoringTasksPage: React.FC = () => {
 
 
     const handleTaskStatusChange = async (taskId: number, newStatus: string): Promise<void> => {
-        try {
-            await axios.patch(`/analytics/tasks/${taskId}/`, { status: newStatus });
-            fetchData();
-        } catch (err) {
-            console.error('Error updating task status:', err);
-        }
+        toast.promise(axios.patch(`/analytics/tasks/${taskId}/`, { status: newStatus }), {
+            loading: 'Synchronizing task state transition...',
+            success: () => {
+                fetchData();
+                return `Task status successfully migrated to ${newStatus.replace('_', ' ')}`;
+            },
+            error: (err) => {
+                return (err as Error).message || 'State transition failed';
+            }
+        });
     };
 
     const getSelectedInternName = (): string => {

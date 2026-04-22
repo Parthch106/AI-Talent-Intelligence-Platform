@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 interface User {
-    id: number;
+    id: number | string;
     email: string;
     role: string;
     full_name?: string;
@@ -19,7 +20,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {
@@ -33,6 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
 
     useEffect(() => {
+        // 1. Initial check for legacy storage
         const storedUser = localStorage.getItem('user');
         if (token && storedUser) {
             try {
@@ -41,6 +42,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.error("Failed to parse user from local storage", e);
             }
         }
+
+        // 2. Listen to Supabase Auth Changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' && session) {
+                const supabaseUser: User = {
+                    id: session.user.id,
+                    email: session.user.email || '',
+                    role: (session.user.user_metadata?.role as string) || 'USER',
+                    full_name: (session.user.user_metadata?.full_name as string) || '',
+                };
+                setUser(supabaseUser);
+                setToken(session.access_token);
+            } else if (event === 'SIGNED_OUT') {
+                setUser(null);
+                setToken(null);
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            }
+        });
+
+        return () => {
+            subscription.unsubscribe();
+        };
     }, [token]);
 
     const login = (newToken: string, newUser: User) => {
@@ -50,7 +74,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(newUser);
     };
 
-    const logout = () => {
+    const logout = async () => {
+        await supabase.auth.signOut();
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setToken(null);
@@ -58,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token }}>
+        <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token || !!user }}>
             {children}
         </AuthContext.Provider>
     );

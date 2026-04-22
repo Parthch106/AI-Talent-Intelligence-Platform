@@ -4,6 +4,8 @@ import WeeklyReportCard from '../components/reports/WeeklyReportCard';
 import { fetchAllReportsV2 } from '../api/reports';
 import type { WeeklyReportV2 } from '../types/reports';
 import { useNavigate } from 'react-router-dom';
+import { Card, StatsCard, LoadingSpinner, Badge } from '../components/common';
+import { Activity, AlertCircle, CheckCircle2, Search, TrendingUp, Users, Clock, Flag } from 'lucide-react';
 
 const WeeklyReportsManagerPage: React.FC = () => {
   const [reports, setReports]       = useState<WeeklyReportV2[]>([]);
@@ -35,113 +37,113 @@ const WeeklyReportsManagerPage: React.FC = () => {
       : list;
   };
 
+  const stats = [
+    { title: 'Total Reports', value: reports.length, icon: <Activity size={24} />, gradient: 'from-blue-500 to-indigo-500' },
+    { title: 'Red Flags', value: redFlagReports.length, icon: <Flag size={24} />, gradient: 'from-red-500 to-orange-500' },
+    { title: 'Reviewed', value: reports.filter(r => r.manager_reviewed).length, icon: <CheckCircle2 size={24} />, gradient: 'from-emerald-500 to-teal-500' },
+    { title: 'Pending Review', value: reports.filter(r => !r.manager_reviewed).length, icon: <Clock size={24} />, gradient: 'from-amber-500 to-orange-500' },
+  ];
+
+  if (loading && reports.length === 0) {
+      return (
+          <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="flex flex-col items-center gap-4">
+                  <LoadingSpinner />
+                  <p className="text-[var(--text-dim)] animate-pulse uppercase text-xs font-black tracking-widest">Compiling Feed...</p>
+              </div>
+          </div>
+      );
+  }
 
   return (
-    <div style={{ padding: '28px 24px', maxWidth: '900px', margin: '0 auto' }}>
-
-      {/* Page header */}
-      <div style={{ marginBottom: '28px' }}>
-        <h1 style={{ margin: '0 0 4px', fontSize: '22px', fontWeight: 800, color: '#e5e7eb' }}>
-          Weekly Report Feed (V2)
-        </h1>
-        <p style={{ margin: 0, color: '#6b7280', fontSize: '13px' }}>
-          Auto-generated every Monday for all active interns
-        </p>
+    <div className="space-y-10 animate-fade-in pb-12">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-4xl font-heading font-black tracking-tighter text-[var(--text-main)] mb-2 uppercase">
+            Manager <span className="bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">Feed</span>
+          </h1>
+          <p className="text-[var(--text-dim)] font-bold uppercase text-[10px] tracking-[0.2em]">Weekly intelligence and performance monitoring</p>
+        </div>
       </div>
 
-      {/* Stats row */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        {[
-          { label: 'Total Reports', value: reports.length, color: '#818cf8' },
-          { label: 'Red Flags', value: redFlagReports.length, color: '#f87171' },
-          { label: 'Reviewed', value: reports.filter(r => r.manager_reviewed).length, color: '#34d399' },
-          { label: 'Pending Review', value: reports.filter(r => !r.manager_reviewed).length, color: '#fbbf24' },
-        ].map(({ label, value, color }) => (
-          <div key={label} style={{
-            flex: 1, minWidth: '120px',
-            background: '#1e1e2e',
-            border: '1px solid #2a2a3e',
-            borderRadius: '10px',
-            padding: '12px 16px',
-            textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 800, color }}>{value}</div>
-            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{label}</div>
-          </div>
+      {/* KPI Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        {stats.map((stat, i) => (
+          <StatsCard key={i} {...stat} />
         ))}
       </div>
 
-      {/* Filter */}
-      <input
-        type="text"
-        placeholder="Filter by intern name…"
-        value={filterIntern}
-        onChange={e => setFilterIntern(e.target.value)}
-        style={{
-          width: '100%',
-          background: '#1e1e2e',
-          border: '1px solid #333',
-          borderRadius: '8px',
-          color: '#e5e7eb',
-          padding: '9px 14px',
-          fontSize: '13px',
-          marginBottom: '20px',
-          outline: 'none',
-          boxSizing: 'border-box',
-        }}
-      />
+      {/* Search/Filter Container */}
+      <div className="relative group max-w-2xl">
+          <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-[var(--text-muted)] group-focus-within:text-purple-400 transition-colors">
+              <Search size={18} />
+          </div>
+          <input
+            type="text"
+            placeholder="Filter by intern name..."
+            value={filterIntern}
+            onChange={e => setFilterIntern(e.target.value)}
+            className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] rounded-[20px] pl-14 pr-6 py-4 text-[var(--text-main)] text-sm focus:ring-2 focus:ring-purple-500/40 outline-none transition-all placeholder:text-[var(--text-muted)] backdrop-blur-xl"
+          />
+      </div>
 
       {/* Red flag section */}
       {filtered(redFlagReports).length > 0 && (
-        <section style={{ marginBottom: '28px' }}>
-          <h2 style={{
-            fontSize: '13px',
-            fontWeight: 700,
-            color: '#f87171',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            margin: '0 0 12px',
-          }}>
-            🚩 Red Flags — Needs Attention ({filtered(redFlagReports).length})
-          </h2>
-          {filtered(redFlagReports).map(r => (
-            <RedFlagAlert
-              key={r.id}
-              internName={r.intern_name}
-              weekStart={r.week_start}
-              reasons={r.red_flag_reasons}
-              onView={() => setFilterIntern(r.intern_name)} // Or navigate to detail if implemented
-              isConsecutive={false}
-            />
-          ))}
+        <section className="animate-slide-up">
+            <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-red-500/10 rounded-lg animate-pulse">
+                    <Flag size={20} className="text-red-400" />
+                </div>
+                <div>
+                    <h2 className="text-xl font-heading font-bold text-[var(--text-main)] uppercase tracking-tight">Critical Interventions</h2>
+                    <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">Active red flags requiring attention</p>
+                </div>
+            </div>
+
+          <div className="grid grid-cols-1 gap-4">
+              {filtered(redFlagReports).map(r => (
+                <RedFlagAlert
+                  key={r.id}
+                  internName={r.intern_name}
+                  weekStart={r.week_start}
+                  reasons={r.red_flag_reasons}
+                  onView={() => setFilterIntern(r.intern_name)} 
+                  isConsecutive={false}
+                />
+              ))}
+          </div>
         </section>
       )}
 
       {/* All reports */}
-      <section>
-        <h2 style={{
-          fontSize: '13px',
-          fontWeight: 700,
-          color: '#9ca3af',
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px',
-          margin: '0 0 12px',
-        }}>
-          All Reports ({filtered([...redFlagReports, ...normalReports]).length})
-        </h2>
-        {loading ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
-            Loading reports…
-          </div>
-        ) : filtered([...redFlagReports, ...normalReports]).map((r) => (
-          <WeeklyReportCard
-            key={r.id}
-            report={r}
-            priorReports={[]}
-            isManagerView={true}
-            onReviewedChange={loadReports}
-          />
-        ))}
+      <section className="animate-slide-up delay-100">
+        <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-purple-500/10 rounded-lg">
+                    <Activity size={20} className="text-purple-400" />
+                </div>
+                <div>
+                    <h2 className="text-xl font-heading font-bold text-[var(--text-main)] uppercase tracking-tight">All Reports</h2>
+                    <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Complete weekly report index</p>
+                </div>
+            </div>
+
+        <div className="grid grid-cols-1 gap-6">
+            {filtered([...redFlagReports, ...normalReports]).length === 0 ? (
+                <div className="py-20 text-center flex flex-col items-center gap-3">
+                    <Search size={40} className="text-[var(--text-muted)] opacity-20" />
+                    <p className="text-[var(--text-muted)] font-black uppercase text-xs tracking-widest">No matching reports found</p>
+                </div>
+            ) : filtered([...redFlagReports, ...normalReports]).map((r) => (
+              <WeeklyReportCard
+                key={r.id}
+                report={r}
+                priorReports={[]}
+                isManagerView={true}
+                onReviewedChange={loadReports}
+              />
+            ))}
+        </div>
       </section>
     </div>
   );

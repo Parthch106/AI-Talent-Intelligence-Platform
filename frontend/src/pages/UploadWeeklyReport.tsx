@@ -6,6 +6,7 @@ import {
     FileText, Upload, CheckCircle, Clock, AlertTriangle,
     ChevronRight, FileUp, Calendar, Target, TrendingUp, Trash2, Eye
 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface WeeklyReport {
     id: number;
@@ -77,31 +78,27 @@ const UploadWeeklyReport: React.FC = () => {
         e.preventDefault();
 
         if (!pdfFile) {
-            setError('Please select a PDF file to upload');
+            toast.error('Strategic documentation required: Please select a PDF file');
             return;
         }
 
-        setLoading(true);
-        setError('');
-        try {
-            const formData = new FormData();
-            formData.append('pdf_report', pdfFile);
+        const formData = new FormData();
+        formData.append('pdf_report', pdfFile);
 
-            await axios.post('/analytics/weekly-reports/submit/', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
-
-            setSuccess('Weekly report submitted successfully!');
-            setShowModal(false);
-            setPdfFile(null);
-            fetchReports();
-            setTimeout(() => setSuccess(''), 5000);
-        } catch (err) {
-            const apiError = err as { response?: { data?: { error?: string } } };
-            console.error('Error submitting report:', err);
-            setError(apiError.response?.data?.error || 'Failed to submit report. Please try again.');
-        }
-        setLoading(false);
+        toast.promise(axios.post('/analytics/weekly-reports/submit/', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        }), {
+            loading: 'Injecting performance metrics into the analytical engine...',
+            success: () => {
+                setShowModal(false);
+                setPdfFile(null);
+                fetchReports();
+                return 'Weekly report successfully synchronized and archived';
+            },
+            error: (err) => {
+                return (err as any).response?.data?.error || 'Failed to synchronize performance report';
+            }
+        });
     };
 
     const handleDeleteReport = async (reportId: number) => {
@@ -109,21 +106,18 @@ const UploadWeeklyReport: React.FC = () => {
             return;
         }
 
-        setLoading(true);
-        setError('');
-        try {
-            await axios.delete('/analytics/weekly-reports/', {
-                data: { report_id: reportId }
-            });
-            setSuccess('Report deleted successfully');
-            fetchReports();
-            setTimeout(() => setSuccess(''), 5000);
-        } catch (err) {
-            const apiError = err as { response?: { data?: { error?: string } } };
-            console.error('Error deleting report:', err);
-            setError(apiError.response?.data?.error || 'Failed to delete report');
-        }
-        setLoading(false);
+        toast.promise(axios.delete('/analytics/weekly-reports/', {
+            data: { report_id: reportId }
+        }), {
+            loading: 'Decommissioning archived report...',
+            success: () => {
+                fetchReports();
+                return 'Report successfully decommissioned';
+            },
+            error: (err) => {
+                return (err as any).response?.data?.error || 'Failed to decommission report';
+            }
+        });
     };
 
     const getStats = () => {

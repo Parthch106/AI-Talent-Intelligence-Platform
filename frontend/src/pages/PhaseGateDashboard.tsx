@@ -2,7 +2,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { fetchAllReportsV2 } from '../api/reports';
 import { Card, Button, Badge, LoadingSpinner, StatsCard } from '../components/common';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import { LayoutDashboard, CheckCircle2, Flag, ArrowUpRight, Clock, Award, ShieldCheck, Mail, Target } from 'lucide-react';
 
 interface InternEvaluationState {
   id: number;
@@ -22,6 +24,7 @@ interface InternEvaluationState {
 const PhaseGateDashboard: React.FC = () => {
   const [interns, setInterns] = useState<InternEvaluationState[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const loadData = useCallback(async () => {
@@ -41,80 +44,108 @@ const PhaseGateDashboard: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  if (loading) return <div className="p-8 flex justify-center"><LoadingSpinner /></div>;
+  if (loading && interns.length === 0) {
+      return (
+          <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="flex flex-col items-center gap-4">
+                  <LoadingSpinner />
+                  <p className="text-[var(--text-dim)] animate-pulse uppercase text-xs font-black tracking-widest">Scanning Gate Readiness...</p>
+              </div>
+          </div>
+      );
+  }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in zoom-in-95 duration-500">
-      <div className="flex justify-between items-end">
+    <div className="space-y-10 animate-fade-in pb-12">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-extrabold text-gray-100 tracking-tight">Phase Gate Dashboard</h1>
-          <p className="text-gray-400 mt-1">Review and approve career progression for interns reaching major milestones.</p>
+          <h1 className="text-4xl font-heading font-black tracking-tighter text-[var(--text-main)] mb-2 uppercase">
+            Phase Gate <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Control</span>
+          </h1>
+          <p className="text-[var(--text-dim)] font-bold uppercase text-[10px] tracking-[0.2em]">Milestone review and progression management</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatsCard label="Awaiting Evaluation" value={interns.length} color="#fbbf24" />
-        <StatsCard label="Phase 1 Gates" value={interns.filter(i => i.current_phase === 'PHASE_1').length} color="#818cf8" />
-        <StatsCard label="Phase 2 Gates" value={interns.filter(i => i.current_phase === 'PHASE_2').length} color="#34d399" />
+      {/* KPI Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <StatsCard title="Awaiting Evaluation" value={interns.length} icon={<Clock size={24} />} gradient="from-amber-500 to-orange-600" />
+        <StatsCard title="Phase 1 Gates" value={interns.filter(i => i.current_phase === 'PHASE_1').length} icon={<Award size={24} />} gradient="from-indigo-500 to-purple-600" />
+        <StatsCard title="Phase 2 Gates" value={interns.filter(i => i.current_phase === 'PHASE_2').length} icon={<ShieldCheck size={24} />} gradient="from-emerald-500 to-teal-600" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {interns.map((intern) => (
-          <Card key={intern.id} className="group overflow-hidden border-gray-800 bg-gray-900/40 hover:border-indigo-500/50 transition-all duration-500">
-            <div className="p-5 space-y-4">
+          <Card key={intern.id} noPadding className="group border-[var(--border-color)] bg-[var(--card-bg)] hover:border-emerald-500/50 transition-all duration-500 backdrop-blur-xl relative overflow-hidden">
+            <div className="p-6 space-y-6">
               <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-bold text-lg text-gray-100 group-hover:text-indigo-400 transition-colors">
+                <div className="space-y-1">
+                  <h3 className="font-heading font-black text-xl text-[var(--text-main)] group-hover:text-emerald-400 transition-colors uppercase tracking-tight">
                     {intern.user.full_name}
                   </h3>
-                  <p className="text-xs text-gray-500">{intern.user.email}</p>
+                  <div className="flex items-center gap-2 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
+                    <Mail size={12} />
+                    {intern.user.email}
+                  </div>
                 </div>
-                <Badge variant={intern.current_phase === 'PHASE_1' ? 'primary' : 'success'}>
+                <Badge className={intern.current_phase === 'PHASE_1' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}>
                   {intern.current_phase.replace('_', ' ')}
                 </Badge>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500">Tenure</span>
-                  <span className="text-gray-300 font-medium">{intern.months_active} Months</span>
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-white/[0.02] rounded-2xl border border-[var(--border-color)]">
+                      <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1">Tenure</div>
+                      <div className="text-lg font-heading font-black text-[var(--text-main)]">{intern.months_active} <span className="text-[10px] text-[var(--text-muted)]">MO</span></div>
+                  </div>
+                  <div className="p-3 bg-white/[0.02] rounded-2xl border border-[var(--border-color)]">
+                      <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1">Score</div>
+                      <div className={`text-lg font-heading font-black ${intern.overall_score >= 75 ? 'text-emerald-400' : 'text-red-400'}`}>{intern.overall_score}%</div>
+                  </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] px-1">
+                  <span>Cumulative Performance</span>
+                  <span>Goal: 75%+</span>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500">Cumulative Score</span>
-                  <span className={`font-bold ${intern.overall_score >= 75 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {intern.overall_score}%
-                  </span>
-                </div>
-                <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-[var(--border-color)]">
                   <div 
-                    className={`h-full transition-all duration-1000 ${intern.overall_score >= 75 ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                    className={`h-full transition-all duration-1000 ${intern.overall_score >= 75 ? 'bg-emerald-500' : 'bg-red-500'}`}
                     style={{ width: `${intern.overall_score}%` }}
                   />
                 </div>
               </div>
 
-              <div className="pt-2">
+              {user?.role === 'ADMIN' ? (
                 <Button 
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-500/20"
+                  className="w-full btn-primary-premium flex items-center justify-center gap-2"
                   onClick={() => navigate(`/analytics/evaluations/new/${intern.user.id}`)}
                 >
-                  Conduct Gate Review
+                  <span>Conduct Gate Review</span>
+                  <ArrowUpRight size={16} />
                 </Button>
-              </div>
+              ) : (
+                <div className="w-full py-3 px-4 bg-white/5 border border-[var(--border-color)] rounded-2xl text-center">
+                   <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest italic opacity-40">Review Restricted to Admin</span>
+                </div>
+              )}
             </div>
             
-            <div className="bg-gray-800/50 px-5 py-3 border-t border-gray-800 flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${intern.is_eligible ? 'bg-emerald-500 animate-pulse' : 'bg-gray-600'}`} />
-              <span className="text-[10px] uppercase font-bold text-gray-500 tracking-widest">
-                {intern.is_eligible ? 'Eligible for Promotion' : 'Time Milestone Not Reached'}
+            <div className="bg-white/[0.02] px-6 py-4 border-t border-[var(--border-color)] flex items-center gap-3">
+              <div className={`w-2.5 h-2.5 rounded-full ${intern.is_eligible ? 'bg-emerald-500 animate-pulse' : 'bg-white/10'}`} />
+              <span className="text-[10px] uppercase font-black text-[var(--text-dim)] tracking-widest">
+                {intern.is_eligible ? 'Eligible for Phase Transition' : 'Maturity Milestone Pending'}
               </span>
             </div>
           </Card>
         ))}
         {interns.length === 0 && (
-          <div className="col-span-full py-20 text-center space-y-4">
-            <div className="text-5xl opacity-20">🏝️</div>
-            <p className="text-gray-500 italic">No interns currently awaiting gate evaluations.</p>
+          <div className="col-span-full py-32 text-center flex flex-col items-center gap-4">
+             <div className="p-6 bg-white/[0.02] rounded-full border border-[var(--border-color)] mb-4">
+                <Target size={48} className="text-[var(--text-muted)] opacity-20" />
+             </div>
+             <p className="text-[var(--text-dim)] font-black uppercase text-xs tracking-widest italic">All nodes synchronized • No pending evaluations</p>
           </div>
         )}
       </div>

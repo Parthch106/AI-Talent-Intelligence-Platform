@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, LayoutGrid, List as ListIcon, Users, X, Edit, UserPlus, Calendar, ExternalLink, FolderKanban, Clock, Sparkles } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
@@ -170,11 +171,10 @@ const ProjectList: React.FC = () => {
         setError('');
 
         const techStackArray = newProject.tech_stack
-            .split(',')
-            .map(t => t.trim())
-            .filter(t => t);
+            ? newProject.tech_stack.split(',').map(s => s.trim()).filter(Boolean)
+            : [];
 
-        try {
+        const savePromise = async () => {
             const response = await api.post('/projects/projects/', {
                 ...newProject,
                 tech_stack: techStackArray,
@@ -182,91 +182,98 @@ const ProjectList: React.FC = () => {
 
             const createdProject = response.data;
 
-            // Create AI-suggested modules if any
             if (aiSuggestedModules.length > 0) {
                 for (const module of aiSuggestedModules) {
-                    try {
-                        await api.post('/projects/modules/', {
-                            name: module.name,
-                            description: module.description,
-                            project_id: createdProject.id
-                        });
-                    } catch (moduleErr) {
-                        console.error('Failed to create module:', module.name, moduleErr);
-                        // Continue with other modules even if one fails
-                    }
+                    await api.post('/projects/modules/', {
+                        name: module.name,
+                        description: module.description,
+                        project_id: createdProject.id
+                    });
                 }
             }
+            return createdProject;
+        };
 
-            setShowAddModal(false);
-            setNewProject({
-                name: '',
-                description: '',
-                start_date: '',
-                end_date: '',
-                repository_url: '',
-                tech_stack: '',
-                status: 'PLANNED',
-            });
-            setAiSuggestedModules([]); // Clear suggested modules
-            fetchData();
-        } catch (err) {
-            const apiError = err as { response?: { data?: { detail?: string } } };
-            setError(apiError.response?.data?.detail || 'Failed to create project');
-        } finally {
-            setSubmitting(false);
-        }
+        toast.promise(savePromise(), {
+            loading: 'Initializing project architecture...',
+            success: () => {
+                setShowAddModal(false);
+                setNewProject({
+                    name: '',
+                    description: '',
+                    start_date: '',
+                    end_date: '',
+                    repository_url: '',
+                    tech_stack: '',
+                    status: 'PLANNED',
+                });
+                setAiSuggestedModules([]);
+                fetchData();
+                setSubmitting(false);
+                return 'Project created successfully';
+            },
+            error: (err) => {
+                setSubmitting(false);
+                const apiError = err as { response?: { data?: { detail?: string } } };
+                return apiError.response?.data?.detail || 'Failed to create project';
+            }
+        });
     };
 
     const handleEditProject = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedProject) return;
         setSubmitting(true);
-        setError('');
 
         const techStackArray = editProject.tech_stack
-            .split(',')
-            .map(t => t.trim())
-            .filter(t => t);
+            ? editProject.tech_stack.split(',').map(s => s.trim()).filter(Boolean)
+            : [];
 
-        try {
-            await api.patch(`/projects/projects/${selectedProject.id}/`, {
-                ...editProject,
-                tech_stack: techStackArray,
-            });
-            setShowEditModal(false);
-            setSelectedProject(null);
-            fetchData();
-        } catch (err) {
-            const apiError = err as { response?: { data?: { detail?: string } } };
-            setError(apiError.response?.data?.detail || 'Failed to update project');
-        } finally {
-            setSubmitting(false);
-        }
+        toast.promise(api.patch(`/projects/projects/${selectedProject.id}/`, {
+            ...editProject,
+            tech_stack: techStackArray,
+        }), {
+            loading: 'Syncing project modifications...',
+            success: () => {
+                setShowEditModal(false);
+                setSelectedProject(null);
+                fetchData();
+                setSubmitting(false);
+                return 'Project updated successfully';
+            },
+            error: (err) => {
+                setSubmitting(false);
+                const apiError = err as { response?: { data?: { detail?: string } } };
+                return apiError.response?.data?.detail || 'Failed to update project';
+            }
+        });
     };
 
     const handleAssignIntern = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedProject) return;
         setSubmitting(true);
-        setError('');
 
-        try {
-            await api.post('/projects/assignments/', {
-                project_id: selectedProject.id,
-                intern_id: assignIntern.intern_id,
-                role: assignIntern.role,
-            });
-            setShowAssignModal(false);
-            setSelectedProject(null);
-            setAssignIntern({ intern_id: 0, role: '' });
-            fetchData();
-        } catch (err) {
-            const apiError = err as { response?: { data?: { detail?: string } } };
-            setError(apiError.response?.data?.detail || 'Failed to assign intern');
-        } finally {
-            setSubmitting(false);
-        }
+        toast.promise(api.post('/projects/assignments/', {
+            project_id: selectedProject.id,
+            intern_id: assignIntern.intern_id,
+            role: assignIntern.role,
+        }), {
+            loading: 'Establishing resource assignment...',
+            success: () => {
+                setShowAssignModal(false);
+                setSelectedProject(null);
+                setAssignIntern({ intern_id: 0, role: '' });
+                fetchData();
+                setSubmitting(false);
+                return 'Intern assigned successfully';
+            },
+            error: (err) => {
+                setSubmitting(false);
+                const apiError = err as { response?: { data?: { detail?: string } } };
+                return apiError.response?.data?.detail || 'Failed to assign intern';
+            }
+        });
     };
 
     const openEditModal = (project: Project) => {
@@ -306,30 +313,29 @@ const ProjectList: React.FC = () => {
     const handleAddModule = async () => {
         if (!selectedProject || !newModule.name) return;
         setSubmitting(true);
-        try {
-            // Use the modules endpoint directly with project_id
-            await api.post('/projects/modules/', {
-                ...newModule,
-                project_id: selectedProject.id
-            });
-            setNewModule({ name: '', description: '' });
-            fetchProjectModules(selectedProject.id);
-        } catch (err) {
-            const apiError = err as { response?: { data?: Record<string, unknown> } };
-            console.error('Add module error:', apiError.response?.data);
-            const errorData = apiError.response?.data;
-            if (typeof errorData === 'object' && errorData !== null && Object.keys(errorData).length > 0) {
-                const errorMessages = Object.entries(errorData)
-                    .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
-                    .join(', ');
-                setError(errorMessages);
-            } else {
-                const detail = (apiError.response?.data as { detail?: string })?.detail;
-                setError(typeof detail === 'string' ? detail : 'Failed to add module');
+        toast.promise(api.post('/projects/modules/', {
+            ...newModule,
+            project_id: selectedProject.id
+        }), {
+            loading: 'Injecting module into project scope...',
+            success: () => {
+                setNewModule({ name: '', description: '' });
+                fetchProjectModules(selectedProject.id);
+                setSubmitting(false);
+                return 'Module added successfully';
+            },
+            error: (err) => {
+                setSubmitting(false);
+                const apiError = err as { response?: { data?: Record<string, unknown> } };
+                const errorData = apiError.response?.data;
+                if (typeof errorData === 'object' && errorData !== null && Object.keys(errorData).length > 0) {
+                    return Object.entries(errorData)
+                        .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+                        .join(', ');
+                }
+                return (apiError.response?.data as { detail?: string })?.detail || 'Failed to add module';
             }
-        } finally {
-            setSubmitting(false);
-        }
+        });
     };
 
     const handleOpenAIInputModal = () => {
@@ -341,44 +347,37 @@ const ProjectList: React.FC = () => {
         setError('');
         setShowAIInputModal(false);
 
-        try {
-            // Get department from user profile - assuming it's available
-            const department = user?.department || 'Web Development'; // Default fallback
-
+        const suggestionPromise = async () => {
+            const department = user?.department || 'Web Development';
             const requestData: Record<string, string | number> = {
                 department: department,
                 experience_level: 'BEGINNER',
-                num_suggestions: 1,  // Reduced to avoid token limits
+                num_suggestions: 1,
                 duration: aiInput.duration
             };
 
-            // Add optional fields if provided
-            if (aiInput.description.trim()) {
-                requestData.description = aiInput.description.trim();
-            }
-            if (aiInput.skills.trim()) {
-                requestData.skills = aiInput.skills.trim();
-            }
+            if (aiInput.description.trim()) requestData.description = aiInput.description.trim();
+            if (aiInput.skills.trim()) requestData.skills = aiInput.skills.trim();
 
             const response = await api.post('/projects/projects/suggest_projects/', requestData);
+            if (response.data.error) throw new Error(response.data.error);
+            return response.data;
+        };
 
-            if (response.data.error) {
-                setError(response.data.error);
-                return;
+        toast.promise(suggestionPromise(), {
+            loading: 'Generating AI intelligence suggestions...',
+            success: (data) => {
+                setAiSuggestions(data.projects || []);
+                setShowAISuggestionsModal(true);
+                setAiInput({ description: '', skills: '', duration: '3 months' });
+                setGeneratingAISuggestions(false);
+                return 'AI suggestions generated';
+            },
+            error: (err) => {
+                setGeneratingAISuggestions(false);
+                return err.message || 'Failed to generate AI suggestions';
             }
-
-            setAiSuggestions(response.data.projects || []);
-            setShowAISuggestionsModal(true);
-
-            // Reset input for next use
-            setAiInput({ description: '', skills: '', duration: '3 months' });
-        } catch (err) {
-            const apiError = err as { response?: { data?: { error?: string } } };
-            console.error('AI suggestion error:', err);
-            setError(apiError.response?.data?.error || 'Failed to generate AI suggestions');
-        } finally {
-            setGeneratingAISuggestions(false);
-        }
+        });
     };
 
     const handleCreateProjectFromSuggestion = (suggestion: AISuggestion) => {

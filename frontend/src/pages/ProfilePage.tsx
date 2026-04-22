@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Building, Phone, BookOpen, Award, Settings, Save, X, Shield, Briefcase, Calendar, ChevronDown } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import Card from '../components/common/Card';
@@ -111,33 +112,32 @@ const ProfilePage: React.FC = () => {
     };
 
     const handleSave = async () => {
-        try {
-            setSaving(true);
-            setError('');
-            setSuccess('');
+        setSaving(true);
+        setError('');
+        setSuccess('');
 
-            // Parse skills from raw input before saving
-            const skills = skillsInput.split(',').map(s => s.trim()).filter(s => s);
+        // Parse skills from raw input before saving
+        const skills = skillsInput.split(',').map(s => s.trim()).filter(s => s);
 
-            await api.patch('/interns/my-profile/', {
-                ...formData,
-                profile: {
-                    ...formData.profile,
-                    skills: skills
-                }
-            });
-            setSuccess('Profile updated successfully!');
-            fetchProfile();
-
-            setTimeout(() => {
-                setSuccess('');
-            }, 3000);
-        } catch (err) {
-            const error = err as { response?: { data?: { message?: string } } };
-            setError(error.response?.data?.message || 'Failed to update profile');
-        } finally {
-            setSaving(false);
-        }
+        toast.promise(api.patch('/interns/my-profile/', {
+            ...formData,
+            profile: {
+                ...formData.profile,
+                skills: skills
+            }
+        }), {
+            loading: 'Synchronizing profile intelligence...',
+            success: () => {
+                fetchProfile();
+                setSaving(false);
+                return 'Profile updated successfully!';
+            },
+            error: (err) => {
+                setSaving(false);
+                const error = err as { response?: { data?: { message?: string } } };
+                return error.response?.data?.message || 'Failed to update profile';
+            }
+        });
     };
 
     const handleSkillChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -271,7 +271,8 @@ const ProfilePage: React.FC = () => {
                                     <select
                                         value={formData.user.department}
                                         onChange={(e) => handleInputChange('user', 'department', e.target.value)}
-                                        className="w-full pl-12 pr-10 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all hover:border-purple-500/30 appearance-none cursor-pointer"
+                                        disabled={user?.role !== 'ADMIN'}
+                                        className={`w-full pl-12 pr-10 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none transition-all appearance-none ${user?.role === 'ADMIN' ? 'focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 hover:border-purple-500/30 cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
                                     >
                                         <option value="" disabled>Select Department</option>
                                         <option value="Web Development">Web Development</option>

@@ -3,6 +3,26 @@ import type { WeeklyReportV2 } from '../../types/reports';
 import ReportSparkline from './ReportSparkline';
 import SelfReportMismatch from './SelfReportMismatch';
 import { addManagerCommentV2, markReportReviewedV2 } from '../../api/reports';
+import { Card, Button, Badge, LoadingSpinner } from '../common';
+import { 
+  Calendar, 
+  ChevronDown, 
+  Flag, 
+  AlertTriangle, 
+  CheckCircle2, 
+  User, 
+  Bot, 
+  Trophy, 
+  Target, 
+  Zap, 
+  Clock, 
+  CheckSquare, 
+  MessageSquare, 
+  ArrowUpRight,
+  TrendingUp,
+  Activity
+} from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface Props {
   report: WeeklyReportV2;
@@ -11,43 +31,23 @@ interface Props {
   onReviewedChange?: () => void;
 }
 
-const scoreBadge = (score: number | null, label: string) => (
-  <div style={{
-    background: 'rgba(255,255,255,0.04)',
-    borderRadius: '8px',
-    padding: '8px 12px',
-    textAlign: 'center',
-    minWidth: '80px',
-  }}>
-    <div style={{
-      fontSize: '20px',
-      fontWeight: 800,
-      color: score === null ? '#6b7280'
-        : score >= 75 ? '#34d399'
-        : score >= 50 ? '#fbbf24'
-        : '#f87171',
-    }}>
-      {score !== null ? `${score.toFixed(1)}%` : '—'}
-    </div>
-    <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-      {label}
-    </div>
-  </div>
-);
+const ScoreBadge: React.FC<{ score: number | null, label: string, icon: React.ReactNode }> = ({ score, label, icon }) => {
+    const getColor = (val: number | null) => {
+        if (val === null) return 'text-[var(--text-muted)]';
+        if (val >= 75) return 'text-emerald-400';
+        if (val >= 50) return 'text-amber-400';
+        return 'text-red-400';
+    };
 
-const deltaBadge = (delta: number | null) => {
-  if (delta === null) return null;
-  const isPos = delta >= 0;
-  return (
-    <span style={{
-      fontSize: '11px',
-      fontWeight: 700,
-      color: isPos ? '#34d399' : '#f87171',
-      marginLeft: '6px',
-    }}>
-      {isPos ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}%
-    </span>
-  );
+    return (
+        <div className="flex-1 min-w-[100px] p-4 rounded-2xl bg-white/[0.02] border border-[var(--border-color)] flex flex-col items-center gap-1">
+            <div className="text-[var(--text-muted)] mb-1 opacity-50">{icon}</div>
+            <div className={`text-xl font-heading font-black ${getColor(score)} tracking-tight`}>
+                {score !== null ? `${score.toFixed(0)}%` : '—'}
+            </div>
+            <div className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">{label}</div>
+        </div>
+    );
 };
 
 const WeeklyReportCard: React.FC<Props> = ({
@@ -61,7 +61,6 @@ const WeeklyReportCard: React.FC<Props> = ({
   const [commentSaving, setCommentSaving] = useState(false);
   const [reviewed, setReviewed] = useState(report.manager_reviewed);
 
-  // Build sparkline data from prior reports + this week
   const sparkData = [...priorReports, report]
     .slice(-4)
     .map(r => ({
@@ -70,254 +69,203 @@ const WeeklyReportCard: React.FC<Props> = ({
     }));
 
   const handleSaveComment = async () => {
-    setCommentSaving(true);
-    try {
-      await addManagerCommentV2(report.id, comment);
-    } finally {
-      setCommentSaving(false);
-    }
+    if (!comment.trim()) return;
+    toast.promise(addManagerCommentV2(report.id, comment), {
+      loading: 'Registering strategic feedback...',
+      success: () => {
+        return 'Feedback successfully committed to record';
+      },
+      error: 'Failed to synchronize comment'
+    });
   };
 
   const handleMarkReviewed = async () => {
-    await markReportReviewedV2(report.id);
-    setReviewed(true);
-    onReviewedChange?.();
+    toast.promise(markReportReviewedV2(report.id), {
+      loading: 'Authorizing performance record...',
+      success: () => {
+        setReviewed(true);
+        onReviewedChange?.();
+        return 'Report successfully authorized';
+      },
+      error: 'Authorization protocol failed'
+    });
   };
 
   const dateRange = `${new Date(report.week_start).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} — ${new Date(report.week_end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
+  const getOverallColor = (score: number | null) => {
+    if (score === null) return 'text-[var(--text-muted)]';
+    if (score >= 75) return 'text-emerald-400';
+    if (score >= 50) return 'text-amber-400';
+    return 'text-red-400';
+  };
+
   return (
-    <div style={{
-      background: '#1e1e2e',
-      border: report.red_flag
-        ? '1px solid #dc2626'
-        : reviewed
-          ? '1px solid #059669'
-          : '1px solid #2a2a3e',
-      borderRadius: '14px',
-      marginBottom: '16px',
-      overflow: 'hidden',
-      transition: 'box-shadow 0.2s',
-    }}>
-
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div
-        onClick={() => setExpanded(e => !e)}
-        style={{
-          padding: '16px 20px',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px',
-          flexWrap: 'wrap',
-          userSelect: 'none',
-        }}
+    <Card noPadding className={`group border-[var(--border-color)] bg-[var(--card-bg)] hover:border-[var(--text-muted)] transition-all duration-500 overflow-hidden ${report.red_flag ? 'ring-1 ring-red-500/30' : reviewed ? 'ring-1 ring-emerald-500/20' : ''}`}>
+      {/* Header Section */}
+      <div 
+        onClick={() => setExpanded(!expanded)}
+        className="p-6 cursor-pointer flex flex-col md:flex-row md:items-center gap-6 select-none"
       >
-        {/* Week badge */}
-        <div style={{
-          background: 'rgba(99,102,241,0.15)',
-          color: '#818cf8',
-          borderRadius: '8px',
-          padding: '6px 12px',
-          fontWeight: 700,
-          fontSize: '13px',
-          whiteSpace: 'nowrap',
-        }}>
-          Week {report.week_number}
-        </div>
-
-        {/* Date range */}
-        <span style={{ color: '#9ca3af', fontSize: '13px', flex: 1 }}>
-          {dateRange}
-        </span>
-
-        {/* Overall score + delta */}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span style={{
-            fontWeight: 800,
-            fontSize: '18px',
-            color: report.overall_weekly_score === null ? '#6b7280'
-              : report.overall_weekly_score >= 75 ? '#34d399'
-              : report.overall_weekly_score >= 50 ? '#fbbf24'
-              : '#f87171',
-          }}>
-            {report.overall_weekly_score?.toFixed(1) ?? '—'}%
-          </span>
-          {deltaBadge(report.overall_delta)}
-        </div>
-
-        {/* Status tags */}
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-          {report.red_flag && (
-            <span style={{
-              background: '#7f1d1d', color: '#fca5a5',
-              padding: '2px 8px', borderRadius: '20px',
-              fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px',
-            }}>
-              🚩 RED FLAG
-            </span>
-          )}
-          {report.self_report_mismatch && (
-            <span style={{
-              background: '#451a03', color: '#fcd34d',
-              padding: '2px 8px', borderRadius: '20px',
-              fontSize: '10px', fontWeight: 700,
-            }}>
-              ⚠ MISMATCH
-            </span>
-          )}
-          {reviewed && (
-            <span style={{
-              background: '#064e3b', color: '#6ee7b7',
-              padding: '2px 8px', borderRadius: '20px',
-              fontSize: '10px', fontWeight: 700,
-            }}>
-              ✓ Reviewed
-            </span>
-          )}
-          {!report.is_auto_generated && (
-            <span style={{
-              background: '#1e1b4b', color: '#a5b4fc',
-              padding: '2px 8px', borderRadius: '20px',
-              fontSize: '10px', fontWeight: 600,
-            }}>
-              Self-submitted
-            </span>
-          )}
-        </div>
-
-        {/* Expand chevron */}
-        <span style={{
-          color: '#6b7280',
-          fontSize: '16px',
-          transition: 'transform 0.2s',
-          transform: expanded ? 'rotate(180deg)' : 'none',
-          flexShrink: 0,
-        }}>
-          ▾
-        </span>
-      </div>
-
-      {/* ── Quick stats bar (always visible) ────────────────────────────────── */}
-      <div style={{
-        padding: '0 20px 14px',
-        display: 'flex',
-        gap: '8px',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        fontSize: '12px',
-        color: '#9ca3af',
-        borderBottom: expanded ? '1px solid #2a2a3e' : 'none',
-      }}>
-        <span>✅ {report.tasks_completed}/{report.tasks_assigned} tasks</span>
-        <span style={{ color: '#4b5563' }}>•</span>
-        <span>📅 {report.attendance_days}/{report.expected_days} days</span>
-        <span style={{ color: '#4b5563' }}>•</span>
-        <span style={{ color: report.tasks_overdue > 0 ? '#f87171' : '#9ca3af' }}>
-          ⏰ {report.tasks_overdue} overdue
-        </span>
-        <span style={{ color: '#4b5563' }}>•</span>
-        <span>🕐 {report.total_actual_hours.toFixed(1)}h actual</span>
-
-        {/* Inline sparkline */}
-        <div style={{ marginLeft: 'auto', width: '90px', height: '30px' }}>
-          <ReportSparkline data={sparkData} height={30} showTooltip={false} />
-        </div>
-      </div>
-
-      {/* ── Expanded detail panel ────────────────────────────────────────────── */}
-      {expanded && (
-        <div style={{ padding: '20px' }}>
-
-          {/* Score grid */}
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
-            {scoreBadge(report.productivity_score, 'Productivity')}
-            {scoreBadge(report.quality_score, 'Quality')}
-            {scoreBadge(report.engagement_score, 'Engagement')}
-            {scoreBadge(report.attendance_pct, 'Attendance')}
-            {scoreBadge(report.cumulative_overall_score, 'Phase Avg')}
-          </div>
-
-          {/* 4-week trend sparkline */}
-          <div style={{ marginBottom: '20px' }}>
-            <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              4-Week Trend
-            </p>
-            <div style={{ height: '60px' }}>
-              <ReportSparkline data={sparkData} height={60} />
+        <div className="flex items-center gap-4 flex-1">
+            <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex flex-col items-center justify-center border border-indigo-500/20">
+                <span className="text-[9px] font-black text-indigo-400 uppercase leading-none">WK</span>
+                <span className="text-lg font-heading font-black text-indigo-400 leading-none">{report.week_number}</span>
             </div>
-          </div>
-
-          {/* Red flag reasons */}
-          {report.red_flag && report.red_flag_reasons.length > 0 && (
-            <div style={{
-              background: 'rgba(220, 38, 38, 0.08)',
-              border: '1px solid #dc2626',
-              borderRadius: '8px',
-              padding: '12px 14px',
-              marginBottom: '16px',
-            }}>
-              <p style={{ fontWeight: 700, color: '#fca5a5', fontSize: '12px', marginBottom: '6px' }}>
-                🚩 Red Flag Reasons
-              </p>
-              <ul style={{ margin: 0, padding: '0 0 0 16px', color: '#fca5a5', fontSize: '12px', lineHeight: 1.7 }}>
-                {report.red_flag_reasons.map((r, i) => <li key={i}>{r}</li>)}
-              </ul>
-            </div>
-          )}
-
-          {/* AI Narrative */}
-          {report.ai_narrative && (
-            report.ai_narrative.startsWith('[AI summary unavailable') ? (
-              <div style={{
-                background: 'rgba(75,85,99,0.15)',
-                border: '1px solid #374151',
-                borderRadius: '10px',
-                padding: '12px 16px',
-                marginBottom: '16px',
-                color: '#9ca3af',
-                fontSize: '12px',
-                display: 'flex', alignItems: 'center', gap: '10px',
-              }}>
-                <span style={{ fontSize: '16px' }}>ℹ️</span>
-                <span>AI summary temporarily unavailable. Performance metrics above are fully accurate.</span>
-              </div>
-            ) : (
-              <div style={{
-                background: 'rgba(99,102,241,0.08)',
-                border: '1px solid rgba(99,102,241,0.3)',
-                borderRadius: '10px',
-                padding: '14px 16px',
-                marginBottom: '16px',
-              }}>
-                <p style={{ fontSize: '11px', fontWeight: 700, color: '#818cf8', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  🤖 AI Summary
-                </p>
-                <p style={{ color: '#d1d5db', fontSize: '13px', lineHeight: 1.7, margin: '0 0 10px' }}>
-                  {report.ai_narrative}
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  {report.ai_top_achievement && (
-                    <p style={{ fontSize: '12px', color: '#6ee7b7', margin: 0 }}>
-                      ✦ <strong>Achievement:</strong> {report.ai_top_achievement}
-                    </p>
-                  )}
-                  {report.ai_concern_area && (
-                    <p style={{ fontSize: '12px', color: '#fcd34d', margin: 0 }}>
-                      ✦ <strong>Concern:</strong> {report.ai_concern_area}
-                    </p>
-                  )}
-                  {report.ai_growth_note && (
-                    <p style={{ fontSize: '12px', color: '#93c5fd', margin: 0 }}>
-                      ✦ <strong>Growth:</strong> {report.ai_growth_note}
-                    </p>
-                  )}
+            <div className="space-y-1">
+                <div className="flex items-center gap-2 text-[10px] font-black text-[var(--text-dim)] uppercase tracking-widest">
+                    <Calendar size={12} className="text-indigo-400" />
+                    {dateRange}
                 </div>
-              </div>
-            )
-          )}
+                <div className="flex items-center gap-3">
+                    <span className={`text-2xl font-heading font-black tracking-tight ${getOverallColor(report.overall_weekly_score)}`}>
+                        {report.overall_weekly_score?.toFixed(1) ?? '—'}%
+                    </span>
+                    {report.overall_delta !== null && (
+                        <Badge className={`text-[10px] ${report.overall_delta >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                            {report.overall_delta >= 0 ? '▲' : '▼'} {Math.abs(report.overall_delta).toFixed(1)}%
+                        </Badge>
+                    )}
+                </div>
+            </div>
+        </div>
 
-          {/* Self-report mismatch */}
+        <div className="flex flex-wrap items-center gap-2">
+            {report.red_flag && (
+                <Badge className="bg-red-500/10 text-red-400 border-red-500/20 flex items-center gap-1 px-3 py-1 animate-pulse font-black text-[9px] tracking-widest">
+                    <Flag size={10} /> RED FLAG
+                </Badge>
+            )}
+            {report.self_report_mismatch && (
+                <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 flex items-center gap-1 px-3 py-1 font-black text-[9px] tracking-widest">
+                    <AlertTriangle size={10} /> MISMATCH
+                </Badge>
+            )}
+            {reviewed && (
+                <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 flex items-center gap-1 px-3 py-1 font-black text-[9px] tracking-widest">
+                    <CheckCircle2 size={10} /> REVIEWED
+                </Badge>
+            )}
+            {!report.is_auto_generated && (
+                <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 flex items-center gap-1 px-3 py-1 font-black text-[9px] tracking-widest">
+                    <User size={10} /> SELF-REPORT
+                </Badge>
+            )}
+            <div className={`p-2 rounded-full hover:bg-white/5 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}>
+                <ChevronDown size={20} className="text-[var(--text-muted)]" />
+            </div>
+        </div>
+      </div>
+
+      {/* Metric Bar */}
+      <div className="px-6 py-4 bg-white/[0.01] border-t border-[var(--border-color)] flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-dim)]">
+            <CheckSquare size={12} className="text-emerald-500" />
+            <span>{report.tasks_completed}/{report.tasks_assigned} <span className="opacity-50 font-bold">Tasks</span></span>
+        </div>
+        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-dim)]">
+            <Calendar size={12} className="text-blue-500" />
+            <span>{report.attendance_days}/{report.expected_days} <span className="opacity-50 font-bold">Days</span></span>
+        </div>
+        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-dim)]">
+            <Clock size={12} className={report.tasks_overdue > 0 ? 'text-red-500' : 'text-amber-500'} />
+            <span className={report.tasks_overdue > 0 ? 'text-red-400' : ''}>{report.tasks_overdue} <span className="opacity-50 font-bold">Overdue</span></span>
+        </div>
+        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-dim)]">
+            <TrendingUp size={12} className="text-indigo-400" />
+            <span>{report.total_actual_hours.toFixed(1)}H <span className="opacity-50 font-bold">Actual</span></span>
+        </div>
+
+        <div className="hidden md:block ml-auto w-24 h-6 opacity-60">
+             <ReportSparkline data={sparkData} height={24} showTooltip={false} />
+        </div>
+      </div>
+
+      {/* Detail Content */}
+      {expanded && (
+        <div className="p-8 space-y-8 animate-in slide-in-from-top-4 duration-500 border-t border-[var(--border-color)]">
+          
+          {/* Score Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <ScoreBadge score={report.productivity_score} label="Productivity" icon={<Zap size={14} />} />
+            <ScoreBadge score={report.quality_score} label="Quality" icon={<Target size={14} />} />
+            <ScoreBadge score={report.engagement_score} label="Engagement" icon={<Trophy size={14} />} />
+            <ScoreBadge score={report.attendance_pct} label="Attendance" icon={<Calendar size={14} />} />
+            <ScoreBadge score={report.cumulative_overall_score} label="Phase Avg" icon={<Activity size={14} />} />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* AI Summary */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">
+                    <Bot size={14} /> AI Performance Narrative
+                </div>
+                {report.ai_narrative && !report.ai_narrative.startsWith('[AI summary unavailable') ? (
+                    <div className="p-6 rounded-3xl bg-indigo-500/[0.03] border border-indigo-500/10 space-y-5">
+                        <p className="text-[var(--text-main)] text-sm leading-relaxed font-medium">
+                            {report.ai_narrative}
+                        </p>
+                        <div className="space-y-3 pt-2">
+                            {report.ai_top_achievement && (
+                                <div className="flex gap-3 items-start">
+                                    <div className="mt-1 p-1 bg-emerald-500/20 rounded-md"><Trophy size={10} className="text-emerald-400" /></div>
+                                    <p className="text-[11px] text-[var(--text-dim)] leading-snug"><span className="font-black text-emerald-400 uppercase tracking-tighter mr-1">Achievement:</span> {report.ai_top_achievement}</p>
+                                </div>
+                            )}
+                            {report.ai_concern_area && (
+                                <div className="flex gap-3 items-start">
+                                    <div className="mt-1 p-1 bg-amber-500/20 rounded-md"><AlertTriangle size={10} className="text-amber-400" /></div>
+                                    <p className="text-[11px] text-[var(--text-dim)] leading-snug"><span className="font-black text-amber-400 uppercase tracking-tighter mr-1">Observation:</span> {report.ai_concern_area}</p>
+                                </div>
+                            )}
+                            {report.ai_growth_note && (
+                                <div className="flex gap-3 items-start">
+                                    <div className="mt-1 p-1 bg-blue-500/20 rounded-md"><TrendingUp size={10} className="text-blue-400" /></div>
+                                    <p className="text-[11px] text-[var(--text-dim)] leading-snug"><span className="font-black text-blue-400 uppercase tracking-tighter mr-1">Growth Node:</span> {report.ai_growth_note}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="p-6 rounded-3xl bg-white/[0.02] border border-[var(--border-color)] flex items-center gap-4 text-[var(--text-muted)] italic text-xs">
+                        <Bot size={18} className="opacity-30" />
+                        AI synthesis engine temporarily offline. Performance indices remain validated.
+                    </div>
+                )}
+            </div>
+
+            {/* Sparkline & Red Flags */}
+            <div className="space-y-6">
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-dim)]">
+                            <Activity size={14} /> 4-Week Velocity
+                        </div>
+                    </div>
+                    <div className="h-32 p-4 bg-white/[0.02] border border-[var(--border-color)] rounded-3xl">
+                        <ReportSparkline data={sparkData} height={96} />
+                    </div>
+                </div>
+
+                {report.red_flag && report.red_flag_reasons.length > 0 && (
+                    <div className="p-5 bg-red-500/[0.03] border border-red-500/20 rounded-3xl space-y-3">
+                        <div className="flex items-center gap-2 text-[10px] font-black text-red-400 uppercase tracking-widest">
+                            <Flag size={12} /> System Alerts
+                        </div>
+                        <ul className="space-y-2">
+                            {report.red_flag_reasons.map((r, i) => (
+                                <li key={i} className="text-[11px] text-red-300/80 font-bold flex items-start gap-2">
+                                    <span className="mt-1 w-1 h-1 rounded-full bg-red-400 shrink-0" />
+                                    {r}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </div>
+          </div>
+
+          {/* Mismatch Section */}
           {report.self_report_mismatch && (
             <SelfReportMismatch
               discrepancies={report.self_report_mismatch_details}
@@ -331,87 +279,59 @@ const WeeklyReportCard: React.FC<Props> = ({
             />
           )}
 
-          {/* Manager comment section */}
+          {/* Manager Actions */}
           {isManagerView && (
-            <div style={{ marginTop: '16px', borderTop: '1px solid #2a2a3e', paddingTop: '16px' }}>
-              <label style={{ fontSize: '12px', color: '#9ca3af', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
-                Manager Comment
-              </label>
-              <textarea
-                value={comment}
-                onChange={e => setComment(e.target.value)}
-                rows={3}
-                placeholder="Add your observations or action items..."
-                style={{
-                  width: '100%',
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: '#e5e7eb',
-                  padding: '10px 12px',
-                  fontSize: '13px',
-                  resize: 'vertical',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              />
-              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                <button
+            <div className="pt-8 border-t border-[var(--border-color)] space-y-4">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-dim)]">
+                  <MessageSquare size={14} /> Evaluation & Feedback
+              </div>
+              <div className="relative">
+                <textarea
+                  value={comment}
+                  onChange={e => setComment(e.target.value)}
+                  rows={4}
+                  placeholder="Enter strategic observations or required corrective actions..."
+                  className="w-full bg-white/[0.02] border border-[var(--border-color)] rounded-2xl p-4 text-sm text-[var(--text-main)] outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all resize-none placeholder:text-[var(--text-muted)]"
+                />
+              </div>
+              <div className="flex flex-wrap gap-4">
+                <Button
                   onClick={handleSaveComment}
-                  disabled={commentSaving}
-                  style={{
-                    background: '#4f46e5',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '6px 16px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    opacity: commentSaving ? 0.7 : 1,
-                  }}
+                  disabled={commentSaving || !comment.trim()}
+                  className="btn-primary-premium flex items-center gap-2 px-6"
                 >
-                  {commentSaving ? 'Saving…' : 'Save Comment'}
-                </button>
+                  {commentSaving ? <LoadingSpinner /> : <ArrowUpRight size={16} />}
+                  <span>Commit Comment</span>
+                </Button>
                 {!reviewed && (
-                  <button
+                  <Button
                     onClick={handleMarkReviewed}
-                    style={{
-                      background: 'transparent',
-                      color: '#34d399',
-                      border: '1px solid #059669',
-                      borderRadius: '6px',
-                      padding: '6px 16px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
+                    variant="outline"
+                    className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 flex items-center gap-2 px-6"
                   >
-                    ✓ Mark Reviewed
-                  </button>
+                    <CheckCircle2 size={16} />
+                    <span>Authorize Report</span>
+                  </Button>
                 )}
               </div>
             </div>
           )}
 
-          {/* Read-only manager comment (intern view) */}
+          {/* Intern View Comment */}
           {!isManagerView && report.manager_comment && (
-            <div style={{
-              marginTop: '16px',
-              borderTop: '1px solid #2a2a3e',
-              paddingTop: '16px',
-            }}>
-              <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>
-                Manager comment:
-              </p>
-              <p style={{ fontSize: '13px', color: '#d1d5db', fontStyle: 'italic', margin: 0 }}>
+            <div className="pt-8 border-t border-[var(--border-color)] space-y-3">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-dim)]">
+                  <MessageSquare size={14} /> Leadership Feedback
+              </div>
+              <div className="p-5 bg-white/[0.03] border border-[var(--border-color)] rounded-2xl italic text-sm text-[var(--text-main)] leading-relaxed relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500/40" />
                 "{report.manager_comment}"
-              </p>
+              </div>
             </div>
           )}
         </div>
       )}
-    </div>
+    </Card>
   );
 };
 

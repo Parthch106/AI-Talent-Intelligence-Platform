@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import api from '../api/axios';
 import { useNavigate, Link } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 const Register: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -23,18 +24,21 @@ const Register: React.FC = () => {
 
         // Validate passwords match
         if (password !== confirmPassword) {
+            toast.error('Security mismatch: Passwords do not align');
             setError('Passwords do not match');
             return;
         }
 
         // Validate password length
         if (password.length < 8) {
+            toast.error('Insufficient complexity: Password too short');
             setError('Password must be at least 8 characters long');
             return;
         }
 
         setIsLoading(true);
-        try {
+
+        const registerPromise = async () => {
             const response = await api.post('/accounts/auth/register/', {
                 email,
                 full_name,
@@ -42,33 +46,44 @@ const Register: React.FC = () => {
                 role,
                 department
             });
+            return response;
+        };
 
-            if (response.status === 201) {
-                setSuccess(true);
-                setTimeout(() => {
-                    navigate('/auth/login');
-                }, 3000);
+        toast.promise(registerPromise(), {
+            loading: 'Initializing talent identity in the neural registry...',
+            success: (response) => {
+                if (response.status === 201) {
+                    setSuccess(true);
+                    setTimeout(() => {
+                        navigate('/auth/login');
+                    }, 3000);
+                }
+                setIsLoading(false);
+                return 'Identity successfully registered. Welcome to the platform.';
+            },
+            error: (err) => {
+                setIsLoading(false);
+                const apiError = err as { response?: { data?: Record<string, unknown> } };
+                const errorData = apiError.response?.data;
+                let msg = 'Registration sequence failed';
+                
+                if (typeof errorData === 'object') {
+                    msg = Object.entries(errorData)
+                        .map(([field, messages]) => {
+                            if (Array.isArray(messages)) {
+                                return `${field}: ${messages.join(', ')}`;
+                            }
+                            return `${field}: ${messages}`;
+                        })
+                        .join('\n');
+                } else {
+                    const detail = (apiError.response?.data as { detail?: string })?.detail;
+                    if (typeof detail === 'string') msg = detail;
+                }
+                setError(msg);
+                return msg;
             }
-        } catch (err) {
-            const apiError = err as { response?: { data?: Record<string, unknown> } };
-            const errorData = apiError.response?.data;
-            if (typeof errorData === 'object') {
-                const errorMessages = Object.entries(errorData)
-                    .map(([field, messages]) => {
-                        if (Array.isArray(messages)) {
-                            return `${field}: ${messages.join(', ')}`;
-                        }
-                        return `${field}: ${messages}`;
-                    })
-                    .join('\n');
-                setError(errorMessages);
-            } else {
-                const detail = (apiError.response?.data as { detail?: string })?.detail;
-                setError(typeof detail === 'string' ? detail : 'Registration failed');
-            }
-        } finally {
-            setIsLoading(false);
-        }
+        });
     };
 
     const nextStep = () => {

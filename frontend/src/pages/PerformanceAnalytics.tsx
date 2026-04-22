@@ -9,6 +9,7 @@ import { useMonitoring } from '../context/MonitoringContext';
 import api from '../api/axios';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
+import { toast } from 'react-hot-toast';
 
 interface SkillProfile {
     skill_name: string;
@@ -92,67 +93,66 @@ const PerformanceAnalytics: React.FC = () => {
 
     const fetchAllData = async () => {
         if (!selectedInternId) return;
-        setLoading(true);
         
-        // Add timeout to prevent infinite loading
-        const timeoutId = setTimeout(() => {
-            console.warn('Data fetch timeout - setting loading to false');
-            setLoading(false);
-        }, 15000); // 15 second timeout
-        
-        try {
-            // Fetch core data first (essential)
-            const perfRes = await api.get(`/analytics/performance/dashboard/${selectedInternId}/?all_time=true`);
-            setPerformanceData(perfRes.data);
-            
-            // Fetch learning path with skills (non-essential)
+        toast.promise((async () => {
             try {
-                const pathRes = await api.get(`/analytics/learning-path/${selectedInternId}/progress/`);
-                setLearningPath(pathRes.data);
+                // Fetch core data first (essential)
+                const perfRes = await api.get(`/analytics/performance/dashboard/${selectedInternId}/?all_time=true`);
+                setPerformanceData(perfRes.data);
                 
-                // Extract skills from learning path milestones
-                if (pathRes.data?.milestones) {
-                    const skillsFromMilestones = pathRes.data.milestones.map((m: { skill?: string, area?: string, current_mastery?: number, mastery?: number }) => ({
-                        skill_name: m.skill || m.area || 'Unknown Skill',
-                        mastery_level: m.current_mastery || m.mastery || 0,
-                        learning_rate: 0
-                    }));
-                    setSkillProfiles(skillsFromMilestones);
+                // Fetch learning path with skills (non-essential)
+                try {
+                    const pathRes = await api.get(`/analytics/learning-path/${selectedInternId}/progress/`);
+                    setLearningPath(pathRes.data);
+                    
+                    // Extract skills from learning path milestones
+                    if (pathRes.data?.milestones) {
+                        const skillsFromMilestones = pathRes.data.milestones.map((m: { skill?: string, area?: string, current_mastery?: number, mastery?: number }) => ({
+                            skill_name: m.skill || m.area || 'Unknown Skill',
+                            mastery_level: m.current_mastery || m.mastery || 0,
+                            learning_rate: 0
+                        }));
+                        setSkillProfiles(skillsFromMilestones);
+                    }
+                } catch {
+                    console.warn('Learning path unavailable');
                 }
-            } catch {
-                console.warn('Learning path unavailable');
+                
+                // Fetch tasks (non-essential)
+                try {
+                    const tasksRes = await api.get('/analytics/tasks/', { 
+                        params: { 
+                            intern_id: selectedInternId,
+                            limit: 1000 
+                        } 
+                    });
+                    const tasksData = Array.isArray(tasksRes.data.tasks) ? tasksRes.data.tasks : [];
+                    // Sort by completed_at or assigned_at to show most recent first
+                    const sortedTasks = tasksData.sort((a: { completed_at?: string, assigned_at?: string }, b: { completed_at?: string, assigned_at?: string }) => {
+                        const dateA = a.completed_at || a.assigned_at || '';
+                        const dateB = b.completed_at || b.assigned_at || '';
+                        return new Date(dateB).getTime() - new Date(dateA).getTime();
+                    });
+                    setTaskHistory(sortedTasks.slice(0, 20));
+                } catch (e) {
+                    console.warn('Tasks unavailable', e);
+                    setTaskHistory([]);
+                }
+            } catch (err) {
+                setLoading(false);
+                throw err;
             }
-            
-            // Fetch tasks (non-essential)
-            try {
-                const tasksRes = await api.get('/analytics/tasks/', { 
-                    params: { 
-                        intern_id: selectedInternId,
-                        limit: 1000 
-                    } 
-                });
-                const tasksData = Array.isArray(tasksRes.data.tasks) ? tasksRes.data.tasks : [];
-                // Sort by completed_at or assigned_at to show most recent first
-                const sortedTasks = tasksData.sort((a: { completed_at?: string, assigned_at?: string }, b: { completed_at?: string, assigned_at?: string }) => {
-                    const dateA = a.completed_at || a.assigned_at || '';
-                    const dateB = b.completed_at || b.assigned_at || '';
-                    return new Date(dateB).getTime() - new Date(dateA).getTime();
-                });
-                setTaskHistory(sortedTasks.slice(0, 20));
-            } catch (e) {
-                console.warn('Tasks unavailable', e);
-                setTaskHistory([]);
+        })(), {
+            loading: 'Synchronizing performance intelligence through neural pathways...',
+            success: () => {
+                setLoading(false);
+                return 'Talent matrix successfully updated';
+            },
+            error: (err) => {
+                setLoading(false);
+                return (err as Error).message || 'Failed to synchronize performance intelligence';
             }
-            
-            clearTimeout(timeoutId);
-        } catch (error) {
-            clearTimeout(timeoutId);
-            console.error('Error fetching performance data:', error);
-            // Set some default data to prevent infinite loading
-            setPerformanceData(null);
-        } finally {
-            setLoading(false);
-        }
+        });
     };
 
     const getInternName = () => {
@@ -351,10 +351,10 @@ const PerformanceAnalytics: React.FC = () => {
                                     </Badge>
                                 </div>
                                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 mt-4">
-                                    <p className="text-[var(--text-dim)] flex items-center gap-2 font-bold text-xs uppercase tracking-widest">
+                                    <div className="text-[var(--text-dim)] flex items-center gap-2 font-bold text-xs uppercase tracking-widest">
                                         <div className="w-2 h-2 rounded-full bg-purple-500 animate-ping"></div>
                                         Live Intelligence
-                                    </p>
+                                    </div>
                                     <p className="text-[var(--text-muted)] flex items-center gap-2 text-sm">
                                         <Calendar size={16} />
                                         Updated: {performanceData?.evaluated_at ? new Date(performanceData.evaluated_at).toLocaleDateString(undefined, {month: 'long', day: 'numeric', year: 'numeric'}) : 'Waiting for sync...'}

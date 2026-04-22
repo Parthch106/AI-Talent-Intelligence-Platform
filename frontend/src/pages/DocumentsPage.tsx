@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Upload, FileText, Download, Trash2, X, FolderOpen, File, FilePlus, Calendar, User, ExternalLink, Search, ChevronDown } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
@@ -204,7 +205,7 @@ const DocumentsPage: React.FC = () => {
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newDocument.file || !newDocument.title || !newDocument.document_type) {
-            setError('Please fill in all required fields');
+            toast.error('Please fill in all required fields');
             return;
         }
 
@@ -212,38 +213,46 @@ const DocumentsPage: React.FC = () => {
         setError('');
         setSuccess('');
 
-        try {
+        const uploadPromise = async () => {
             const formData = new FormData();
             formData.append('title', newDocument.title);
             formData.append('document_type', newDocument.document_type);
-            formData.append('file', newDocument.file);
+            formData.append('file', newDocument.file!);
             formData.append('description', newDocument.description);
 
             await api.post('/documents/files/', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
+        };
 
-            setSuccess('Document uploaded successfully!');
-            setShowUploadModal(false);
-            setNewDocument({ title: '', document_type: '', file: null, description: '' });
-            fetchDocuments();
-        } catch (err: unknown) {
-            const apiError = err as { response?: { data?: { detail?: string } } };
-            setError(apiError.response?.data?.detail || 'Failed to upload document');
-        } finally {
-            setSubmitting(false);
-        }
+        toast.promise(uploadPromise(), {
+            loading: 'Encrypting and uploading document payload...',
+            success: () => {
+                setShowUploadModal(false);
+                setNewDocument({ title: '', document_type: '', file: null, description: '' });
+                fetchDocuments();
+                setSubmitting(false);
+                return 'Document uploaded successfully!';
+            },
+            error: (err) => {
+                setSubmitting(false);
+                const apiError = err as { response?: { data?: { detail?: string } } };
+                return apiError.response?.data?.detail || 'Failed to upload document';
+            }
+        });
     };
 
     const handleDelete = async (id: number) => {
         if (!window.confirm('Are you sure you want to delete this document?')) return;
 
-        try {
-            await api.delete(`/documents/files/${id}/`);
-            fetchDocuments();
-        } catch (err) {
-            console.error('Failed to delete document', err);
-        }
+        toast.promise(api.delete(`/documents/files/${id}/`), {
+            loading: 'Decommissioning document record...',
+            success: () => {
+                fetchDocuments();
+                return 'Document deleted successfully';
+            },
+            error: 'Failed to delete document'
+        });
     };
 
     const formatDate = (dateStr: string) => {

@@ -192,12 +192,6 @@ const Header: React.FC<HeaderProps> = ({ isExpanded }) => {
                 {/* Right Section */}
                 <div className="flex items-center gap-3">
                     {/* Quick Actions */}
-                    <button
-                        onClick={() => navigate('/account/profile')}
-                        className="p-2.5 text-slate-400 hover:text-[var(--text-main)] hover:bg-white/5 rounded-xl transition-all duration-300 border border-transparent hover:border-white/10"
-                    >
-                        <Settings size={18} />
-                    </button>
 
                     {/* Theme Toggle */}
                     <button

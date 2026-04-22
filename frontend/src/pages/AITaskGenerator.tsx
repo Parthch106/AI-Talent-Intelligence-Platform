@@ -149,66 +149,69 @@ const AITaskGenerator: React.FC = () => {
 
     const generateTasks = async () => {
         if (!selectedIntern) {
-            toast.error("Please select an intern first");
+            toast.error("Critical missing parameter: Target Intern selection required");
             return;
         }
         
         setGenerating(true);
         setAiTasks([]);
         
-        try {
+        const generatePromise = async () => {
             const response = await axios.post('/analytics/llm/generate-tasks/', {
                 intern_id: selectedIntern,
                 module_id: selectedModule || undefined,
                 task_context: taskContext || undefined,
                 num_suggestions: 3
             });
-            
-            setAiTasks(response.data.tasks || []);
-            setOngoingHistory(response.data.ongoing_tasks || []);
-            setCompletedHistory(response.data.completed_tasks || []);
-            
-            if (response.data.tasks.length === 0) {
-                toast.error("No suggestions generated for this context.");
-            } else {
-                toast.success("AI Generation Complete", { icon: '✨' });
+            return response.data;
+        };
+
+        toast.promise(generatePromise(), {
+            loading: 'Synthesizing task sequences through neural matrix...',
+            success: (data) => {
+                setAiTasks(data.tasks || []);
+                setOngoingHistory(data.ongoing_tasks || []);
+                setCompletedHistory(data.completed_tasks || []);
+                setGenerating(false);
+                if (data.tasks.length === 0) return "Synthesis complete, but no suggestions emerged from context.";
+                return "Task sequences successfully synthesized";
+            },
+            error: (err) => {
+                setGenerating(false);
+                return (err as Error).message || "Neural synthesis interrupted by core exception";
             }
-        } catch (err) {
-            console.error("AI Generation failed", err);
-            toast.error("Failed to generate AI tasks.");
-        } finally {
-            setGenerating(false);
-        }
+        });
     };
 
     const assignTask = async (task: AITaskSuggestion, index: number) => {
         if (!selectedIntern) return;
         
-        // Use edited values if this task is being edited or was edited
         const finalTask = {
             ...task,
             title: editingIndex === index ? editValues.title : task.title,
             description: editingIndex === index ? editValues.description : task.description
         };
 
-        try {
-            setAssigning(task.title);
-            await axios.post('/analytics/tasks/create/', {
-                ...finalTask,
-                status: 'ASSIGNED',
-                intern_id: selectedIntern,
-                project_module_id: selectedModule || undefined
-            });
-            
-            toast.success("Task assigned successfully!");
-            setAiTasks(prev => prev.filter((_, i) => i !== index));
-            if (editingIndex === index) setEditingIndex(null);
-        } catch (err) {
-            console.error("Assignment failed", err);
-            toast.error("Failed to assign task.");
-        } finally {
-            setAssigning(null);
-        }
+        setAssigning(task.title);
+
+        toast.promise(axios.post('/analytics/tasks/create/', {
+            ...finalTask,
+            status: 'ASSIGNED',
+            intern_id: selectedIntern,
+            project_module_id: selectedModule || undefined
+        }), {
+            loading: 'Transmitting task payload to intern workspace...',
+            success: () => {
+                setAiTasks(prev => prev.filter((_, i) => i !== index));
+                if (editingIndex === index) setEditingIndex(null);
+                setAssigning(null);
+                return 'Task successfully anchored in intern registry';
+            },
+            error: (err) => {
+                setAssigning(null);
+                return (err as Error).message || 'Transmission failure: Task not anchored';
+            }
+        });
     };
 
     const startEditing = (index: number) => {

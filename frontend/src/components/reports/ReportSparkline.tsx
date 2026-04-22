@@ -42,7 +42,7 @@ const ReportSparkline: React.FC<Props> = ({
               fontSize: '11px',
               color: '#fff',
             }}
-            formatter={(val: number) => [`${val.toFixed(1)}%`, 'Score']}
+            formatter={(val: any) => [typeof val === 'number' ? `${val.toFixed(1)}%` : val, 'Score']}
             labelFormatter={(label) => `Week ${label}`}
           />
         )}
