@@ -42,6 +42,8 @@ export interface WeeklyReportV2 {
 
   // AI narrative
   ai_narrative: string;
+  ai_work_summary: string;
+  ai_quote: string;
   ai_top_achievement: string;
   ai_concern_area: string;
   ai_growth_note: string;

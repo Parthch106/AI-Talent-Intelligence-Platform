@@ -3180,6 +3180,38 @@ class WeeklyReportV2ViewSet(viewsets.ModelViewSet):
             return WeeklyReportV2.objects.all().select_related('intern', 'reviewed_by').order_by('-week_start')
         return WeeklyReportV2.objects.none()
 
+    def perform_create(self, serializer):
+        if str(self.request.user.role) != 'INTERN':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only interns can self-submit weekly reports.")
+        week_start = serializer.validated_data['week_start']
+        from apps.analytics.tasks import _compute_week_number_v2
+        week_number = _compute_week_number_v2(self.request.user, week_start)
+        serializer.save(intern=self.request.user, is_auto_generated=False, week_number=week_number)
+
+    @action(detail=True, methods=['post'], url_path='comment')
+    def add_comment(self, request, pk=None):
+        if str(request.user.role) not in ['MANAGER', 'ADMIN']:
+            return Response({'detail': 'Only managers can comment.'}, status=403)
+        report = self.get_object()
+        serializer = WeeklyReportCommentV2Serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        report.manager_comment = serializer.validated_data['manager_comment']
+        report.save(update_fields=['manager_comment'])
+        return Response({'detail': 'Comment saved.'})
+
+    @action(detail=True, methods=['patch'], url_path='mark-reviewed')
+    def mark_reviewed(self, request, pk=None):
+        if str(request.user.role) not in ['MANAGER', 'ADMIN']:
+            return Response({'detail': 'Only managers can mark reviewed.'}, status=403)
+        report = self.get_object()
+        report.manager_reviewed = True
+        report.reviewed_by = request.user
+        from django.utils import timezone
+        report.reviewed_at = timezone.now()
+        report.save(update_fields=['manager_reviewed', 'reviewed_by', 'reviewed_at'])
+        return Response({'detail': 'Report marked as reviewed.'})
+
 
 class CertificateRevokeView(APIView):
     """
@@ -3273,38 +3305,6 @@ class CertificateReinstateView(APIView):
             'cert_id': cert.pk,
             'is_revoked': False,
         })
-
-    def perform_create(self, serializer):
-        if str(self.request.user.role) != 'INTERN':
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Only interns can self-submit weekly reports.")
-        week_start = serializer.validated_data['week_start']
-        from apps.analytics.tasks import _compute_week_number_v2
-        week_number = _compute_week_number_v2(self.request.user, week_start)
-        serializer.save(intern=self.request.user, is_auto_generated=False, week_number=week_number)
-
-    @action(detail=True, methods=['post'], url_path='comment')
-    def add_comment(self, request, pk=None):
-        if str(request.user.role) not in ['MANAGER', 'ADMIN']:
-            return Response({'detail': 'Only managers can comment.'}, status=403)
-        report = self.get_object()
-        serializer = WeeklyReportCommentV2Serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        report.manager_comment = serializer.validated_data['manager_comment']
-        report.save(update_fields=['manager_comment'])
-        return Response({'detail': 'Comment saved.'})
-
-    @action(detail=True, methods=['patch'], url_path='mark-reviewed')
-    def mark_reviewed(self, request, pk=None):
-        if str(request.user.role) not in ['MANAGER', 'ADMIN']:
-            return Response({'detail': 'Only managers can mark reviewed.'}, status=403)
-        report = self.get_object()
-        report.manager_reviewed = True
-        report.reviewed_by = request.user
-        from django.utils import timezone
-        report.reviewed_at = timezone.now()
-        report.save(update_fields=['manager_reviewed', 'reviewed_by', 'reviewed_at'])
-        return Response({'detail': 'Report marked as reviewed.'})
 
 
 # ============================================================================

@@ -87,23 +87,27 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // Group 1: React Core & Router (Essential for resolving circularity)
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router') || id.includes('scheduler')) {
-              return 'vendor-react';
-            }
-            // Group 2: Large UI & Charting libs
+            // Group 1: Isolated UI & Charting libraries
             if (id.includes('recharts') || id.includes('lucide-react')) {
               return 'vendor-ui';
             }
-            // Group 3: Backend & Data libs
+            // Group 2: Data & Backend communication
             if (id.includes('axios')) {
               return 'vendor-data';
             }
-            // Group 4: Markdown & Processing
-            if (id.includes('react-markdown') || id.includes('remark')) {
-              return 'vendor-markdown';
+            // Group 3: Core Framework & Markdown processing
+            // Combined to avoid circular dependencies between React, Markdown processors, and common utilities
+            if (
+              id.includes('react') || 
+              id.includes('react-dom') || 
+              id.includes('react-router') || 
+              id.includes('scheduler') ||
+              id.includes('react-markdown') || 
+              id.includes('remark')
+            ) {
+              return 'vendor';
             }
-            // Default: Everything else node_modules
+            // Default: Let Rollup handle other node_modules to optimize and avoid cycles
             return 'vendor';
           }
         },

@@ -113,6 +113,14 @@ const WeeklyReportCard: React.FC<Props> = ({
                 <span className="text-lg font-heading font-black text-indigo-400 leading-none">{report.week_number}</span>
             </div>
             <div className="space-y-1">
+                {isManagerView && (
+                    <div className="flex items-center gap-2 text-xs font-black text-[var(--text-main)] uppercase tracking-tight">
+                        <div className="p-1 bg-purple-500/10 rounded-md">
+                            <User size={10} className="text-purple-400" />
+                        </div>
+                        {report.intern_name}
+                    </div>
+                )}
                 <div className="flex items-center gap-2 text-[10px] font-black text-[var(--text-dim)] uppercase tracking-widest">
                     <Calendar size={12} className="text-indigo-400" />
                     {dateRange}
@@ -201,11 +209,33 @@ const WeeklyReportCard: React.FC<Props> = ({
                     <Bot size={14} /> AI Performance Narrative
                 </div>
                 {report.ai_narrative && !report.ai_narrative.startsWith('[AI summary unavailable') ? (
-                    <div className="p-6 rounded-3xl bg-indigo-500/[0.03] border border-indigo-500/10 space-y-5">
-                        <p className="text-[var(--text-main)] text-sm leading-relaxed font-medium">
-                            {report.ai_narrative}
-                        </p>
-                        <div className="space-y-3 pt-2">
+                    <div className="p-6 rounded-3xl bg-indigo-500/[0.03] border border-indigo-500/10 space-y-6">
+                        {report.ai_quote && (
+                            <div className="p-4 bg-white/[0.02] border-l-2 border-indigo-400/40 rounded-r-2xl italic text-[11px] text-indigo-300/90 leading-relaxed relative overflow-hidden group/quote">
+                                <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-500/5 rounded-full -mr-8 -mt-8 blur-2xl" />
+                                <span className="text-indigo-400 font-serif text-xl absolute -top-1 -left-1 opacity-20">"</span>
+                                {report.ai_quote}
+                            </div>
+                        )}
+
+                        <div className="space-y-4">
+                            <p className="text-[var(--text-main)] text-sm leading-relaxed font-medium">
+                                {report.ai_narrative}
+                            </p>
+
+                            {report.ai_work_summary && (
+                                <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/5">
+                                    <div className="flex items-center gap-2 text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2">
+                                        <Zap size={10} /> Core Contributions
+                                    </div>
+                                    <p className="text-xs text-[var(--text-dim)] leading-relaxed font-medium">
+                                        {report.ai_work_summary}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="space-y-3 pt-2 border-t border-white/5">
                             {report.ai_top_achievement && (
                                 <div className="flex gap-3 items-start">
                                     <div className="mt-1 p-1 bg-emerald-500/20 rounded-md"><Trophy size={10} className="text-emerald-400" /></div>

@@ -419,7 +419,7 @@ def generate_single_report_v2(self, intern_id: int, week_start_str: str, week_en
         # 1. Fetch data
         tasks_qs = TaskTracking.objects.filter(
             intern=intern,
-            created_at__date__range=[week_start, week_end]
+            assigned_at__range=[week_start, week_end]
         )
         attendance_qs = AttendanceRecord.objects.filter(
             intern=intern,
@@ -523,19 +523,20 @@ Keep the tone factual and constructive.
 
 INTERN DATA FOR WEEK {week_start} to {week_end}:
 - Tasks assigned: {tasks_assigned}, completed: {tasks_completed}, overdue: {tasks_overdue}
+- Task Titles Worked On: {task_titles}
 - Avg task quality rating: {avg_task_quality_rating}/5
 - Attendance: {attendance_days}/{expected_days} days, {late_check_ins} late check-ins
 - Productivity score: {productivity_score}% (delta vs last week: {productivity_delta})
 - Quality score: {quality_score}%
 - Cumulative phase score to date: {cumulative_overall_score}%
 
-Write exactly 3 sentences:
-1. Top achievement or strongest area this week (be specific, use numbers)
-2. One concern area if any exist — if none, note the most consistent strength
-3. One growth observation based on the delta data
+Instructions:
+1. Narrative: Exactly 3 sentences. (Achievement, concern/consistency, growth observation).
+2. Work Summary: A brief, professional summary (1-2 sentences) of the work done based on the task titles.
+3. Quote: A short, powerful, professional/motivational quote or leadership insight that matches the week's performance.
 
 Return ONLY valid JSON with no extra text:
-{{"narrative": "...", "top_achievement": "...", "concern_area": "...", "growth_note": "..."}}
+{{"narrative": "...", "work_summary": "...", "quote": "...", "top_achievement": "...", "concern_area": "...", "growth_note": "..."}}
 """
 
 @shared_task(name='apps.analytics.tasks.generate_week_narrative_v2', bind=True, max_retries=2, default_retry_delay=60)
@@ -558,12 +559,21 @@ def generate_week_narrative_v2(self, report_id: int):
         logger.warning("No AI API keys (GitHub/Groq) found — skipping narrative generation.")
         return
 
+    # Fetch task titles for context
+    from apps.analytics.models import TaskTracking
+    task_titles = list(TaskTracking.objects.filter(
+        intern=report.intern,
+        assigned_at__range=[report.week_start, report.week_end]
+    ).values_list('title', flat=True))
+    task_titles_str = ", ".join(task_titles) if task_titles else "No specific tasks recorded"
+
     prompt = WEEKLY_NARRATIVE_PROMPT.format(
         week_start              = report.week_start,
         week_end                = report.week_end,
         tasks_assigned          = report.tasks_assigned,
         tasks_completed         = report.tasks_completed,
         tasks_overdue           = report.tasks_overdue,
+        task_titles             = task_titles_str,
         avg_task_quality_rating = report.avg_task_quality_rating or 'N/A',
         attendance_days         = report.attendance_days,
         expected_days           = report.expected_days,
@@ -627,6 +637,8 @@ def generate_week_narrative_v2(self, report_id: int):
     if narrative_json:
         WeeklyReportV2.objects.filter(pk=report_id).update(
             ai_narrative       = narrative_json.get('narrative', ''),
+            ai_work_summary    = narrative_json.get('work_summary', ''),
+            ai_quote           = narrative_json.get('quote', ''),
             ai_top_achievement = narrative_json.get('top_achievement', ''),
             ai_concern_area    = narrative_json.get('concern_area', ''),
             ai_growth_note     = narrative_json.get('growth_note', ''),

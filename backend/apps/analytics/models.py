@@ -1921,6 +1921,8 @@ class WeeklyReportV2(models.Model):
 
     # ── AI-generated narrative (Groq — populated async after report creation) ─
     ai_narrative = models.TextField(blank=True)           # 3-sentence summary
+    ai_work_summary = models.TextField(blank=True)        # List of tasks/work done
+    ai_quote = models.CharField(max_length=500, blank=True) # Motivational/Professional quote
     ai_top_achievement = models.CharField(max_length=500, blank=True)
     ai_concern_area = models.CharField(max_length=500, blank=True)
     ai_growth_note = models.CharField(max_length=500, blank=True)
