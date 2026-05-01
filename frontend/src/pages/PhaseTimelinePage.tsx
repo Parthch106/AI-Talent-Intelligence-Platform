@@ -1,32 +1,48 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import PhaseTimeline from '../components/phases/PhaseTimeline';
-import { fetchMyStages, fetchMyEvaluations } from '../api/reports';
+import { fetchMyStages, fetchMyEvaluations, fetchCertificates, fetchConversionScore, type CertificateRecord } from '../api/reports';
 import type { EmploymentStage, PhaseEvaluation } from '../types/reports';
 import { useAuth } from '../context/AuthContext';
-import { Card, LoadingSpinner, Badge } from '../components/common';
-import { Activity, Target, CheckCircle2, AlertCircle, TrendingUp, Clock } from 'lucide-react';
+import { Card, LoadingSpinner, Badge, Button } from '../components/common';
+import { Activity, Target, CheckCircle2, AlertCircle, TrendingUp, Clock, ArrowLeft } from 'lucide-react';
 
 const PhaseTimelinePage: React.FC = () => {
   const { user } = useAuth();
+  const { internId } = useParams<{ internId?: string }>();
   const [stages, setStages]           = useState<EmploymentStage[]>([]);
   const [evaluations, setEvaluations] = useState<PhaseEvaluation[]>([]);
+  const [certificates, setCertificates] = useState<CertificateRecord[]>([]);
+  const [conversionData, setConversionData] = useState<any>(null);
   const [loading, setLoading]         = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, e] = await Promise.all([fetchMyStages(), fetchMyEvaluations()]);
+      const params = internId ? { intern_id: Number(internId) } : {};
+      const [s, e, c, score] = await Promise.all([
+        fetchMyStages(params), 
+        fetchMyEvaluations(params),
+        fetchCertificates(params),
+        fetchConversionScore(params)
+      ]);
       setStages(s);
       setEvaluations(e);
+      setCertificates(c);
+      setConversionData(score);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [internId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   // Handle different potential user object structures
-  const currentStatus = (user as any)?.internprofile_status || (user as any)?.status || 'ACTIVE_INTERN';
+  const currentStatus = internId 
+    ? (stages.find((s: EmploymentStage) => !s.phase_end_date)?.phase || 'PHASE_1')
+    : ((user as any)?.internprofile_status || (user as any)?.status || 'ACTIVE_INTERN');
+
+  const internName = stages[0]?.intern_name;
 
   if (loading && stages.length === 0) {
       return (
@@ -44,18 +60,41 @@ const PhaseTimelinePage: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-heading font-black tracking-tighter text-[var(--text-main)] mb-2 uppercase">
-            Phase <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Timeline</span>
-          </h1>
-          <p className="text-[var(--text-dim)] font-bold uppercase text-[10px] tracking-[0.2em]">Your 12-month evolution roadmap</p>
+          <div className="flex items-center gap-4 mb-2">
+            {internId && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                icon={<ArrowLeft size={16} />} 
+                onClick={() => window.history.back()}
+              >
+                Back to List
+              </Button>
+            )}
+            <h1 className="text-4xl font-heading font-black tracking-tighter text-[var(--text-main)] uppercase">
+              {internId ? (
+                <>
+                  <span className="text-blue-400">{internName || 'Intern'}</span> Timeline
+                </>
+              ) : (
+                <>
+                  Phase <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Timeline</span>
+                </>
+              )}
+            </h1>
+          </div>
+          <p className="text-[var(--text-dim)] font-bold uppercase text-[10px] tracking-[0.2em]">
+            {internId ? `Viewing historical progression for ${internName || 'intern'}` : 'Your 12-month evolution roadmap'}
+          </p>
         </div>
       </div>
 
       <Card className="border-[var(--border-color)] bg-[var(--card-bg)] backdrop-blur-xl">
           <PhaseTimeline
             stages={stages}
+            certificates={certificates}
             currentStatus={currentStatus}
-            conversionScore={null}   // Wired up in Sprint 5 when ConversionScore model is built
+            conversionScore={conversionData?.composite_score ?? null}
           />
       </Card>
 
@@ -73,7 +112,7 @@ const PhaseTimelinePage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-              {evaluations.map(ev => (
+              {evaluations.map((ev: PhaseEvaluation) => (
                 <div key={ev.id} className={`group p-6 rounded-[24px] border transition-all duration-300 flex items-center gap-6 flex-wrap ${ev.criteria_met ? 'bg-emerald-500/[0.03] border-emerald-500/20 hover:border-emerald-500/40' : 'bg-red-500/[0.03] border-red-500/20 hover:border-red-500/40'}`}>
                   <div className={`p-4 rounded-2xl flex flex-col items-center justify-center min-w-[100px] border ${ev.criteria_met ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
                     {ev.criteria_met ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}

@@ -43,13 +43,18 @@ def run_criteria_evaluation(evaluation_id):
         stage = evaluation.employment_stage
         
         # Get active criteria for this phase
+        # Mapping: FULL_TIME employment stage corresponds to PPO certificate criteria
+        lookup_phase = stage.phase
+        if lookup_phase == 'FULL_TIME':
+            lookup_phase = 'PPO'
+
         criteria = CertificationCriteria.objects.filter(
-            phase=stage.phase,
+            phase=lookup_phase,
             is_active=True
         ).first()
         
         if not criteria:
-            logger.error(f"No active criteria found for phase {stage.phase}")
+            logger.error(f"No active criteria found for phase {lookup_phase}")
             return False
 
         # Aggregate scores (from stage start to now)
@@ -74,7 +79,7 @@ def run_criteria_evaluation(evaluation_id):
             cert = CertificationRecord.objects.create(
                 intern=intern,
                 phase_evaluation=evaluation,
-                cert_type=stage.phase,
+                cert_type=lookup_phase,
                 overall_score_at_issue=scores['overall_score'],
                 scores_snapshot=scores,
                 criteria_snapshot=result['criteria_used']
@@ -122,19 +127,25 @@ def generate_certificate_pdf(cert_id):
         
         html_string = render_to_string('certificates/certificate.html', context)
         
-        # 3. Convert to PDF
+        # 3. Convert to PDF using ReportLab (more robust on Windows/no GTK needed)
         try:
-            from weasyprint import HTML
-        except ImportError:
-            logger.error("WeasyPrint not properly installed or missing system libraries (gobject-2.0-0). Skipping PDF generation.")
-            return
+            from apps.analytics.services.pdf_service import generate_certificate_reportlab
+            pdf_content = generate_certificate_reportlab(cert)
+        except Exception as e:
+            logger.error(f"ReportLab generation failed: {str(e)}")
+            # Try WeasyPrint as second fallback if available
+            try:
+                from weasyprint import HTML
+                pdf_buffer = io.BytesIO()
+                HTML(string=html_string, base_url=settings.WEASYPRINT_BASEURL).write_pdf(pdf_buffer)
+                pdf_content = pdf_buffer.getvalue()
+            except Exception as e2:
+                logger.error(f"WeasyPrint also failed: {str(e2)}")
+                return
 
-        pdf_buffer = io.BytesIO()
-        HTML(string=html_string, base_url=settings.WEASYPRINT_BASEURL).write_pdf(pdf_buffer)
-        
         # 4. Save to FileField
         filename = f"cert_{cert.intern.id}_{cert.cert_type}_{cert.issue_date}.pdf"
-        cert.certificate_file.save(filename, ContentFile(pdf_buffer.getvalue()))
+        cert.certificate_file.save(filename, ContentFile(pdf_content))
         cert.save()
 
         # 5. Trigger Email
@@ -530,6 +541,7 @@ Return ONLY valid JSON with no extra text:
 @shared_task(name='apps.analytics.tasks.generate_week_narrative_v2', bind=True, max_retries=2, default_retry_delay=60)
 def generate_week_narrative_v2(self, report_id: int):
     import json
+    import os
     from django.conf import settings
     from apps.analytics.models import WeeklyReportV2
 
@@ -538,8 +550,12 @@ def generate_week_narrative_v2(self, report_id: int):
     except WeeklyReportV2.DoesNotExist:
         return
 
-    if not settings.GROQ_API_KEY:
-        logger.warning("GROQ_API_KEY not set — skipping narrative generation.")
+    # Check for available AI providers
+    github_token = os.environ.get("AI_TALENT_GITHUB_TOKEN") or getattr(settings, "AI_TALENT_GITHUB_TOKEN", None)
+    groq_api_key = os.environ.get("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+
+    if not github_token and not groq_api_key:
+        logger.warning("No AI API keys (GitHub/Groq) found — skipping narrative generation.")
         return
 
     prompt = WEEKLY_NARRATIVE_PROMPT.format(
@@ -558,39 +574,68 @@ def generate_week_narrative_v2(self, report_id: int):
         cumulative_overall_score = report.cumulative_overall_score or 0,
     )
 
-    try:
-        from groq import Groq
-        client   = Groq(api_key=settings.GROQ_API_KEY)
-        response = client.chat.completions.create(
-            model    = settings.GROQ_MODEL,
-            messages = [{'role': 'user', 'content': prompt}],
-            max_tokens    = 400,
-            temperature   = 0.3,
-        )
-        raw = response.choices[0].message.content.strip()
-    except Exception as exc:
-        logger.error(f"Groq API call failed for report {report_id}: {exc}")
-        raise self.retry(exc=exc)
+    narrative_json = None
 
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        clean = raw.strip('```json').strip('```').strip()
+    # Priority 1: GitHub Models (GPT-4o mini)
+    if github_token:
         try:
-            data = json.loads(clean)
-        except json.JSONDecodeError:
-            logger.error(f"Could not parse Groq JSON for report {report_id}.")
-            WeeklyReportV2.objects.filter(pk=report_id, ai_narrative='').update(
-                ai_narrative='[AI summary unavailable — the narrative service was temporarily unreachable. Metrics above are accurate.]'
+            from langchain_openai import ChatOpenAI
+            from langchain_core.messages import HumanMessage
+            
+            llm = ChatOpenAI(
+                model="gpt-4o-mini",
+                temperature=0.3,
+                max_tokens=400,
+                api_key=github_token,
+                base_url="https://models.inference.ai.azure.com"
             )
-            return
+            
+            response = llm.invoke([HumanMessage(content=prompt)])
+            content = response.content.strip()
+            
+            # Clean markdown code blocks if present
+            if content.startswith("```"):
+                lines = content.splitlines()
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines[-1].startswith("```"):
+                    lines = lines[:-1]
+                content = "\n".join(lines).strip()
+            
+            narrative_json = json.loads(content)
+            logger.info(f"Narrative generated using GitHub Models (GPT-4o mini) for report {report_id}")
+        except Exception as e:
+            logger.error(f"GitHub Models narrative generation failed for report {report_id}: {e}")
 
-    WeeklyReportV2.objects.filter(pk=report_id).update(
-        ai_narrative       = data.get('narrative', ''),
-        ai_top_achievement = data.get('top_achievement', ''),
-        ai_concern_area    = data.get('concern_area', ''),
-        ai_growth_note     = data.get('growth_note', ''),
-    )
+    # Priority 2: Groq (Fallback)
+    if not narrative_json and groq_api_key:
+        try:
+            from groq import Groq
+            client   = Groq(api_key=groq_api_key)
+            response = client.chat.completions.create(
+                model    = getattr(settings, "GROQ_MODEL", "llama3-8b-8192"),
+                messages = [{'role': 'user', 'content': prompt}],
+                max_tokens    = 400,
+                temperature   = 0.3,
+            )
+            narrative_json = json.loads(response.choices[0].message.content)
+            logger.info(f"Narrative generated using Groq for report {report_id}")
+        except Exception as e:
+            logger.error(f"Groq narrative generation failed for report {report_id}: {e}")
+
+    # Save results if successful
+    if narrative_json:
+        WeeklyReportV2.objects.filter(pk=report_id).update(
+            ai_narrative       = narrative_json.get('narrative', ''),
+            ai_top_achievement = narrative_json.get('top_achievement', ''),
+            ai_concern_area    = narrative_json.get('concern_area', ''),
+            ai_growth_note     = narrative_json.get('growth_note', ''),
+        )
+    else:
+        logger.error(f"Failed all AI narrative generation attempts for report {report_id}")
+        WeeklyReportV2.objects.filter(pk=report_id, ai_narrative='').update(
+            ai_narrative='[AI summary unavailable — the narrative service was temporarily unreachable. Metrics above are accurate.]'
+        )
 
 
 # ── Step 10: Manager Notifications ───────────────────────────────────────────
@@ -608,14 +653,14 @@ def notify_manager_new_report_v2(report_id: int):
             return
 
         Notification.objects.create(
-            recipient  = manager,
+            user       = manager,
+            title      = "New Weekly Report Ready",
             message    = (
                 f"{'🚨 RED FLAG — ' if report.red_flag else ''}"
                 f"Weekly report for {report.intern.get_full_name() or report.intern.username} "
                 f"(Week {report.week_number}) is ready. Score: {report.overall_weekly_score:.1f}%."
             ),
-            notif_type = 'RED_FLAG_REPORT' if report.red_flag else 'WEEKLY_REPORT',
-            is_urgent  = report.red_flag,
+            notification_type = 'REPORT_UPLOADED',
         )
     except Exception as e:
         logger.error(f"Failed to notify manager: {e}")
@@ -634,13 +679,286 @@ def escalate_red_flag_to_admin_v2(intern_id: int, report_id: int):
         
         for admin in admins:
             Notification.objects.create(
-                recipient  = admin,
+                user       = admin,
+                title      = "Red Flag Escalation",
                 message    = (
                     f"🚨 ESCALATION: {intern.get_full_name() or intern.username} has had "
                     f"2 consecutive red-flagged weeks. Latest score {report.overall_weekly_score:.1f}%."
                 ),
-                notif_type = 'RED_FLAG_ESCALATION',
-                is_urgent  = True,
+                notification_type = 'ENGAGEMENT_RISK',
             )
     except Exception as e:
         logger.error(f"Failed to escalate red flag: {e}")
+
+
+# ── Step 11: Weekly Batch Email Reports ──────────────────────────────────────
+
+@shared_task(name='apps.analytics.tasks.send_weekly_intern_performance_emails')
+def send_weekly_intern_performance_emails():
+    """
+    Sends personalized weekly reports to every active intern.
+    Uses a batch SMTP connection for efficiency.
+    """
+    from apps.accounts.models import User
+    from apps.analytics.models import WeeklyReportV2, EmploymentStage, TaskTracking
+    from django.core.mail import get_connection, EmailMultiAlternatives
+    from datetime import timedelta
+    from django.utils import timezone
+
+    today = timezone.now().date()
+    # Assume reports for the previous week (Mon-Sun)
+    last_week_start = today - timedelta(days=7)
+    
+    interns = User.objects.filter(role='INTERN', is_active=True)
+    messages = []
+    notifications_to_create = []
+
+    for intern in interns:
+        try:
+            # Get latest report from last week
+            report = WeeklyReportV2.objects.filter(
+                intern=intern, 
+                week_start__gte=last_week_start
+            ).order_by('-created_at').first()
+            
+            if not report:
+                continue
+
+            # Fetch tasks for this week
+            weekly_tasks = TaskTracking.objects.filter(
+                intern=intern,
+                assigned_at__date__gte=report.week_start,
+                assigned_at__date__lte=report.week_end
+            ).order_by('-status', '-priority')[:10]  # Limit to top 10
+
+            task_list = []
+            for t in weekly_tasks:
+                status = t.get_status_display()
+                color_class = 'status-default'
+                if status == 'Completed':
+                    color_class = 'status-completed'
+                elif status == 'In Progress':
+                    color_class = 'status-in-progress'
+                
+                task_list.append({
+                    'title': t.title,
+                    'status': status,
+                    'priority': t.get_priority_display(),
+                    'color_class': color_class
+                })
+
+            # Check promotion milestone
+            current_stage = EmploymentStage.objects.filter(
+                intern=intern, 
+                phase_end_date__isnull=False
+            ).order_by('-phase_start_date').first()
+            
+            show_promotion = False
+            phase_name = ""
+            phase_end = ""
+            
+            if current_stage:
+                days_to_end = (current_stage.phase_end_date - today).days
+                if 0 <= days_to_end <= 14:
+                    show_promotion = True
+                    phase_name = current_stage.get_phase_display()
+                    phase_end = current_stage.phase_end_date.strftime('%b %d, %Y')
+
+            context = {
+                'intern_email': intern.email,
+                'week_dates': f"{report.week_start} to {report.week_end}",
+                'overall_score': round(report.overall_weekly_score, 1),
+                'productivity_score': round(report.productivity_score, 1),
+                'quality_score': round(report.quality_score, 1),
+                'attendance_pct': round(report.attendance_pct, 1),
+                'ai_narrative': report.ai_narrative,
+                'tasks_completed': report.tasks_completed,
+                'tasks_assigned': report.tasks_assigned,
+                'task_list': task_list,
+                'show_promotion_indicator': show_promotion,
+                'phase_name': phase_name,
+                'phase_end_date': phase_end,
+                'timeline_url': f"{settings.FRONTEND_URL}/career/phase-timeline" if hasattr(settings, 'FRONTEND_URL') else "http://localhost:5173/career/phase-timeline"
+            }
+
+            html_content = render_to_string('emails/weekly_performance_report.html', context)
+            
+            msg = EmailMultiAlternatives(
+                subject=f"Weekly Performance Insight — {intern.get_full_name() or intern.username}",
+                body=f"Your weekly performance score is {context['overall_score']}%",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[intern.email]
+            )
+            msg.attach_alternative(html_content, "text/html")
+            messages.append(msg)
+            
+            # Prepare notification
+            from apps.notifications.models import Notification
+            notifications_to_create.append(
+                Notification(
+                    user=intern,
+                    notification_type='SYSTEM',
+                    title="Weekly Performance Report Available",
+                    message=f"Your weekly performance report for {report.week_start} to {report.week_end} is now available.",
+                    link=context['timeline_url']
+                )
+            )
+            
+        except Exception as e:
+            logger.error(f"Error preparing weekly email for {intern.email}: {e}")
+
+    if messages:
+        try:
+            connection = get_connection()
+            connection.send_messages(messages)
+            logger.info(f"Successfully sent {len(messages)} weekly intern reports.")
+            
+            # Create in-app notifications
+            if notifications_to_create:
+                from apps.notifications.models import Notification
+                Notification.objects.bulk_create(notifications_to_create)
+                
+        except Exception as e:
+            logger.error(f"Failed to send batch intern emails: {e}")
+
+
+@shared_task(name='apps.analytics.tasks.send_weekly_manager_summary_emails')
+def send_weekly_manager_summary_emails():
+    """
+    Sends aggregated team reports to all Managers and Admins.
+    """
+    from apps.accounts.models import User, InternProfile
+    from apps.analytics.models import WeeklyReportV2, TaskTracking
+    from django.core.mail import get_connection, EmailMultiAlternatives
+    from datetime import timedelta
+    from django.utils import timezone
+
+    today = timezone.now().date()
+    last_week_start = today - timedelta(days=7)
+    
+    # Get all reports from last week
+    all_reports = WeeklyReportV2.objects.filter(
+        week_start__gte=last_week_start
+    ).select_related('intern', 'intern__internprofile')
+
+    if not all_reports.exists():
+        return
+
+    # Identify recipients (Managers and Admins)
+    staff = User.objects.filter(role__in=['ADMIN', 'MANAGER'], is_active=True)
+    messages = []
+    notifications_to_create = []
+
+    for member in staff:
+        try:
+            # Filter reports relevant to this staff member
+            if member.role == 'MANAGER' and member.department:
+                reports = [r for r in all_reports if r.intern.department == member.department]
+            else:
+                reports = all_reports
+
+            if not reports:
+                continue
+
+            team_data = []
+            total_score = 0
+            total_tasks = 0
+            total_att = 0
+            red_flags = []
+
+            for r in reports:
+                score = round(r.overall_weekly_score, 1)
+                team_data.append({
+                    'name': r.intern.get_full_name() or r.intern.username,
+                    'score': score,
+                    'tasks_completed': r.tasks_completed,
+                    'tasks_assigned': r.tasks_assigned,
+                    'attendance_pct': round(r.attendance_pct, 1),
+                    'status': getattr(r.intern.internprofile, 'status', 'ACTIVE')
+                })
+                total_score += score
+                total_tasks += r.tasks_completed
+                total_att += r.attendance_pct
+                
+                if r.red_flag:
+                    red_flags.append({
+                        'name': r.intern.get_full_name() or r.intern.username,
+                        'reason': r.red_flag_reasons or "High deviation in performance metrics."
+                    })
+
+            # Fetch recent tasks for the team
+            recent_tasks = []
+            if reports:
+                intern_ids = [r.intern_id for r in reports]
+                tasks = TaskTracking.objects.filter(
+                    intern_id__in=intern_ids,
+                    assigned_at__date__gte=last_week_start
+                ).order_by('-completed_at', '-assigned_at')[:15]
+                
+                recent_tasks = []
+                for t in tasks:
+                    status = t.get_status_display()
+                    color_class = 'status-default'
+                    if status == 'Completed':
+                        color_class = 'status-completed'
+                    elif status == 'In Progress':
+                        color_class = 'status-in-progress'
+                    
+                    recent_tasks.append({
+                        'intern': t.intern.get_full_name() or t.intern.email,
+                        'title': t.title,
+                        'status': status,
+                        'color_class': color_class
+                    })
+
+            context = {
+                'department_name': member.department if hasattr(member, 'department') else "Organization",
+                'active_interns_count': len(reports),
+                'avg_team_score': round(total_score / len(reports), 1),
+                'total_tasks_completed': total_tasks,
+                'team_attendance_avg': round(total_att / len(reports), 1),
+                'team_data': team_data,
+                'red_flags': red_flags,
+                'recent_tasks': recent_tasks,
+                'dashboard_url': f"{settings.FRONTEND_URL}/admin/dashboard" if hasattr(settings, 'FRONTEND_URL') else "http://localhost:5173/admin/dashboard"
+            }
+
+            html_content = render_to_string('emails/manager_team_summary.html', context)
+            
+            msg = EmailMultiAlternatives(
+                subject=f"Weekly Team Intelligence Summary — {context['department_name']}",
+                body="Your weekly team performance summary is ready.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[member.email]
+            )
+            msg.attach_alternative(html_content, "text/html")
+            messages.append(msg)
+            
+            # Prepare notification
+            from apps.notifications.models import Notification
+            notifications_to_create.append(
+                Notification(
+                    user=member,
+                    notification_type='SYSTEM',
+                    title="Departmental Weekly Summary Available",
+                    message=f"The weekly performance summary for {context['department_name']} is now available for review.",
+                    link=context['dashboard_url']
+                )
+            )
+
+        except Exception as e:
+            logger.error(f"Error preparing manager summary for {member.email}: {e}")
+
+    if messages:
+        try:
+            connection = get_connection()
+            connection.send_messages(messages)
+            logger.info(f"Successfully sent {len(messages)} manager summaries.")
+            
+            # Create in-app notifications
+            if notifications_to_create:
+                from apps.notifications.models import Notification
+                Notification.objects.bulk_create(notifications_to_create)
+                
+        except Exception as e:
+            logger.error(f"Failed to send batch manager emails: {e}")

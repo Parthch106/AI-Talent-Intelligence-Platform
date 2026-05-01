@@ -41,6 +41,15 @@ app.conf.beat_schedule = {
         'task':     'apps.accounts.tasks.expire_pending_offers',
         'schedule': crontab(hour=1, minute=0),
     },
+    # ── Weekly Batch Email Reports (every Sunday 8:00 PM) ──────────────────
+    'send-weekly-intern-emails': {
+        'task':     'apps.analytics.tasks.send_weekly_intern_performance_emails',
+        'schedule': crontab(hour=20, minute=0, day_of_week='sunday'),
+    },
+    'send-weekly-manager-emails': {
+        'task':     'apps.analytics.tasks.send_weekly_manager_summary_emails',
+        'schedule': crontab(hour=20, minute=15, day_of_week='sunday'),
+    },
 }
 
 @app.task(bind=True)

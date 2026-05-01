@@ -28,7 +28,7 @@ const PublicVerifyPage: React.FC = () => {
   useEffect(() => {
     const verify = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+        const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
         const res = await axios.get(`${apiUrl}/analytics/verify/${certId}/`);
         setData(res.data);
       } catch (err: any) {
@@ -100,6 +100,14 @@ const PublicVerifyPage: React.FC = () => {
               <div className="font-mono text-sm text-gray-300 bg-black/40 px-3 py-1.5 rounded-lg border border-gray-800">
                 {data.unique_id}
               </div>
+              {data.valid && (
+                <button
+                  onClick={() => window.open(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/analytics/verify/${data.unique_id}/download/`, '_blank')}
+                  className="mt-4 w-full md:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  Download PDF Certificate
+                </button>
+              )}
             </div>
           </div>
 

@@ -48,6 +48,7 @@ from .views import (
     WeeklyReportV2ViewSet,
     CriteriaPreviewView,
     verify_certificate,
+    verify_certificate_download,
     FullTimeOfferViewSet,
     InternOfferResponseView,
     ConversionScoreView,
@@ -186,4 +187,5 @@ urlpatterns = [
     # V2 PHASE 2 — CERTIFICATION ENGINE
     # ============================================================================
     path('verify/<uuid:unique_cert_id>/', verify_certificate, name='verify-certificate'),
+    path('verify/<uuid:unique_cert_id>/download/', verify_certificate_download, name='verify-certificate-download'),
 ]

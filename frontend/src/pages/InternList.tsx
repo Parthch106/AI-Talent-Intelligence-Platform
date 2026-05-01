@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { UserPlus, Search, Filter, X, Mail, Phone, Building, ArrowRight, Eye, Edit, Award, BookOpen, Calendar, Clock, Star } from 'lucide-react';
+import { UserPlus, Search, Filter, X, Mail, Phone, Building, ArrowRight, Eye, Edit, Award, BookOpen, Calendar, Clock, Star, Activity } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +7,7 @@ import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
+import { useNavigate } from 'react-router-dom';
 
 interface InternProfile {
     id: number;
@@ -79,6 +80,7 @@ interface DetailedInternProfile {
 
 const InternList: React.FC = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [interns, setInterns] = useState<InternProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -759,6 +761,17 @@ const InternList: React.FC = () => {
                                         <span className="flex items-center gap-1"><Mail size={14} /> {selectedIntern.user?.email}</span>
                                         <span className="flex items-center gap-1"><Building size={14} /> {selectedIntern.user?.department || selectedIntern.university}</span>
                                     </p>
+                                </div>
+                                <div className="ml-auto">
+                                    <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        icon={<Activity size={16} />}
+                                        onClick={() => navigate(`/career/phase-timeline/${selectedIntern.user.id}`)}
+                                        className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                                    >
+                                        Career Timeline
+                                    </Button>
                                 </div>
                             </div>
 

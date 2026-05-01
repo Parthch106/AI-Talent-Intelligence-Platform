@@ -84,6 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isExpanded, setIsExpanded }) => {
     const internCareerNavItems: NavItem[] = [
         { name: 'Weekly Reports', path: '/workspace/weekly-reports', icon: <ClipboardList size={20} />, roles: ['INTERN'], badge: 'V2' },
         { name: 'Career Timeline', path: '/career/phase-timeline', icon: <GitBranch size={20} />, roles: ['INTERN'], badge: 'V2' },
+        { name: 'My Certificates', path: '/career/my-certificates', icon: <Award size={20} />, roles: ['INTERN'], badge: 'V2' },
     ];
 
     const isActive = (path: string) => {

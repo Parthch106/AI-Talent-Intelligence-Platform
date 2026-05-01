@@ -25,6 +25,11 @@ class Notification(models.Model):
         ('ENGAGEMENT_RISK', 'Engagement Risk'),
         ('MISSING_REPORT', 'Missing Report'),
         ('SYSTEM', 'System Notification'),
+        ('CERTIFICATE_GENERATED', 'Certificate Generated'),
+        ('EVALUATION_COMPLETED', 'Evaluation Completed'),
+        ('PROMOTION_SUCCESS', 'Promotion Success'),
+        ('OFFER_ISSUED', 'PPO Offer Issued'),
+        ('OFFER_RESPONSE', 'PPO Offer Response'),
     ]
 
     user = models.ForeignKey(

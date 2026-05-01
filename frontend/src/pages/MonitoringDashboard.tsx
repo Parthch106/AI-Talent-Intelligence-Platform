@@ -367,16 +367,19 @@ const MonitoringDashboard: React.FC = () => {
     };
 
     const handleTaskStatusChange = async (taskId: number, newStatus: string): Promise<void> => {
+        // Optimistic UI update to prevent abrupt re-renders
+        setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+        
         try {
             await axios.patch(`/analytics/tasks/${taskId}/update-status/`, {
                 status: newStatus
             });
             setSuccess(`Task status updated to ${newStatus.replace('_', ' ')}`);
-            fetchData();
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             console.error('Error updating task status:', err);
             setSuccess('Failed to update task status');
+            fetchData(); // Revert on failure
             setTimeout(() => setSuccess(''), 3000);
         }
     };

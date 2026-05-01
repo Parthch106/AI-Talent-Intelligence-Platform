@@ -76,12 +76,15 @@ const InternTasks: React.FC = () => {
     }, [fetchTasks, fetchHeatmapData]);
 
     const handleStatusChange = async (taskId: number, newStatus: string) => {
+        // Optimistic UI update to prevent abrupt re-renders
+        setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+
         try {
             await axios.patch(`/analytics/tasks/${taskId}/update-status/`, { status: newStatus });
             toast.success(`Task marked as ${newStatus.replace('_', ' ')}`);
-            fetchTasks();
         } catch {
             toast.error('Could not update status');
+            fetchTasks(); // Revert on failure
         }
     };
 

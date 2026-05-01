@@ -221,13 +221,19 @@ const MonitoringTasksPage: React.FC = () => {
 
 
     const handleTaskStatusChange = async (taskId: number, newStatus: string): Promise<void> => {
+        // Optimistic UI update to prevent abrupt re-renders
+        setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+
         toast.promise(axios.patch(`/analytics/tasks/${taskId}/`, { status: newStatus }), {
             loading: 'Synchronizing task state transition...',
             success: () => {
-                fetchData();
+                // Background fetch to ensure consistency, but won't block UI
+                fetchHeatmapData(selectedIntern as number);
                 return `Task status successfully migrated to ${newStatus.replace('_', ' ')}`;
             },
             error: (err) => {
+                // Revert on failure
+                fetchData();
                 return (err as Error).message || 'State transition failed';
             }
         });

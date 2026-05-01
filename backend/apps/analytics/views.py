@@ -8,10 +8,10 @@ logger = logging.getLogger(__name__)
 from django.http import JsonResponse, HttpResponse
 from django_ratelimit.decorators import ratelimit
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Q, Avg, Count
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
@@ -2767,9 +2767,20 @@ class EmploymentStageViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        qs = EmploymentStage.objects.all().select_related('intern', 'promoted_by')
+        
         if str(user.role) == 'INTERN':
-            return EmploymentStage.objects.filter(intern=user).select_related('intern', 'promoted_by')
-        return EmploymentStage.objects.all().select_related('intern', 'promoted_by')
+            return qs.filter(intern=user)
+        
+        intern_id = self.request.query_params.get('intern_id')
+        if intern_id:
+            qs = qs.filter(intern_id=intern_id)
+            
+        # Managers can only see interns in their department
+        if str(user.role) == 'MANAGER' and user.department:
+            qs = qs.filter(intern__department=user.department)
+            
+        return qs
 
     serializer_class = EmploymentStageSerializer
 
@@ -2793,17 +2804,47 @@ class PhaseEvaluationViewSet(viewsets.ModelViewSet):
     CRUD for PhaseEvaluation records.
     """
     def get_permissions(self):
-        if self.action in ['list', 'retrieve', 'list_eligible', 'list_eligible_ppo']:
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        if self.action in ['list_eligible', 'list_eligible_ppo']:
             return [IsManager()]
         return [IsAdmin()]
 
     def get_queryset(self):
         user = self.request.user
+        qs = PhaseEvaluation.objects.all().select_related('intern', 'employment_stage', 'evaluated_by')
+        
         if str(user.role) == 'INTERN':
-            return PhaseEvaluation.objects.filter(intern=user).select_related('intern', 'employment_stage', 'evaluated_by')
-        return PhaseEvaluation.objects.all().select_related('intern', 'employment_stage', 'evaluated_by')
+            return qs.filter(intern=user)
+            
+        intern_id = self.request.query_params.get('intern_id')
+        if intern_id:
+            qs = qs.filter(intern_id=intern_id)
+            
+        if str(user.role) == 'MANAGER' and user.department:
+            qs = qs.filter(intern__department=user.department)
+            
+        return qs
 
     serializer_class = PhaseEvaluationSerializer
+
+    def perform_update(self, serializer):
+        evaluation = serializer.save()
+        if evaluation.decision:
+            self._notify_evaluation(evaluation)
+
+    def _notify_evaluation(self, evaluation):
+        try:
+            from apps.notifications.models import Notification
+            Notification.objects.create(
+                user=evaluation.intern,
+                notification_type='EVALUATION_COMPLETED',
+                title='Phase Evaluation Completed 📝',
+                message=f"Your evaluation for {evaluation.employment_stage.get_phase_display()} has been completed. Result: {evaluation.get_decision_display()}.",
+                link="/career/phase-timeline"
+            )
+        except Exception:
+            pass
 
     def perform_create(self, serializer):
         stage_id = self.request.data.get('employment_stage')
@@ -2822,7 +2863,14 @@ class PhaseEvaluationViewSet(viewsets.ModelViewSet):
             }
         except:
             snapshot = {}
-        serializer.save(criteria_snapshot=snapshot)
+            
+        evaluation = serializer.save(
+            evaluated_by=self.request.user,
+            criteria_snapshot=snapshot
+        )
+        
+        if evaluation.decision:
+            self._notify_evaluation(evaluation)
     
     @action(detail=False, methods=['get'], url_path='eligible')
     def list_eligible(self, request):
@@ -2940,15 +2988,62 @@ class CertificationRecordViewSet(viewsets.ModelViewSet):
     serializer_class = CertificationRecordSerializer
 
     def get_permissions(self):
-        if self.action in ['list', 'retrieve'] and str(self.request.user.role) == 'INTERN':
+        if self.action == 'download_pdf':
+            return [permissions.AllowAny()]
+        if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]
         return [IsAdmin()]
 
     def get_queryset(self):
         user = self.request.user
+        qs = CertificationRecord.objects.all().select_related('intern')
+        
         if str(user.role) == 'INTERN':
-            return CertificationRecord.objects.filter(intern=user).select_related('intern')
-        return CertificationRecord.objects.all().select_related('intern')
+            return qs.filter(intern=user)
+            
+        intern_id = self.request.query_params.get('intern_id')
+        if intern_id:
+            qs = qs.filter(intern_id=intern_id)
+            
+        if str(user.role) == 'MANAGER' and user.department:
+            qs = qs.filter(intern__department=user.department)
+            
+        return qs
+
+    @action(detail=True, methods=['get'], url_path='download')
+    def download_pdf(self, request, pk=None):
+        """
+        Public/Private endpoint to download the certificate PDF.
+        """
+        # Note: pk here is actually unique_cert_id because of how we might want to call it
+        # but the default ModelViewSet uses the primary key (id).
+        # To support both, we try to find by ID then by UUID if needed.
+        try:
+            cert = CertificationRecord.objects.get(pk=pk)
+        except:
+            cert = CertificationRecord.objects.get(unique_cert_id=pk)
+
+        # Basic permission check: Admin can download any, Intern can only download their own
+        user = request.user
+        if user.is_authenticated and str(user.role) == 'INTERN' and cert.intern != user:
+             return Response({'error': 'You do not have permission to download this certificate.'}, status=403)
+
+        if not cert.certificate_file:
+            # Try to generate it on the fly if missing (using the fallback service)
+            from .tasks import generate_certificate_pdf
+            generate_certificate_pdf(cert.id)
+            cert.refresh_from_db()
+            
+        if not cert.certificate_file:
+             return Response({'error': 'Certificate file not generated yet.'}, status=404)
+             
+        try:
+            file_handle = cert.certificate_file.open()
+            response = HttpResponse(file_handle.read(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="certificate_{cert.unique_cert_id}.pdf"'
+            return response
+        except Exception as e:
+            return Response({'error': f'Error opening certificate file: {str(e)}'}, status=500)
 
     @action(detail=True, methods=['patch'], url_path='revoke')
     def revoke_cert(self, request, pk=None):
@@ -3319,12 +3414,37 @@ class ConversionScoreView(APIView):
     """
     GET /api/analytics/conversion-score/
     Intern sees their own conversion score.
+    Staff can see score for a specific intern via ?intern_id=X
     """
-    permission_classes = [IsIntern]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        intern_id = request.query_params.get('intern_id')
+        user = request.user
+
+        if intern_id:
+            # Staff check
+            if str(user.role) not in ['ADMIN', 'MANAGER']:
+                return Response({'detail': 'Not authorized to view other scores.'}, status=403)
+            
+            # Manager department check
+            if str(user.role) == 'MANAGER' and user.department:
+                try:
+                    from apps.accounts.models import InternProfile
+                    profile = InternProfile.objects.get(user_id=intern_id)
+                    if profile.user.department != user.department:
+                        return Response({'detail': 'Intern not in your department.'}, status=403)
+                except InternProfile.DoesNotExist:
+                    return Response({'detail': 'Intern profile not found.'}, status=404)
+            
+            target_user_id = intern_id
+        else:
+            if str(user.role) != 'INTERN':
+                return Response({'detail': 'Intern ID required for staff views.'}, status=400)
+            target_user_id = user.id
+
         try:
-            score = ConversionScore.objects.get(intern=request.user)
+            score = ConversionScore.objects.get(intern_id=target_user_id)
             return Response(ConversionScoreSerializer(score).data)
         except ConversionScore.DoesNotExist:
             return Response({'detail': 'Score not generated yet.'}, status=404)
@@ -3336,13 +3456,13 @@ def _notify_intern_offer_issued(offer):
     try:
         from apps.notifications.models import Notification
         Notification.objects.create(
-            recipient  = offer.intern,
-            message    = (
-                f"🎉 Congratulations! A Pre-Placement Offer has been issued to you for the role of "
+            user              = offer.intern,
+            title             = "PPO Offer Issued! 🎉",
+            message           = (
+                f"Congratulations! A Pre-Placement Offer has been issued to you for the role of "
                 f"{offer.recommended_role_title} in {offer.recommended_department}."
             ),
-            notif_type = 'OFFER_ISSUED',
-            is_urgent  = True,
+            notification_type = 'OFFER_ISSUED',
         )
     except Exception:
         pass
@@ -3354,9 +3474,10 @@ def _notify_admin_offer_responded(offer, response):
         admins = User.objects.filter(role='ADMIN')
         for admin in admins:
             Notification.objects.create(
-                recipient = admin,
-                message   = f"Intern {offer.intern.full_name} has {response.lower()}ed their PPO offer.",
-                notif_type = 'OFFER_RESPONSE',
+                user              = admin,
+                title             = "Offer Response Received",
+                message           = f"Intern {offer.intern.full_name} has {response.lower()}ed their PPO offer.",
+                notification_type = 'OFFER_RESPONSE',
             )
     except Exception:
         pass
@@ -3469,3 +3590,29 @@ def _build_report_html(intern, reports: list) -> str:
     </body>
     </html>
     """
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def verify_certificate_download(request, unique_cert_id):
+    """
+    Public endpoint to download certificate PDF via UUID.
+    """
+    try:
+        cert = CertificationRecord.objects.get(unique_cert_id=unique_cert_id)
+        if not cert.certificate_file:
+            from .tasks import generate_certificate_pdf
+            generate_certificate_pdf(cert.id)
+            cert.refresh_from_db()
+        
+        if not cert.certificate_file:
+            return JsonResponse({'error': 'File not found'}, status=404)
+            
+        file_handle = cert.certificate_file.open()
+        response = HttpResponse(file_handle.read(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="certificate_{cert.unique_cert_id}.pdf"'
+        return response
+    except CertificationRecord.DoesNotExist:
+        return JsonResponse({'error': 'Certificate not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

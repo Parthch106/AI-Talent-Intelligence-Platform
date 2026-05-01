@@ -1,9 +1,9 @@
-import React from 'react';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import React, { useState, useEffect } from 'react';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { DragEndEvent } from '@dnd-kit/core';
-import { Calendar, GripVertical } from 'lucide-react';
+import type { DragEndEvent, DragOverEvent } from '@dnd-kit/core';
+import { Calendar } from 'lucide-react';
 
 interface Task {
     id: number;
@@ -65,7 +65,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     } = useSortable({ id: task.id });
 
     const style = {
-        transform: CSS.Transform.toString(transform),
+        transform: CSS.Translate.toString(transform),
         transition,
         opacity: isDragging ? 0.5 : 1,
     };
@@ -74,16 +74,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
         <div
             ref={setNodeRef}
             style={style}
-            className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-lg p-3 cursor-pointer hover:border-purple-500/30 transition-all group"
+            {...attributes}
+            {...listeners}
+            className={`bg-[var(--card-bg)] border border-[var(--border-color)] rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-purple-500/30 transition-colors group ${isDragging ? 'z-50 shadow-xl ring-2 ring-purple-500/50' : ''}`}
         >
             <div className="flex items-start gap-2">
-                <button
-                    {...attributes}
-                    {...listeners}
-                    className="mt-1 text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-grab active:cursor-grabbing"
-                >
-                    <GripVertical size={14} />
-                </button>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                         <span className="text-[10px] font-mono text-[var(--text-muted)]">{task.task_id}</span>
@@ -103,12 +98,17 @@ const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     );
 };
 
+
 interface ColumnProps {
     column: typeof KANBAN_COLUMNS[0];
     tasks: Task[];
 }
 
 const KanbanColumn: React.FC<ColumnProps> = ({ column, tasks }) => {
+    const { setNodeRef } = useDroppable({
+        id: column.id,
+    });
+
     return (
         <div className="flex-shrink-0 w-72">
             <div className={`flex items-center gap-2 mb-3 px-2`}>
@@ -118,7 +118,7 @@ const KanbanColumn: React.FC<ColumnProps> = ({ column, tasks }) => {
                     {tasks.length}
                 </span>
             </div>
-            <div className="space-y-2 min-h-[200px] p-2 bg-[var(--bg-muted)]/50 rounded-xl border border-[var(--border-color)]">
+            <div ref={setNodeRef} className="space-y-2 min-h-[200px] p-2 bg-[var(--bg-muted)]/50 rounded-xl border border-[var(--border-color)]">
                 <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                     {tasks.map(task => (
                         <TaskCard key={task.id} task={task} />
@@ -135,6 +135,12 @@ const KanbanColumn: React.FC<ColumnProps> = ({ column, tasks }) => {
 };
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, onStatusChange }) => {
+    const [localTasks, setLocalTasks] = useState(tasks);
+
+    useEffect(() => {
+        setLocalTasks(tasks);
+    }, [tasks]);
+
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -143,22 +149,44 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, onStatusChange }) => {
         })
     );
 
+    const handleDragOver = (event: DragOverEvent) => {
+        const { active, over } = event;
+        if (!over) return;
+
+        const activeTask = localTasks.find(t => t.id === active.id);
+        if (!activeTask) return;
+
+        const overId = over.id as string;
+
+        if (KANBAN_COLUMNS.some(col => col.id === overId)) {
+            if (activeTask.status !== overId) {
+                setLocalTasks(prev => prev.map(t => t.id === active.id ? { ...t, status: overId } : t));
+            }
+            return;
+        }
+
+        const overTask = localTasks.find(t => t.id === over.id);
+        if (overTask && overTask.status !== activeTask.status) {
+            setLocalTasks(prev => prev.map(t => t.id === active.id ? { ...t, status: overTask.status } : t));
+        }
+    };
+
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
+        if (!over) return;
         
-        if (over && active.id !== over.id) {
-            const task = tasks.find(t => t.id === active.id);
-            if (task) {
-                const newStatus = over.id as string;
-                if (KANBAN_COLUMNS.some(col => col.id === newStatus)) {
-                    onStatusChange(task.id, newStatus);
-                }
-            }
+        const originalTask = tasks.find(t => t.id === active.id);
+        const currentLocalTask = localTasks.find(t => t.id === active.id);
+        
+        if (!originalTask || !currentLocalTask) return;
+
+        if (originalTask.status !== currentLocalTask.status) {
+            onStatusChange(originalTask.id, currentLocalTask.status);
         }
     };
 
     const tasksByStatus = KANBAN_COLUMNS.reduce((acc, column) => {
-        acc[column.id] = tasks.filter(task => task.status === column.id);
+        acc[column.id] = localTasks.filter(task => task.status === column.id);
         return acc;
     }, {} as Record<string, Task[]>);
 
@@ -166,16 +194,19 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, onStatusChange }) => {
         <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
+            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
         >
-            <div className="flex gap-4 overflow-x-auto pb-4">
-                {KANBAN_COLUMNS.map(column => (
-                    <KanbanColumn
-                        key={column.id}
-                        column={column}
-                        tasks={tasksByStatus[column.id] || []}
-                    />
-                ))}
+            <div className="w-full overflow-x-auto pb-4">
+                <div className="flex gap-4 min-w-max pr-4">
+                    {KANBAN_COLUMNS.map(column => (
+                        <KanbanColumn
+                            key={column.id}
+                            column={column}
+                            tasks={tasksByStatus[column.id] || []}
+                        />
+                    ))}
+                </div>
             </div>
         </DndContext>
     );

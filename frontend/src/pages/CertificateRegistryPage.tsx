@@ -152,6 +152,13 @@ const CertificateRegistryPage: React.FC = () => {
                     >
                       View
                     </Button>
+                    <Button 
+                      variant="outline" 
+                      className="px-3 py-1.5 h-auto text-xs border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10"
+                      onClick={() => window.open(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/analytics/verify/${cert.unique_cert_id}/download/`, '_blank')}
+                    >
+                      Download
+                    </Button>
                     {!cert.is_revoked && (
                       <Button 
                         className="bg-rose-600 hover:bg-rose-500 px-3 py-1.5 h-auto text-xs"

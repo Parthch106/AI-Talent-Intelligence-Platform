@@ -12,11 +12,14 @@ import {
   Calendar,
   ChevronRight,
   TrendingUp,
-  Info
+  Info,
+  Award
 } from 'lucide-react';
+import { fetchCertificates, type CertificateRecord } from '../../api/reports';
 
 interface Props {
   stages: EmploymentStage[];
+  certificates?: CertificateRecord[];
   currentStatus: string;       // From InternProfile.status
   conversionScore?: number | null;
 }
@@ -45,13 +48,23 @@ const PHASE_META = [
   },
 ];
 
-const PhaseTimeline: React.FC<Props> = ({ stages, currentStatus, conversionScore }) => {
+const PhaseTimeline: React.FC<Props> = ({ stages, certificates = [], currentStatus, conversionScore }) => {
   const stageMap = Object.fromEntries(stages.map(s => [s.phase, s]));
 
   const getPhaseState = (phase: string): 'completed' | 'active' | 'locked' => {
     if (stageMap[phase]?.phase_end_date) return 'completed';
     if (stageMap[phase]) return 'active';
     return 'locked';
+  };
+
+  const getCertificateForPhase = (phase: string) => {
+      // Map meta.phase to certificate cert_type
+      const typeMap: Record<string, string> = {
+          'PHASE_1': 'PHASE_1',
+          'PHASE_2': 'PHASE_2',
+          'FULL_TIME': 'PPO'
+      };
+      return certificates.find(c => c.cert_type === typeMap[phase] && !c.is_revoked);
   };
 
   const getColorClass = (color: string, state: string) => {
@@ -67,6 +80,7 @@ const PhaseTimeline: React.FC<Props> = ({ stages, currentStatus, conversionScore
         {PHASE_META.map((meta, index) => {
           const state = getPhaseState(meta.phase);
           const stage = stageMap[meta.phase];
+          const cert  = getCertificateForPhase(meta.phase);
           const isLast = index === PHASE_META.length - 1;
 
           return (
@@ -87,12 +101,26 @@ const PhaseTimeline: React.FC<Props> = ({ stages, currentStatus, conversionScore
                         {state === 'completed' ? <Check size={28} className="text-white" /> : 
                          <span className={state === 'active' ? `text-${meta.color}-400` : 'text-[var(--text-muted)]'}>{meta.icon}</span>}
                     </div>
+
+                    {/* Certificate Badge Overlay */}
+                    {cert && (
+                        <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-amber-500 border-2 border-[var(--card-bg)] flex items-center justify-center text-white shadow-lg animate-bounce-subtle z-20" title="Verified Certification">
+                            <Award size={14} />
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-1">
-                    <h3 className={`font-heading font-black text-sm uppercase tracking-tight transition-colors duration-300 ${state === 'locked' ? 'text-[var(--text-muted)]' : 'text-[var(--text-main)]'}`}>
-                        {meta.label}
-                    </h3>
+                    <div className="flex flex-col items-center gap-1">
+                        <h3 className={`font-heading font-black text-sm uppercase tracking-tight transition-colors duration-300 ${state === 'locked' ? 'text-[var(--text-muted)]' : 'text-[var(--text-main)]'}`}>
+                            {meta.label}
+                        </h3>
+                        {cert && (
+                            <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[8px] font-black tracking-widest px-1.5 py-0">
+                                CERTIFIED
+                            </Badge>
+                        )}
+                    </div>
                     <p className="text-[10px] font-black text-[var(--text-dim)] uppercase tracking-widest opacity-60">
                         {meta.sublabel}
                     </p>

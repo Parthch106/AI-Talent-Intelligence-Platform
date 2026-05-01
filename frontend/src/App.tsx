@@ -48,6 +48,7 @@ const CriteriaConfigurationPage = lazy(() => import('./pages/CriteriaConfigurati
 const PhaseGateDashboard        = lazy(() => import('./pages/PhaseGateDashboard'));
 const FullTimeOfferBuilderPage  = lazy(() => import('./pages/FullTimeOfferBuilderPage'));
 const PublicVerifyPage         = lazy(() => import('./pages/PublicVerifyPage'));
+const MyCertificatesPage        = lazy(() => import('./pages/MyCertificatesPage'));
 
 
 const AITaskRedirect: React.FC = () => {
@@ -133,7 +134,8 @@ const App: React.FC = () => {
                   <Route path="/monitoring/ai-tasks/:internId?" element={<AITaskRedirect />} />
 
                   {/* V2 Career & Reports */}
-                  <Route path="/career/phase-timeline" element={<PhaseTimelinePage />} />
+                  <Route path="/career/phase-timeline/:internId?" element={<PhaseTimelinePage />} />
+                  <Route path="/career/my-certificates" element={<MyCertificatesPage />} />
                   <Route path="/management/weekly-reports" element={
                     <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
                       <WeeklyReportsManagerPage />
