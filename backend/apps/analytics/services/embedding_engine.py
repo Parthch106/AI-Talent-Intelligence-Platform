@@ -1,38 +1,22 @@
-"""
-PHASE 2: Embedding Engine (v2.0)
-=================================
-
-Transformer-based text embedding generation for the Talent Intelligence System.
-
-This module replaces TF-IDF with semantic embeddings using SentenceTransformer.
-
-Features:
-- Section-wise embedding generation
-- Weighted combination of embeddings
-- Semantic role matching via cosine similarity
-- Bias mitigation at embedding stage
-
-Author: AI Talent Intelligence Platform v2.0
-"""
-
 import numpy as np
 import logging
+import os
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
-# Try to import sentence_transformers, fallback to simpler approach if not available
+# Try to import langchain_openai, fallback to simpler approach if not available
 try:
-    from sentence_transformers import SentenceTransformer
-    SENTENCE_TRANSFORMERS_AVAILABLE = True
-    logger.info("sentence_transformers imported — transformer embeddings available")
+    from langchain_openai import OpenAIEmbeddings
+    API_EMBEDDINGS_AVAILABLE = True
+    logger.info("langchain_openai imported — API embeddings available")
 except ImportError as e:
-    SENTENCE_TRANSFORMERS_AVAILABLE = False
-    logger.warning(f"sentence-transformers not installed — falling back to TF-IDF. ({e})")
+    API_EMBEDDINGS_AVAILABLE = False
+    logger.warning(f"langchain_openai not installed — falling back to TF-IDF. ({e})")
 except Exception as e:
-    SENTENCE_TRANSFORMERS_AVAILABLE = False
-    logger.error(f"Unexpected error importing sentence-transformers: {e}")
+    API_EMBEDDINGS_AVAILABLE = False
+    logger.error(f"Unexpected error importing langchain_openai: {e}")
 
 
 # ============================================================================
@@ -42,32 +26,22 @@ except Exception as e:
 @dataclass
 class EmbeddingConfig:
     """Configuration for embedding generation."""
-    # Model configuration
-    # Upgraded from all-MiniLM-L6-v2 (384-dim) → bge-large-en-v1.5 (1024-dim)
-    # bge-large-en-v1.5 is ~20% stronger on technical retrieval & NLP benchmarks
-    model_name: str = 'BAAI/bge-large-en-v1.5'
-    embedding_dim: int = 1024
-    
-    print(f"\n[EMBEDDING CONFIG]")
-    print(f"  Model: {model_name}")
-    print(f"  Dimension: {embedding_dim}")
+    # API configuration
+    # GitHub Models provides text-embedding-3-small (1536-dim)
+    model_name: str = 'text-embedding-3-small'
+    embedding_dim: int = 1536
     
     # Section weights for resume vector combination
     weights: Dict[str, float] = None
     
     def __post_init__(self):
-        if self.weights is None:
             self.weights = {
-                # Experience most signal-dense for role matching
-                'experience': 0.40,
-                # Projects show applied ability
-                'projects':   0.25,
-                # Skills are explicit keyword matches
-                'skills':     0.20,
-                # Summary is useful context
-                'summary':    0.10,
-                # Education least predictive for job suitability
+                'experience': 0.30,
+                'projects':   0.20,
+                'skills':     0.25,
+                'summary':    0.05,
                 'education':  0.05,
+                'global_context': 0.15,
             }
 
 
@@ -81,15 +55,10 @@ DEFAULT_EMBEDDING_CONFIG = EmbeddingConfig()
 
 class EmbeddingEngine:
     """
-    Transformer-based Embedding Engine for v2.0.
+    API-based Embedding Engine for v2.0 (Optimized for Storage).
     
-    Replaces TF-IDF with semantic embeddings using SentenceTransformer.
-    
-    Key Features:
-    - Section-wise embeddings (no numeric features at this stage)
-    - Weighted combination for final resume vector
-    - Semantic role matching
-    - Bias mitigation (remove sensitive info before embedding)
+    Replaces local SentenceTransformer with API-based OpenAIEmbeddings.
+    Saves ~2GB of disk space by removing torch and local model weights.
     """
     
     def __init__(self, config: Optional[EmbeddingConfig] = None):
@@ -109,19 +78,33 @@ class EmbeddingEngine:
         return self._model
     
     def _initialize_model(self):
-        """Initialize the SentenceTransformer model."""
-        if SENTENCE_TRANSFORMERS_AVAILABLE:
+        """Initialize the OpenAIEmbeddings model via GitHub Models."""
+        if API_EMBEDDINGS_AVAILABLE:
             try:
-                logger.info(f"Loading embedding model: {self.config.model_name} (dim={self.config.embedding_dim})")
-                self._model = SentenceTransformer(self.config.model_name)
+                # Get token from environment
+                api_key = os.environ.get("AI_TALENT_GITHUB_TOKEN") or os.environ.get("GITHUB_TOKEN")
+                base_url = "https://models.inference.ai.azure.com"
+                
+                if not api_key:
+                    logger.error("  Missing API key (AI_TALENT_GITHUB_TOKEN) for embeddings.")
+                    self._is_initialized = False
+                    return
+
+                logger.info(f"Initializing API embedding model: {self.config.model_name}")
+                self._model = OpenAIEmbeddings(
+                    model=self.config.model_name,
+                    openai_api_key=api_key,
+                    openai_api_base=base_url,
+                    check_embedding_ctx_length=False # GitHub Models might have different limits
+                )
                 self._is_initialized = True
-                logger.info(f"  Model loaded OK — {self.config.model_name}")
+                logger.info(f"  API Model initialized OK — {self.config.model_name}")
             except Exception as e:
-                logger.error(f"  Failed to load SentenceTransformer '{self.config.model_name}': {e}")
+                logger.error(f"  Failed to initialize API Embeddings: {e}")
                 self._model = None
                 self._is_initialized = False
         else:
-            logger.warning("sentence-transformers unavailable — embedding engine in fallback mode")
+            logger.warning("langchain_openai unavailable — embedding engine in fallback mode")
             self._is_initialized = False
     
     # =========================================================================
@@ -132,27 +115,9 @@ class EmbeddingEngine:
         self,
         resume_sections: Dict[str, str]
     ) -> Dict[str, np.ndarray]:
-        """
-        Generate embeddings for each resume section.
-        
-        Args:
-            resume_sections: Dictionary containing resume text sections:
-                - professional_summary
-                - technical_skills
-                - frameworks_libraries
-                - tools_technologies
-                - experience_descriptions
-                - project_descriptions
-                - education_text
-                - certifications
-                - achievements
-                
-        Returns:
-            Dictionary mapping section name to embedding vector
-        """
+        """Generate embeddings for each resume section using API."""
         section_embeddings = {}
 
-        # Map resume sections to embedding categories
         embedding_mapping = {
             'summary': [
                 resume_sections.get('professional_summary', ''),
@@ -169,6 +134,7 @@ class EmbeddingEngine:
                 resume_sections.get('education_text', ''),
                 resume_sections.get('certifications', ''),
             ],
+            'global_context': [resume_sections.get('global_context', '')],
         }
 
         # Trigger lazy model initialization
@@ -176,59 +142,43 @@ class EmbeddingEngine:
 
         if self._is_initialized and self._model is not None:
             for section_name, texts in embedding_mapping.items():
-                combined_text = ' '.join([t for t in texts if t])
-                if combined_text.strip():
+                combined_text = ' '.join([t for t in texts if t]).strip()
+                if combined_text:
                     try:
-                        # Document side — no BGE prefix needed
-                        embedding = self._model.encode(combined_text, normalize_embeddings=True)
-                        section_embeddings[section_name] = embedding
+                        # Batching is handled by LangChain if needed
+                        embedding = self._model.embed_query(combined_text)
+                        section_embeddings[section_name] = np.array(embedding)
                     except Exception as e:
-                        logger.error(f"  Embedding failed for section '{section_name}': {e}")
+                        logger.error(f"  API Embedding failed for section '{section_name}': {e}")
                         section_embeddings[section_name] = np.zeros(self.config.embedding_dim)
                 else:
                     section_embeddings[section_name] = np.zeros(self.config.embedding_dim)
-            logger.info(
-                f"  Section embeddings generated — "
-                + ", ".join(f"{k}: {len(embedding_mapping[k][0]) if embedding_mapping[k] else 0}ch" for k in section_embeddings)
-            )
         else:
-            logger.warning("  Model not initialized — all section embeddings set to zeros (scores will be 0)")
+            logger.warning("  API Model not initialized — using zero vectors")
             for section_name in embedding_mapping:
                 section_embeddings[section_name] = np.zeros(self.config.embedding_dim)
 
         return section_embeddings
     
-    # =========================================================================
-    # RESUME VECTOR COMPUTATION
-    # =========================================================================
-    
     def compute_resume_vector(
         self,
         section_embeddings: Dict[str, np.ndarray]
     ) -> np.ndarray:
-        """
-        Compute weighted combination of section embeddings.
-        
-        Formula:
-        Resume_Vector = 
-            0.30 * E_experience +
-            0.30 * E_projects +
-            0.20 * E_skills +
-            0.10 * E_summary +
-            0.10 * Education
-            
-        Args:
-            section_embeddings: Dictionary of section embeddings
-            
-        Returns:
-            Combined resume embedding vector
-        """
+        """Compute weighted combination of section embeddings with re-normalization."""
         weights = self.config.weights
         resume_vector = np.zeros(self.config.embedding_dim)
-
-        for section_name, weight in weights.items():
-            if section_name in section_embeddings:
-                resume_vector += weight * section_embeddings[section_name]
+        
+        # Calculate sum of weights for available sections to re-normalize
+        available_weight_sum = sum(weights.get(name, 0) for name in section_embeddings.keys())
+        
+        if available_weight_sum == 0:
+            return resume_vector
+            
+        for section_name, embedding in section_embeddings.items():
+            if section_name in weights:
+                # Re-normalize weight so available sections sum to 1.0
+                norm_weight = weights[section_name] / available_weight_sum
+                resume_vector += norm_weight * embedding
 
         # L2 normalise
         norm = np.linalg.norm(resume_vector)
@@ -237,97 +187,61 @@ class EmbeddingEngine:
 
         return resume_vector
     
-    # =========================================================================
-    # SEMANTIC ROLE MATCHING
-    # =========================================================================
-    
     def compute_semantic_match(
         self,
         resume_vector: np.ndarray,
         role_embedding: np.ndarray
     ) -> float:
-        """
-        Compute semantic match score.
-        
-        Args between resume and role:
-            resume_vector: Combined resume embedding
-            role_embedding: Job role embedding
-            
-        Returns:
-            Cosine similarity score (0-1)
-        """
+        """Compute semantic match score (cosine similarity)."""
         if resume_vector is None or role_embedding is None:
             return 0.0
 
-        dot_product = np.dot(resume_vector, role_embedding)
-        return float(np.clip(dot_product, 0.0, 1.0))
+        # Ensure both are normalized for dot product to equal cosine similarity
+        norm_r = np.linalg.norm(resume_vector)
+        norm_role = np.linalg.norm(role_embedding)
+        
+        if norm_r == 0 or norm_role == 0:
+            return 0.0
+            
+        # Compute raw cosine similarity
+        similarity = np.dot(resume_vector, role_embedding) / (norm_r * norm_role)
+        
+        # Scale and clip (OpenAI embeddings often have high cosine similarity floor)
+        # v2.0 Discriminating: center at 0.35, slope at 12
+        if similarity > 0.10:
+            scaled_similarity = 1 / (1 + np.exp(-12 * (similarity - 0.35)))
+        else:
+            scaled_similarity = 0.0
+            
+        return float(np.clip(scaled_similarity, 0.0, 1.0))
     
     def generate_role_embedding(self, role_description: str) -> np.ndarray:
-        """
-        Generate embedding for job role description.
-
-        BGE models require a query instruction prefix when embedding the
-        "query" side (i.e. the job description we are searching against).
-        Document side (resume sections) does NOT use this prefix.
-
-        Args:
-            role_description: Description of the job role
-
-        Returns:
-            Role embedding vector
-        """
+        """Generate embedding for job role description via API."""
+        # Trigger lazy model initialization
+        _ = self.model
+        
         if self._is_initialized and self._model is not None and role_description:
             try:
-                # BGE instruction prefix — required for query/retrieval tasks
-                bge_instruction = "Represent this job description for retrieving relevant candidates: "
-                query_text = bge_instruction + role_description
-                embedding = self._model.encode(query_text, normalize_embeddings=True)
-                # normalize_embeddings=True handles L2 norm inside the model
-                return embedding
+                embedding = self._model.embed_query(role_description)
+                return np.array(embedding)
             except Exception as e:
-                logger.error(f"Error generating role embedding: {e}")
+                logger.error(f"Error generating API role embedding: {e}")
         return np.zeros(self.config.embedding_dim)
     
-    # =========================================================================
-    # BIAS MITIGATION
-    # =========================================================================
-    
     def remove_sensitive_info(self, text: str) -> str:
-        """
-        Remove sensitive information that could introduce bias.
-        
-        Removes:
-        - Names
-        - University names
-        - Location information
-        - Personal identifiers
-        
-        Args:
-            text: Input text
-            
-        Returns:
-            Sanitized text
-        """
+        """Remove sensitive information to mitigate bias."""
         import re
-        
-        # Common patterns to remove
         patterns_to_remove = [
-            r'\b[A-Z][a-z]+ [A-Z][a-z]+\b',  # Names (2-word capital)
+            r'\b[A-Z][a-z]+ [A-Z][a-z]+\b',
             r'\b(University|College|Institute)\s+of\s+\w+',
             r'\b(Stanford|MIT|Harvard|Yale|Princeton|Berkeley|UCLA|Georgia Tech)\b',
             r'\b(New York|Los Angeles|Chicago|San Francisco|Boston|Seattle)\b',
-            r'\b\d{5}(-\d{4})?\b',  # Zip codes
+            r'\b\d{5}(-\d{4})?\b',
         ]
-        
         sanitized = text
         for pattern in patterns_to_remove:
             sanitized = re.sub(pattern, '[REDACTED]', sanitized, flags=re.IGNORECASE)
-            
         return sanitized
-    
-    # =========================================================================
-    # MAIN PROCESSING METHOD
-    # =========================================================================
     
     def process_resume(
         self,
@@ -335,28 +249,9 @@ class EmbeddingEngine:
         role_description: str,
         apply_bias_mitigation: bool = True
     ) -> Dict[str, Any]:
-        """
-        Main processing method for v2.0 resume embedding.
+        """Main processing method for resume embedding via API."""
         
-        Args:
-            resume_sections: Parsed resume text sections
-            role_description: Job role description
-            apply_bias_mitigation: Whether to remove sensitive info
-            
-        Returns:
-            Dictionary containing:
-            - section_embeddings: Individual section embeddings
-            - resume_vector: Combined resume embedding
-            - role_embedding: Job role embedding
-            - semantic_match_score: Cosine similarity score
-        """
-        logger.info(
-            f"process_resume: model={'OK' if self._is_initialized else 'FALLBACK'} "
-            f"| sections={list(resume_sections.keys()) if resume_sections else []} "
-            f"| role='{role_description[:60] if role_description else ''}...'"
-        )
-
-        # Apply bias mitigation if enabled
+        # Apply bias mitigation
         processed_sections = {}
         if apply_bias_mitigation:
             for section_name, text in resume_sections.items():
@@ -364,67 +259,48 @@ class EmbeddingEngine:
         else:
             processed_sections = resume_sections
 
-        # Generate section embeddings
+        # Generate embeddings
         section_embeddings = self.generate_section_embeddings(processed_sections)
-
-        # Compute resume vector
         resume_vector = self.compute_resume_vector(section_embeddings)
-
-        # Generate role embedding (BGE query-side prefix applied inside)
         role_embedding = self.generate_role_embedding(role_description)
-
-        # Cosine similarity score
         semantic_match_score = self.compute_semantic_match(resume_vector, role_embedding)
 
-        logger.info(
-            f"  process_resume result — semantic_match={semantic_match_score:.4f} "
-            f"| resume_dim={resume_vector.shape[0] if hasattr(resume_vector, 'shape') else len(resume_vector)} "
-            f"| model={'OK' if self._is_initialized else 'fallback'}"
-        )
-
         return {
-            'section_embeddings': section_embeddings,
+            'section_embeddings': {k: v.tolist() for k, v in section_embeddings.items()},
             'resume_vector': resume_vector.tolist() if isinstance(resume_vector, np.ndarray) else resume_vector,
             'role_embedding': role_embedding.tolist() if isinstance(role_embedding, np.ndarray) else role_embedding,
             'semantic_match_score': round(semantic_match_score, 4),
             'embedding_dim': self.config.embedding_dim,
-            'model_used': self.config.model_name if self._is_initialized else 'fallback',
+            'model_used': f"API:{self.config.model_name}" if self._is_initialized else 'fallback',
         }
 
 
 # ============================================================================
-# FALLBACK TF-IDF IMPLEMENTATION (when sentence-transformers unavailable)
+# FALLBACK TF-IDF IMPLEMENTATION
 # ============================================================================
 
 class TFIDFEmbeddingFallback:
-    """
-    Fallback TF-IDF based embedding when SentenceTransformer is not available.
-
-    This provides a degraded but functional experience.
-    Dimensionality matches bge-large-en-v1.5 output (1024) for schema compatibility.
-    """
-
-    FALLBACK_DIM = 1024
+    """Fallback TF-IDF based embedding."""
+    FALLBACK_DIM = 1536 # Match text-embedding-3-small
 
     def __init__(self):
-        from sklearn.feature_extraction.text import TfidfVectorizer
-        self.vectorizer = TfidfVectorizer(max_features=self.FALLBACK_DIM)
-        self._is_fitted = False
+        try:
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            self.vectorizer = TfidfVectorizer(max_features=self.FALLBACK_DIM)
+            self._is_fitted = False
+        except ImportError:
+            self._is_fitted = False
 
     def fit(self, texts: List[str]):
-        """Fit TF-IDF vectorizer on corpus."""
-        self.vectorizer.fit(texts)
-        self._is_fitted = True
+        if hasattr(self, 'vectorizer'):
+            self.vectorizer.fit(texts)
+            self._is_fitted = True
 
     def transform(self, text: str) -> np.ndarray:
-        """Transform text to TF-IDF vector."""
-        if not self._is_fitted:
+        if not self._is_fitted or not hasattr(self, 'vectorizer'):
             return np.zeros(self.FALLBACK_DIM)
         return self.vectorizer.transform([text]).toarray()[0]
 
 
-# ============================================================================
-# SINGLETON INSTANCE
-# ============================================================================
-
+# singleton
 embedding_engine = EmbeddingEngine()

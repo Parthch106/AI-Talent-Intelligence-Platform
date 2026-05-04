@@ -245,7 +245,8 @@ class WeeklyReportParser:
 
 def extract_text_from_pdf(pdf_file) -> str:
     """
-    Extract text from a PDF file.
+    Extract text from a PDF file using PyMuPDF (fitz).
+    Consolidated to use a single high-performance library.
     
     Args:
         pdf_file: Django UploadedFile or file-like object
@@ -254,37 +255,28 @@ def extract_text_from_pdf(pdf_file) -> str:
         Extracted text from the PDF
     """
     try:
-        # Try using pdfplumber (Usually better layout preservation)
-        import pdfplumber
+        import fitz  # PyMuPDF
         
-        with pdfplumber.open(pdf_file) as pdf:
-            text = ''
-            for page in pdf.pages:
-                text += page.extract_text() + '\n'
+        # Read the file into memory if it's a Django file object
+        if hasattr(pdf_file, 'read'):
+            file_content = pdf_file.read()
+            # Reset seek position just in case
+            if hasattr(pdf_file, 'seek'):
+                pdf_file.seek(0)
+            doc = fitz.open(stream=file_content, filetype="pdf")
+        else:
+            doc = fitz.open(pdf_file)
             
-            # If text extraction was successful, return it
-            if text.strip():
-                return text.strip()
-    
-    except Exception:
-        # Fallback to PyPDF2 if pdfplumber fails or is not available
-        pass
-
-    try:
-        # Try using PyPDF2
-        import PyPDF2
+        text = ""
+        for page in doc:
+            text += page.get_text() + "\n"
         
-        pdf_reader = PyPDF2.PdfReader(pdf_file)
-        text = ''
-        for page in pdf_reader.pages:
-            text += page.extract_text() + '\n'
+        doc.close()
         return text.strip()
-    
-    except Exception:
-        pass
-    
-    # Fallback: return empty string if no PDF library available
-    return ''
+        
+    except Exception as e:
+        logger.error(f"PyMuPDF extraction failed: {e}")
+        return ''
 
 
 def parse_weekly_report(pdf_file) -> Dict[str, Any]:

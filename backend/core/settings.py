@@ -186,6 +186,7 @@ FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://localhost:5173')
 # Company branding for certificates
 COMPANY_NAME = os.environ.get('COMPANY_NAME', 'AIMS Technologies')
 COMPANY_LOGO_URL = os.environ.get('COMPANY_LOGO_URL', '') 
+SITE_NAME = os.environ.get('SITE_NAME', COMPANY_NAME)
 
 
 # ==============================================================================
@@ -264,6 +265,7 @@ EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False') == 'True'
 
 # =============================================================================
 # Red Mail Configuration

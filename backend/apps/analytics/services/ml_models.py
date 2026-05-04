@@ -223,7 +223,8 @@ class XGBoostSuitabilityModel:
             score += feature_value * weight
         
         # Normalize to probability (sigmoid-like transformation)
-        probability = 1 / (1 + np.exp(-3 * (score - 0.5)))
+        # v2.0 Calibration: High sensitivity (slope=6) and optimistic center (0.30)
+        probability = 1 / (1 + np.exp(-6 * (score - 0.30)))
         
         return (1 - probability, probability)
     

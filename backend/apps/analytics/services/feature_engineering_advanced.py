@@ -279,32 +279,32 @@ class AdvancedFeatureEngine:
     
     def _normalize_project_count(self, count: int) -> float:
         """Normalize project count to 0-1."""
-        # Optimal: 3-5 projects
+        # Optimal: 2-5 projects for students/juniors
         if count <= 0:
             return 0.1
-        elif count <= 2:
-            return 0.4
+        elif count == 1:
+            return 0.5
         elif count <= 5:
             return 1.0
-        elif count <= 8:
-            return 0.9
+        elif count <= 10:
+            return 0.95
         else:
-            return 0.7
+            return 0.85
     
     def _normalize_skill_count(self, count: int) -> float:
         """Normalize skill count to 0-1."""
-        # Optimal: 8-15 skills
+        # Optimal: 10-30 skills for full stack
         if count <= 0:
             return 0.1
         elif count <= 5:
             return 0.4
-        elif count <= 15:
+        elif count <= 30:
             return 1.0
-        elif count <= 20:
+        elif count <= 40:
             return 0.9
         else:
-            # Too many skills might be keyword stuffing
-            return max(0.7 - (count - 20) * 0.05, 0.3)
+            # Only start penalizing after 40 skills
+            return max(0.8 - (count - 40) * 0.02, 0.4)
     
     def _normalize_gpa(self, gpa: float, degree_level: int) -> float:
         """Normalize GPA based on degree level."""

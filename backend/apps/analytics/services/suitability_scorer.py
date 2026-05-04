@@ -89,8 +89,8 @@ class SuitabilityScorer:
         # Give more weight to semantic match since it's more reliable for resume-job matching
         if embedding_results and 'semantic_match_score' in embedding_results:
             semantic_match = embedding_results['semantic_match_score']
-            # Rely more heavily on ML prediction (60%) than pure semantic match (40%)
-            final_score = 0.6 * base_suitability + 0.4 * semantic_match
+            # v2.0: Rely extremely heavily on semantic match (85%) for API-based intelligence
+            final_score = 0.15 * base_suitability + 0.85 * semantic_match
         else:
             final_score = base_suitability
         
