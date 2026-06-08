@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="frontend/public/aims_logo.png" alt="AIMs Logo" width="120" />
-
 # AIMs — AI Talent Intelligence Platform
 
 **Advanced Intern Management System powered by AI**
@@ -624,6 +622,6 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 <div align="center">
 
-Built with ❤️ by the AIMs Team
+Built with ❤️ by **Parth Chauhan**
 
 </div>
