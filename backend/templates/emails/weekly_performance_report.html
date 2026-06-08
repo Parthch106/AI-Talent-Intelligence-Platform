@@ -1,0 +1,108 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Performance Report</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f9; margin: 0; padding: 0; color: #1a1c21; }
+        .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        .header { background: #1a1c21; padding: 40px 20px; text-align: center; color: #ffffff; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+        .header p { margin: 10px 0 0; opacity: 0.7; font-size: 14px; }
+        .content { padding: 30px; }
+        .score-card { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); padding: 30px; border-radius: 12px; color: #ffffff; text-align: center; margin-bottom: 25px; }
+        .score-value { font-size: 48px; font-weight: 900; margin: 0; }
+        .score-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; opacity: 0.9; }
+        
+        .metrics-grid { display: table; width: 100%; border-collapse: separate; border-spacing: 10px 0; margin: 0 -10px; }
+        .metric-item { display: table-cell; background: #f8fafc; padding: 20px; border-radius: 10px; text-align: center; width: 33.33%; border: 1px solid #e2e8f0; }
+        .metric-val { display: block; font-size: 18px; font-weight: 700; color: #1a1c21; }
+        .metric-lab { display: block; font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-top: 5px; }
+        
+        .section-title { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin: 30px 0 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; }
+        .narrative { font-size: 15px; line-height: 1.6; color: #334155; font-style: italic; background: #fffbeb; padding: 20px; border-left: 4px solid #f59e0b; border-radius: 4px; }
+        
+        .task-list { margin: 0; padding: 0; list-style: none; }
+        .task-item { padding: 12px 0; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; }
+        .task-dot { height: 8px; width: 8px; background-color: #94a3b8; border-radius: 50%; margin-right: 12px; display: inline-block; }
+        .status-completed { background-color: #10b981; }
+        .status-in-progress { background-color: #3b82f6; }
+        .status-default { background-color: #94a3b8; }
+        
+        .promotion-card { background: #eff6ff; border: 1px solid #bfdbfe; padding: 20px; border-radius: 12px; margin-top: 30px; text-align: center; }
+        .promotion-title { font-weight: 800; color: #1e40af; margin-bottom: 5px; }
+        .promotion-text { font-size: 13px; color: #3b82f6; }
+        
+        .footer { background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
+        .btn { display: inline-block; padding: 12px 24px; background: #1a1c21; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Weekly Intelligence Report</h1>
+            <p>Phase Timeline Tracking — {{ week_dates }}</p>
+        </div>
+        
+        <div class="content">
+            <div class="score-card">
+                <div class="score-label">Overall Performance Index</div>
+                <div class="score-value">{{ overall_score }}%</div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric-item">
+                    <span class="metric-val">{{ productivity_score }}%</span>
+                    <span class="metric-lab">Productivity</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-val">{{ quality_score }}%</span>
+                    <span class="metric-lab">Quality</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-val">{{ attendance_pct }}%</span>
+                    <span class="metric-lab">Attendance</span>
+                </div>
+            </div>
+            
+            <div class="section-title">Weekly Insight</div>
+            <div class="narrative">
+                "{{ ai_narrative|default:"Your trajectory remains stable. Continue focusing on high-impact tasks to maximize your conversion probability." }}"
+            </div>
+            
+            <div class="section-title">Execution Summary</div>
+            <p style="font-size: 14px; color: #64748b;">You completed <strong>{{ tasks_completed }}</strong> of <strong>{{ tasks_assigned }}</strong> tasks this week.</p>
+            
+            {% if task_list %}
+            <div style="background: #f8fafc; border-radius: 8px; padding: 15px; margin-top: 10px;">
+                {% for task in task_list %}
+                <div class="task-item">
+                    <span class="task-dot {{ task.color_class }}"></span>
+                    <span style="font-size: 13px; color: #1e293b;">{{ task.title }}</span>
+                    <span style="font-size: 10px; margin-left: auto; color: #64748b; background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">{{ task.status }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            {% if show_promotion_indicator %}
+            <div class="promotion-card">
+                <div class="promotion-title">🚀 Promotion Milestone Approaching</div>
+                <div class="promotion-text">Your {{ phase_name }} ends on {{ phase_end_date }}. Keep up the momentum!</div>
+            </div>
+            {% endif %}
+            
+            <div style="text-align: center;">
+                <a href="{{ timeline_url }}" class="btn">View Career Timeline</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            &copy; 2026 AI Talent Intelligence Platform. All rights reserved.<br>
+            Sent automatically to {{ intern_email }}
+        </div>
+    </div>
+</body>
+</html>

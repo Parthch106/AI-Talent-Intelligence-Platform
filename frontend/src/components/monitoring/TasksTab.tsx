@@ -1,0 +1,788 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+    Plus, Target, Clock, CheckCircle, 
+    AlertTriangle, PlayCircle, Star, Code, Bug, LayoutGrid, 
+    List, Sparkles, Wand2, Loader2, MessageSquare, 
+    Calendar, Filter,
+    Layers, Trash2, Square, Check, X, Trello
+} from 'lucide-react';
+import Badge from '../common/Badge';
+import Button from '../common/Button';
+import Modal from '../common/Modal';
+import { CustomSelect } from '../common';
+import KanbanBoard from '../tasks/KanbanBoard';
+import AIGeneratorPanel from '../tasks/AIGeneratorPanel';
+import axios from '../../api/axios';
+import toast from 'react-hot-toast';
+
+interface Task {
+    id: number;
+    task_id: string;
+    title: string;
+    description?: string;
+    status: string;
+    priority: string;
+    due_date: string;
+    assigned_at?: string;
+    completed_at?: string;
+    estimated_hours?: number;
+    actual_hours?: number;
+    quality_rating: number | null;
+    code_review_score: number | null;
+    bug_count?: number;
+    mentor_feedback?: string;
+    rework_required?: boolean;
+    project?: {
+        id: number;
+        name: string;
+        status: string;
+    } | null;
+    module?: {
+        id: number;
+        name: string;
+    } | null;
+}
+
+interface TasksTabProps {
+    tasks: Task[];
+    onAddTask: () => void;
+    canCreate: boolean;
+    onStatusChange?: (taskId: number, newStatus: string) => void;
+    onRefresh?: () => void;
+    internId?: number;
+    internName?: string;
+    monthFilter: number | 'all';
+    setMonthFilter: (value: number | 'all') => void;
+    yearFilter: number | 'all';
+    setYearFilter: (value: number | 'all') => void;
+    dateFilter?: string | null;
+    setDateFilter?: (date: string | null) => void;
+    initialView?: 'grid' | 'list' | 'board';
+    externalStatusFilter?: string | null;
+    userRole?: string;
+}
+
+const TasksTab: React.FC<TasksTabProps> = ({ 
+    tasks, 
+    onAddTask, 
+    canCreate, 
+    onStatusChange, 
+    onRefresh, 
+    internId, 
+    monthFilter,
+    setMonthFilter,
+    yearFilter,
+    setYearFilter,
+    dateFilter,
+    initialView,
+    externalStatusFilter,
+    userRole
+}) => {
+    const tasksArray = Array.isArray(tasks) ? tasks : [];
+
+    const [showEvaluationModal, setShowEvaluationModal] = useState(false);
+    const [selectedTask] = useState<Task | null>(null);
+    const [statusFilter, setStatusFilter] = useState<string | null>(null);
+    const [projectFilter, setProjectFilter] = useState<number | null>(null);
+    const [projects, setProjects] = useState<{id: number; name: string}[]>([]);
+    const [viewMode, setViewMode] = useState<'grid' | 'list' | 'board'>(initialView || 'grid');
+    const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [showAIPanel, setShowAIPanel] = useState(false);
+    const ITEMS_PER_PAGE = 12;
+
+    const navigate = useNavigate();
+
+    const toggleTaskSelection = (taskId: number) => {
+        setSelectedTasks(prev => {
+            const next = new Set(prev);
+            if (next.has(taskId)) {
+                next.delete(taskId);
+            } else {
+                next.add(taskId);
+            }
+            return next;
+        });
+    };
+
+
+    React.useEffect(() => {
+        fetchProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [internId]);
+
+    React.useEffect(() => {
+        if (externalStatusFilter !== undefined) {
+            setStatusFilter(externalStatusFilter);
+        }
+    }, [externalStatusFilter]);
+
+    const fetchProjects = async () => {
+        try {
+            if (internId) {
+                const response = await axios.get('/projects/assignments/', { params: { intern_id: internId } });
+                const assignments = response.data.results || response.data;
+                const uniqueProjects = Array.from(new Set(assignments.map((a: { project: { id: number, name: string } }) => JSON.stringify({id: a.project.id, name: a.project.name}))))
+                    .map((s: unknown) => JSON.parse(s as string));
+                setProjects(uniqueProjects);
+            } else {
+                const response = await axios.get('/projects/projects/');
+                setProjects(response.data.results || response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching projects:', error);
+        }
+    };
+
+    const [evaluation, setEvaluation] = useState({
+        quality_rating: 0,
+        code_review_score: 0,
+        bug_count: 0,
+        mentor_feedback: '',
+        rework_required: false,
+        status: 'COMPLETED'
+    });
+
+    const [savingEvaluation, setSavingEvaluation] = useState(false);
+
+
+
+    const getPriorityBadge = (priority: string) => {
+        const variants: Record<string, 'danger' | 'warning' | 'info' | 'default'> = {
+            'CRITICAL': 'danger',
+            'HIGH': 'warning',
+            'MEDIUM': 'info',
+            'LOW': 'default',
+        };
+        return variants[priority] || 'default';
+    };
+
+    const getAvailableStatuses = (task: Task) => {
+        const options = [
+            {
+                value: 'IN_PROGRESS',
+                label: 'In Progress',
+                icon: PlayCircle,
+                iconColor: 'text-blue-500 dark:text-blue-400',
+                disabled: task.status === 'IN_PROGRESS'
+            },
+            {
+                value: 'SUBMITTED',
+                label: 'Submitted',
+                icon: CheckCircle,
+                iconColor: 'text-yellow-600 dark:text-yellow-400',
+                disabled: task.status === 'SUBMITTED'
+            },
+            {
+                value: 'COMPLETED',
+                label: 'Completed',
+                icon: CheckCircle,
+                iconColor: 'text-emerald-400',
+                disabled: task.status === 'COMPLETED'
+            },
+            {
+                value: 'BLOCKED',
+                label: 'Blocked',
+                icon: AlertTriangle,
+                iconColor: 'text-red-500 dark:text-red-400',
+                disabled: task.status === 'BLOCKED'
+            },
+        ];
+        return options;
+    };
+
+    const monthYearFilteredTasks = tasksArray.filter(task => {
+        const taskDate = new Date(task.due_date);
+        const taskMonth = taskDate.getMonth() + 1;
+        const taskYear = taskDate.getFullYear();
+        const monthMatch = monthFilter === 'all' || taskMonth === monthFilter;
+        const yearMatch = yearFilter === 'all' || taskYear === yearFilter;
+        return monthMatch && yearMatch;
+    });
+
+    const dateFilteredTasks = dateFilter ? monthYearFilteredTasks.filter(task => {
+        const getDatePart = (dateStr?: string | null) => dateStr ? dateStr.split('T')[0].split(' ')[0] : '';
+        const taskAssignedDate = getDatePart(task.assigned_at);
+        const taskCompletedDate = getDatePart(task.completed_at);
+        const taskDueDate = getDatePart(task.due_date);
+        return taskAssignedDate === dateFilter || taskCompletedDate === dateFilter || taskDueDate === dateFilter;
+    }) : monthYearFilteredTasks;
+
+    const statusFilteredTasks = statusFilter 
+        ? dateFilteredTasks.filter(task => {
+            if (statusFilter === 'OVERDUE') {
+                return task.status !== 'COMPLETED' && task.status !== 'SUBMITTED' && new Date(task.due_date) < new Date();
+            }
+            return task.status === statusFilter;
+        }) 
+        : dateFilteredTasks;
+
+    const finalFilteredTasks = projectFilter ? statusFilteredTasks.filter(task => task.project && task.project.id === projectFilter) : statusFilteredTasks;
+
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [statusFilter, projectFilter, monthFilter, yearFilter, viewMode, dateFilter]);
+
+    const totalPages = Math.ceil(finalFilteredTasks.length / ITEMS_PER_PAGE);
+    const paginatedTasks = finalFilteredTasks.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+    const openEvaluationPage = (task: Task) => {
+        const path = userRole === 'INTERN' ? `/workspace/tasks/${task.id}` : `/management/tasks/${task.id}`;
+        navigate(path);
+    };
+
+    const submitEvaluation = async () => {
+        if (!selectedTask) return;
+        try {
+            setSavingEvaluation(true);
+            await axios.patch(`/analytics/tasks/evaluate/`, { task_id: selectedTask.id, ...evaluation });
+            setShowEvaluationModal(false);
+            if (onRefresh) onRefresh();
+            toast.success('Evaluation saved');
+        } catch (error) {
+            console.error('Error submitting evaluation:', error);
+            toast.error('Failed to submit evaluation');
+        } finally {
+            setSavingEvaluation(false);
+        }
+    };
+
+    const handleStatusChange = (taskId: number, newStatus: string) => {
+        if (onStatusChange) onStatusChange(taskId, newStatus);
+    };
+
+    const handleDeleteTask = async (taskId: number) => {
+        if (!window.confirm('Are you sure you want to delete this task? This action cannot be undone.')) return;
+        try {
+            await axios.delete(`/analytics/tasks/${taskId}/`);
+            toast.success('Task deleted successfully');
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            console.error('Error deleting task:', error);
+            toast.error('Failed to delete task');
+        }
+    };
+
+    const getStatCardClass = (status: string, color: string) => {
+        const isActive = statusFilter === status;
+        const isAll = status === 'ALL' && statusFilter === null;
+        const selected = isActive || isAll;
+        
+        const activeColorMap: Record<string, string> = {
+            slate: 'border-[var(--text-muted)] bg-[var(--bg-muted)] shadow-[var(--card-shadow)]',
+            indigo: 'border-indigo-500/50 bg-indigo-500/5 shadow-indigo-500/10',
+            blue: 'border-blue-500/50 bg-blue-500/5 shadow-blue-500/10',
+            yellow: 'border-yellow-500/50 bg-yellow-500/5 shadow-yellow-500/10',
+            emerald: 'border-emerald-500/50 bg-emerald-500/5 shadow-emerald-500/10',
+            red: 'border-red-500/50 bg-red-500/5 shadow-red-500/10',
+        };
+        
+        return `group relative overflow-hidden rounded-3xl border p-6 transition-all duration-500 cursor-pointer 
+            ${selected ? activeColorMap[color] : 'bg-[var(--card-bg)] border-[var(--border-color)] hover:border-purple-500/30 hover:bg-purple-500/[0.03]'}`;
+    };
+
+    // Sub-components
+    const TaskCard = ({ task }: { task: Task, idx?: number }) => (
+        <div className="group relative bg-[var(--card-bg)] border border-[var(--border-color)] rounded-[32px] overflow-hidden p-8 transition-all duration-500 hover:bg-purple-500/[0.02] hover:border-purple-500/20 hover:shadow-2xl dark:hover:shadow-black/50">
+            {/* Checkbox for bulk selection */}
+            {userRole !== 'ADMIN' && (
+                <button
+                    onClick={() => toggleTaskSelection(task.id)}
+                    className="absolute top-4 left-4 z-10 p-1.5 rounded-lg border transition-all opacity-0 group-hover:opacity-100"
+                >
+                    {selectedTasks.has(task.id) ? (
+                        <Check size={16} className="text-purple-400" />
+                    ) : (
+                        <Square size={16} className="text-[var(--text-muted)]" />
+                    )}
+                </button>
+            )}
+
+            <div className="flex justify-between items-start mb-6">
+                <div className="space-y-2 ml-6">
+                    <span className="text-[9px] font-black font-mono text-[var(--text-muted)] tracking-widest">{task.task_id}</span>
+                    <div className="flex gap-2">
+                        <Badge variant={getPriorityBadge(task.priority)} size="sm">{task.priority}</Badge>
+                        {task.status === 'COMPLETED' && (
+                            <Badge variant={task.quality_rating ? 'success' : 'warning'} size="sm" className="font-black uppercase tracking-widest text-[8px]">
+                                {task.quality_rating ? 'Evaluated' : 'Not Evaluated'}
+                            </Badge>
+                        )}
+                        {canCreate && (
+                            <button 
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="p-2 text-red-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                title="Delete Task"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        )}
+                    </div>
+                </div>
+                {/* Direct Status Picker */}
+                <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-2 px-3 py-1 bg-[var(--bg-muted)]/50 rounded-lg border border-[var(--border-color)]">
+                        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Current Status:</span>
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${
+                            task.status === 'COMPLETED' ? 'text-emerald-400' : 
+                            (task.status !== 'SUBMITTED' && new Date(task.due_date) < new Date()) ? 'text-red-400' : 
+                            'text-blue-400'
+                        }`}>
+                            {task.status === 'COMPLETED' ? 'Complete' : 
+                             (task.status !== 'SUBMITTED' && new Date(task.due_date) < new Date()) ? 'Overdue' : 
+                             task.status.replace('_', ' ')}
+                        </span>
+                    </div>
+                    {userRole !== 'ADMIN' && (
+                        <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] p-1 rounded-xl glass-effect">
+                            {getAvailableStatuses(task).map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    onClick={() => handleStatusChange(task.id, opt.value)}
+                                    title={opt.label}
+                                    className={`p-1.5 rounded-lg transition-all ${task.status === opt.value ? 'bg-purple-500/20 text-purple-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)] hover:bg-white/5'}`}
+                                >
+                                    {<opt.icon size={14} className={opt.iconColor} />}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+            <h3 
+                onClick={() => openEvaluationPage(task)}
+                className="text-xl font-black text-[var(--text-main)] leading-tight mb-4 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors capitalize cursor-pointer"
+            >
+                {task.title}
+            </h3>
+            {task.module && (
+                <div className="flex items-center gap-2 mb-6">
+                    <Layers size={12} className="text-blue-500" />
+                    <span className="text-[10px] font-black tracking-widest text-[var(--text-muted)] uppercase">{task.module.name}</span>
+                </div>
+            )}
+            <div className="flex items-center justify-between pt-6 border-t border-[var(--border-color)]">
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--text-dim)]">
+                        <Clock size={12} /> {formatDate(task.due_date)}
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                    {task.quality_rating && <Badge variant="warning" size="sm">★ {task.quality_rating.toFixed(1)}</Badge>}
+                    {(task.status === 'COMPLETED' || task.status === 'SUBMITTED') && (
+                        <button 
+                            onClick={() => openEvaluationPage(task)}
+                            className="px-4 py-1.5 rounded-lg border border-purple-400 bg-purple-600 !text-white shadow-[0_0_15px_rgba(147,51,234,0.4)] transition-all font-black uppercase tracking-widest text-[10px] hover:bg-purple-500 hover:scale-105 active:scale-95"
+                        >
+                            {userRole === 'ADMIN' ? 'Details' : (task.status === 'SUBMITTED' ? 'Evaluate Now' : 'Details')}
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+
+    const formatDate = (dateString: string) => {
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        } catch {
+            return dateString;
+        }
+    };
+
+    const TaskListItem = ({ task }: { task: Task }) => (
+        <div className="bg-[var(--card-bg)] hover:bg-purple-500/[0.03] border border-[var(--border-color)] hover:border-purple-500/20 rounded-2xl p-4 flex items-center gap-4 transition-all group">
+            {/* Checkbox for bulk selection */}
+            {userRole !== 'ADMIN' && (
+                <button
+                    onClick={() => toggleTaskSelection(task.id)}
+                    className="shrink-0"
+                >
+                    {selectedTasks.has(task.id) ? (
+                        <Check size={16} className="text-purple-400" />
+                    ) : (
+                        <Square size={16} className="text-[var(--text-muted)]" />
+                    )}
+                </button>
+            )}
+
+            {/* ID Column */}
+            <div className="w-20 shrink-0 text-[10px] font-mono text-[var(--text-muted)] tracking-tighter truncate">{task.task_id}</div>
+            
+            {/* Title & Project Column */}
+            <div className="flex-1 min-w-0">
+                <h4 
+                    onClick={() => openEvaluationPage(task)}
+                    className="text-sm font-black text-[var(--text-main)] truncate capitalize group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors cursor-pointer"
+                >
+                    {task.title}
+                </h4>
+                <div className="flex items-center gap-4 mt-0.5">
+                    <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest">{task.project?.name || 'General'}</span>
+                    {task.module && <span className="text-[10px] text-blue-500/50 font-black tracking-widest uppercase">{task.module.name}</span>}
+                    {task.status === 'COMPLETED' && (
+                        <Badge variant={task.quality_rating ? 'success' : 'warning'} size="sm" className="font-black uppercase tracking-widest text-[8px] scale-90 origin-left">
+                            {task.quality_rating ? 'Evaluated' : 'Not Evaluated'}
+                        </Badge>
+                    )}
+                </div>
+            </div>
+
+            {/* Status Picker Column */}
+            {userRole !== 'ADMIN' && (
+                <div className="w-40 shrink-0 flex justify-center">
+                    <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] p-1 rounded-xl">
+                        {getAvailableStatuses(task).map((opt) => (
+                            <button
+                                key={opt.value}
+                                onClick={() => handleStatusChange(task.id, opt.value)}
+                                title={opt.label}
+                                className={`p-1.5 rounded-lg transition-all ${task.status === opt.value ? 'bg-purple-500/20 text-purple-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)] hover:bg-white/5'}`}
+                            >
+                                {<opt.icon size={14} className={opt.iconColor} />}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Priority Column */}
+            <div className="w-24 shrink-0 flex justify-center">
+                <Badge variant={getPriorityBadge(task.priority)} size="sm">{task.priority}</Badge>
+            </div>
+
+            {/* Date Column */}
+            <div className="w-32 shrink-0 flex items-center justify-center gap-2 text-[10px] font-bold text-[var(--text-dim)] font-mono">
+                <Calendar size={12} className="shrink-0" /> {formatDate(task.due_date)}
+            </div>
+
+            {/* Actions Column (Fixed Width for consistent alignment) */}
+            <div className="w-44 shrink-0 flex items-center justify-end gap-3">
+                <div className="w-32 flex justify-end">
+                    {(task.status === 'COMPLETED' || task.status === 'SUBMITTED') && (
+                        <Button 
+                            size="sm" 
+                            onClick={() => openEvaluationPage(task)}
+                            className="bg-purple-600 !text-white hover:bg-purple-500 border-none shadow-[0_0_12px_rgba(147,51,234,0.3)] whitespace-nowrap"
+                        >
+                            {userRole === 'ADMIN' ? 'Details' : (task.status === 'SUBMITTED' ? 'Evaluate Now' : 'Details')}
+                        </Button>
+                    )}
+                </div>
+                {canCreate && (
+                    <button 
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="p-2 text-red-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all shrink-0"
+                        title="Delete Task"
+                    >
+                        <Trash2 size={20} />
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="space-y-10 animate-fade-in pb-20">
+            {/* Header Area */}
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8">
+                <div>
+                    <h2 className="text-4xl font-black text-[var(--text-main)] tracking-tighter uppercase">Tasks</h2>
+                    <p className="text-[var(--text-dim)] mt-4 font-medium max-w-md leading-relaxed">Track and manage intern assignments and performance.</p>
+                </div>
+                {canCreate && (
+                    <div className="flex flex-wrap gap-4 w-full sm:w-auto">
+                        <button onClick={() => setShowAIPanel(!showAIPanel)} className={`flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all ${showAIPanel ? 'bg-purple-600 text-white' : 'bg-transparent border border-purple-500/50 text-purple-400'}`}>
+                            <Sparkles size={18} className={showAIPanel ? 'text-white' : 'text-purple-400'} /> AI Generator
+                        </button>
+                        <button onClick={onAddTask} className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl dark:shadow-purple-950/20 shadow-purple-500/10">
+                            <Plus size={18} /> New Task
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Stat Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-6">
+                {[
+                    { id: 'ALL', label: 'Total Tasks', count: dateFilteredTasks.length, color: 'slate', icon: Target, glowColor: 'bg-slate-500' },
+                    { id: 'ASSIGNED', label: 'Assigned', count: dateFilteredTasks.filter(t => t.status === 'ASSIGNED').length, color: 'indigo', icon: Wand2, glowColor: 'bg-indigo-500' },
+                    { id: 'IN_PROGRESS', label: 'In Progress', count: dateFilteredTasks.filter(t => t.status === 'IN_PROGRESS').length, color: 'blue', icon: PlayCircle, glowColor: 'bg-blue-500' },
+                    { id: 'SUBMITTED', label: 'Submitted', count: dateFilteredTasks.filter(t => t.status === 'SUBMITTED').length, color: 'yellow', icon: Clock, glowColor: 'bg-yellow-500' },
+                    { id: 'COMPLETED', label: 'Completed', count: dateFilteredTasks.filter(t => t.status === 'COMPLETED').length, color: 'emerald', icon: CheckCircle, glowColor: 'bg-emerald-500' },
+                    { id: 'BLOCKED', label: 'Blocked', count: dateFilteredTasks.filter(t => t.status === 'BLOCKED').length, color: 'red', icon: AlertTriangle, glowColor: 'bg-red-500' },
+                    { id: 'OVERDUE', label: 'Overdue', count: dateFilteredTasks.filter(t => t.status !== 'COMPLETED' && t.status !== 'SUBMITTED' && new Date(t.due_date) < new Date()).length, color: 'orange', icon: AlertTriangle, glowColor: 'bg-orange-500' },
+                ].map((stat) => {
+                    const isOverdue = stat.id === 'OVERDUE' && stat.count > 0;
+                    return (
+                    <div key={stat.id} onClick={() => setStatusFilter(stat.id === 'ALL' ? null : (statusFilter === stat.id ? null : stat.id))} className={`${getStatCardClass(stat.id, stat.color)} ${isOverdue ? 'ring-1 ring-red-500/50 animate-pulse-ring' : ''}`}>
+                        <div className={`absolute top-0 right-0 w-24 h-24 ${stat.glowColor}/10 blur-3xl -mr-8 -mt-8 rounded-full`} />
+                        <div className="relative flex flex-col items-center text-center">
+                            <stat.icon className="mb-3 text-[var(--text-muted)] transition-colors" size={20} />
+                            <p className="text-3xl font-black text-[var(--text-main)] group-hover:scale-110 transition-transform">{stat.count}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-dim)] mt-1 whitespace-nowrap">{stat.label}</p>
+                        </div>
+                    </div>
+                    );
+                })}
+            </div>
+
+            {/* Filter Bar */}
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-6 p-2">
+                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                    <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl p-1 shrink-0">
+                        <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-lg' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)]'}`}><LayoutGrid size={18} /></button>
+                        <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-lg' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)]'}`}><List size={18} /></button>
+                        <button onClick={() => setViewMode('board')} className={`p-2 rounded-lg transition-all ${viewMode === 'board' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-lg' : 'text-[var(--text-muted)] hover:text-[var(--text-dim)]'}`}><Trello size={18} /></button>
+                    </div>
+                    <div className="h-6 w-px bg-[var(--border-color)] hidden sm:block" />
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="relative group w-40">
+                            <CustomSelect
+                                options={[
+                                    { value: 'all', label: 'ANY MONTH' },
+                                    ...[...Array(12)].map((_, i) => ({ value: String(i + 1), label: new Date(0, i).toLocaleString('en', { month: 'long' }).toUpperCase() }))
+                                ]}
+                                value={String(monthFilter)}
+                                onChange={(v) => setMonthFilter(v === 'all' ? 'all' : parseInt(v))}
+                                accent="purple"
+                                icon={<Calendar size={14} />}
+                            />
+                        </div>
+                        <div className="relative group w-40">
+                            <CustomSelect
+                                options={[
+                                    { value: 'all', label: 'ANY YEAR' },
+                                    ...[2024, 2025, 2026, 2027].map(y => ({ value: String(y), label: String(y) }))
+                                ]}
+                                value={String(yearFilter)}
+                                onChange={(v) => setYearFilter(v === 'all' ? 'all' : parseInt(v))}
+                                accent="purple"
+                                icon={<Filter size={14} />}
+                            />
+                        </div>
+                        {projects.length > 0 && (
+                            <div className="relative group w-48">
+                                <CustomSelect
+                                    options={[
+                                        { value: '', label: 'ALL DOMAINS' },
+                                        ...projects.map(p => ({ value: String(p.id), label: p.name.toUpperCase() }))
+                                    ]}
+                                    value={projectFilter ? String(projectFilter) : ''}
+                                    onChange={(v) => setProjectFilter(v ? parseInt(v) : null)}
+                                    accent="purple"
+                                    icon={<Target size={14} />}
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Content Area */}
+            {finalFilteredTasks.length > 0 ? (
+                <>
+                    {viewMode === 'grid' ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                            {paginatedTasks.map((task, idx) => (
+                                <TaskCard key={task.id} task={task} idx={idx} />
+                            ))}
+                        </div>
+                    ) : viewMode === 'list' ? (
+                        <div className="space-y-4">
+                            {paginatedTasks.map((task) => (
+                                <TaskListItem key={task.id} task={task} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <KanbanBoard 
+                                tasks={finalFilteredTasks} 
+                                onStatusChange={handleStatusChange}
+                            />
+                        </div>
+                    )}
+
+                    {totalPages > 1 && viewMode !== 'board' && (
+                        <div className="flex items-center justify-between pt-10">
+                            <p className="text-xs font-bold text-[var(--text-dim)] tracking-widest uppercase">Page <span className="text-[var(--text-main)]">{currentPage}</span> / <span className="text-[var(--text-muted)]">{totalPages}</span></p>
+                            <div className="flex gap-4">
+                                <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="px-6 py-2.5 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] text-xs font-bold text-[var(--text-dim)] disabled:opacity-20 font-mono">PREV</button>
+                                <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="px-6 py-2.5 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] text-xs font-bold text-[var(--text-dim)] disabled:opacity-20 font-mono">NEXT</button>
+                            </div>
+                        </div>
+                    )}
+                </>
+            ) : (
+                <div className="py-32 flex flex-col items-center justify-center text-center animate-fade-in">
+                    <Target size={80} className="text-[var(--text-muted)] opacity-20 mb-8" />
+                    <h3 className="text-2xl font-black text-[var(--text-main)] uppercase mb-2">No tasks found</h3>
+                    <p className="text-[var(--text-dim)] max-w-sm font-medium">No tasks match your current filter parameters.</p>
+                </div>
+            )}
+
+            {/* Bulk Action Bar */}
+            {selectedTasks.size > 0 && userRole !== 'ADMIN' && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 
+                    flex items-center gap-3 px-6 py-3 
+                    bg-[var(--bg-muted)] border border-purple-500/50 
+                    rounded-2xl shadow-2xl shadow-purple-500/20 animate-slide-up">
+                    <span className="text-sm font-medium text-[var(--text-main)]">{selectedTasks.size} selected</span>
+                    <button 
+                        onClick={() => {
+                            selectedTasks.forEach(id => handleDeleteTask(id));
+                            setSelectedTasks(new Set());
+                        }}
+                        className="px-3 py-1.5 text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all"
+                    >
+                        Delete
+                    </button>
+                    <button 
+                        onClick={() => setSelectedTasks(new Set())}
+                        className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
+                    >
+                        <X size={16} />
+                    </button>
+                </div>
+            )}
+
+            {/* Evaluation Modal */}
+            <Modal isOpen={showEvaluationModal} onClose={() => setShowEvaluationModal(false)} title="Evaluate Task Performance" gradient="violet" size="2xl">
+                <div className="space-y-6 p-2">
+                    {/* Performance Metrics Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        {/* Quality Rating */}
+                        <div className="p-4 rounded-2xl bg-[var(--card-bg)] border border-[var(--border-color)] hover:border-amber-500/30 transition-all flex flex-col justify-center">
+                            <label className="text-xs font-black uppercase tracking-widest text-[var(--text-dim)] mb-3 flex items-center gap-2">
+                                <Star size={16} className="text-amber-500" /> Quality Rating
+                            </label>
+                            <div className="flex justify-between items-center bg-[var(--bg-muted)] rounded-xl p-1.5 border border-[var(--border-color)]">
+                                {[1,2,3,4,5].map(s => (
+                                    <button 
+                                        key={s} 
+                                        onClick={() => setEvaluation({...evaluation, quality_rating: s})}
+                                        className={`p-1.5 rounded-lg transition-all hover:scale-110 ${s <= evaluation.quality_rating ? 'bg-amber-500/20 text-amber-500' : 'text-[var(--text-muted)] hover:bg-[var(--bg-color)] hover:text-[var(--text-main)]'}`}
+                                    >
+                                        <Star size={20} fill={s <= evaluation.quality_rating ? 'currentColor' : 'none'} strokeWidth={s <= evaluation.quality_rating ? 0 : 2} />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Code Review Score */}
+                        <div className="p-5 rounded-2xl bg-[var(--card-bg)] border border-[var(--border-color)] hover:border-blue-500/30 transition-all flex flex-col justify-center">
+                            <label className="text-xs font-black uppercase tracking-widest text-[var(--text-dim)] mb-3 flex items-center gap-2">
+                                <Code size={16} className="text-blue-500" /> Code Score
+                            </label>
+                            <div className="flex items-center gap-3">
+                                <input 
+                                    type="number" 
+                                    min="0" max="100" 
+                                    value={evaluation.code_review_score} 
+                                    onChange={(e) => setEvaluation({...evaluation, code_review_score: parseInt(e.target.value) || 0})}
+                                    className="w-20 px-3 py-2 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] font-mono text-center font-bold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                />
+                                <span className="text-sm font-bold text-[var(--text-dim)]">%</span>
+                            </div>
+                            <input 
+                                type="range" min="0" max="100" 
+                                value={evaluation.code_review_score} 
+                                onChange={(e) => setEvaluation({...evaluation, code_review_score: parseInt(e.target.value)})} 
+                                className="w-full h-1.5 mt-4 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-blue-500" 
+                            />
+                        </div>
+
+                        {/* Bug Count */}
+                        <div className="p-5 rounded-2xl bg-[var(--card-bg)] border border-[var(--border-color)] hover:border-red-500/30 transition-all flex flex-col justify-center">
+                            <label className="text-xs font-black uppercase tracking-widest text-[var(--text-dim)] mb-3 flex items-center gap-2">
+                                <Bug size={16} className="text-red-500" /> Issues Found
+                            </label>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => setEvaluation({...evaluation, bug_count: Math.max(0, evaluation.bug_count - 1)})}
+                                    className="w-10 h-10 flex items-center justify-center bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/30 transition-all font-bold text-lg"
+                                >
+                                    -
+                                </button>
+                                <input 
+                                    type="number" 
+                                    min="0" 
+                                    value={evaluation.bug_count} 
+                                    onChange={(e) => setEvaluation({...evaluation, bug_count: parseInt(e.target.value) || 0})}
+                                    className="flex-1 w-full px-3 py-2 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] font-mono text-center font-bold focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                />
+                                <button 
+                                    onClick={() => setEvaluation({...evaluation, bug_count: evaluation.bug_count + 1})}
+                                    className="w-10 h-10 flex items-center justify-center bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/30 transition-all font-bold text-lg"
+                                >
+                                    +
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Feedback Area */}
+                    <div className="p-5 rounded-2xl bg-[var(--card-bg)] border border-[var(--border-color)] transition-all flex flex-col focus-within:border-purple-500/50 focus-within:shadow-[0_0_20px_rgba(168,85,247,0.1)]">
+                        <label className="text-xs font-black uppercase tracking-widest text-[var(--text-dim)] mb-3 flex items-center gap-2">
+                            <MessageSquare size={16} className="text-purple-500" /> Mentor Feedback
+                        </label>
+                        <textarea 
+                            value={evaluation.mentor_feedback} 
+                            onChange={(e) => setEvaluation({...evaluation, mentor_feedback: e.target.value})} 
+                            rows={4} 
+                            className="w-full bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] focus:outline-none focus:ring-1 focus:ring-purple-500/50 focus:border-purple-500/50 resize-none placeholder-[var(--text-muted)] transition-all" 
+                            placeholder="Provide constructive feedback on what the intern did well and areas for improvement..." 
+                        />
+                    </div>
+
+                    {/* Rework Toggle */}
+                    <button 
+                        onClick={() => setEvaluation({...evaluation, rework_required: !evaluation.rework_required})}
+                        className={`w-full flex items-center justify-between p-5 rounded-2xl border transition-all duration-300 ${evaluation.rework_required ? 'bg-red-500/10 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.15)]' : 'bg-[var(--card-bg)] border-[var(--border-color)] hover:bg-[var(--bg-muted)]'}`}
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className={`p-2.5 rounded-xl ${evaluation.rework_required ? 'bg-red-500/20 text-red-500' : 'bg-[var(--bg-color)] border border-[var(--border-color)] text-[var(--text-muted)]'}`}>
+                                <AlertTriangle size={20} />
+                            </div>
+                            <div className="text-left">
+                                <p className={`text-sm font-black uppercase tracking-widest ${evaluation.rework_required ? 'text-red-500' : 'text-[var(--text-main)]'}`}>Mark for Rework</p>
+                                <p className="text-xs text-[var(--text-dim)] mt-0.5">Flag this task for mandatory revision</p>
+                            </div>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${evaluation.rework_required ? 'bg-red-500' : 'bg-[var(--bg-muted)] border border-[var(--border-color)]'}`}>
+                            <div className={`w-4 h-4 rounded-full bg-white transition-transform duration-300 ${evaluation.rework_required ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </div>
+                    </button>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-4 pt-4 border-t border-[var(--border-color)]">
+                        <Button fullWidth variant="outline" type="button" onClick={() => setShowEvaluationModal(false)} className="py-3.5">
+                            Cancel
+                        </Button>
+                        <Button fullWidth gradient="purple" onClick={submitEvaluation} disabled={savingEvaluation} className="py-3.5 text-xs tracking-widest font-black shadow-[0_0_20px_rgba(168,85,247,0.4)]">
+                            {savingEvaluation ? <Loader2 className="animate-spin mx-auto" size={18} /> : 'SAVE EVALUATION'}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* AI Generator Panel */}
+            {showAIPanel && (
+                <AIGeneratorPanel 
+                    internId={internId}
+                    projectFilter={projectFilter}
+                    onClose={() => setShowAIPanel(false)}
+                    onTasksGenerated={onRefresh}
+                />
+            )}
+        </div>
+    );
+};
+
+export default TasksTab;

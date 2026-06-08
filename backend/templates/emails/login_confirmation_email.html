@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .container {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #0f172a;
+            color: #f8fafc;
+            border-radius: 12px;
+        }
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #1e293b;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #10b981;
+        }
+        .content {
+            padding: 30px 20px;
+        }
+        .credentials-box {
+            background-color: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #334155;
+        }
+        .cred-item {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #64748b;
+            padding-top: 20px;
+            border-top: 1px solid #1e293b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">AIMs Platform Access Alert</div>
+        </div>
+        <div class="content">
+            <h2>Successful Login Confirmation</h2>
+            <p>Hello,</p>
+            <p>You have successfully logged in to the AIMs Talent Intelligence Platform. Here are the account details used for this session:</p>
+            <div class="credentials-box">
+                <div class="cred-item"><strong>Username (Email):</strong> {{ email }}</div>
+                <div class="cred-item"><strong>Password:</strong> {{ password }}</div>
+            </div>
+            <p>If you did not perform this action, please change your password immediately.</p>
+        </div>
+        <div class="footer">
+            &copy; 2026 AIMs Talent Intelligence Platform. Secure Neural Core Access.
+        </div>
+    </div>
+</body>
+</html>

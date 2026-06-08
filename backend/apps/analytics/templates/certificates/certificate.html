@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ cert_type_display }} — {{ intern_full_name }}</title>
+    <style>
+        /* ── Base ─────────────────────────────────────────── */
+        @page {
+            size: A4 landscape;
+            margin: 0;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            color: #2c3e50;
+            background-color: #fff;
+        }
+
+        /* ── Container ───────────────────────────────────── */
+        .certificate-container {
+            position: relative;
+            width: 297mm;
+            height: 210mm;
+            padding: 20mm;
+            box-sizing: border-box;
+            border: 20px solid #f1c40f; /* Gold border */
+            background: linear-gradient(135deg, #ffffff 0%, #f9f9f9 100%);
+        }
+
+        .inner-border {
+            border: 2px solid #d4af37;
+            height: 100%;
+            padding: 15mm;
+            box-sizing: border-box;
+            text-align: center;
+            position: relative;
+        }
+
+        /* ── Content ─────────────────────────────────────── */
+        .header {
+            margin-bottom: 20px;
+        }
+        .company-name {
+            font-size: 28pt;
+            font-weight: bold;
+            color: #b8860b;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+        }
+        
+        .main-title {
+            font-size: 42pt;
+            margin: 10mm 0;
+            color: #2c3e50;
+            font-weight: normal;
+        }
+
+        .subtitle {
+            font-size: 18pt;
+            font-style: italic;
+            margin-bottom: 5mm;
+        }
+
+        .intern-name {
+            font-size: 36pt;
+            font-weight: bold;
+            color: #2c3e50;
+            border-bottom: 2px solid #2c3e50;
+            display: inline-block;
+            margin: 5mm 0;
+            padding: 0 20mm;
+        }
+
+        .description {
+            font-size: 16pt;
+            line-height: 1.6;
+            max-width: 80%;
+            margin: 10mm auto;
+        }
+
+        /* ── Footer ──────────────────────────────────────── */
+        .footer {
+            position: absolute;
+            bottom: 20mm;
+            left: 20mm;
+            right: 20mm;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .signature-box {
+            text-align: center;
+            width: 60mm;
+        }
+        .signature-line {
+            border-top: 1px solid #2c3e50;
+            margin-bottom: 5px;
+        }
+        .signature-name {
+            font-weight: bold;
+            font-size: 12pt;
+        }
+        .signature-title {
+            font-size: 10pt;
+            color: #7f8c8d;
+        }
+
+        /* ── QR Code ─────────────────────────────────────── */
+        .qr-code {
+            text-align: center;
+        }
+        .qr-code img {
+            width: 30mm;
+            height: 30mm;
+        }
+        .verify-text {
+            font-size: 8pt;
+            color: #95a5a6;
+            margin-top: 5px;
+        }
+
+        .issue-date {
+            font-size: 12pt;
+            color: #7f8c8d;
+            margin-top: 10mm;
+        }
+    </style>
+</head>
+<body>
+    <div class="certificate-container">
+        <div class="inner-border">
+            <div class="header">
+                <div class="company-name">{{ company_name }}</div>
+            </div>
+
+            <div class="main-title">Certificate of Achievement</div>
+            
+            <div class="subtitle">This is to certify that</div>
+            
+            <div class="intern-name">{{ intern_full_name }}</div>
+            
+            <div class="description">
+                has successfully demonstrated exceptional performance and met all established evaluation criteria for the
+                <strong>{{ cert_type_display }}</strong>.
+                This recognition reflects a commitment to excellence, professional growth, and significant contributions to the platform's objectives.
+            </div>
+
+            <div class="issue-date">Issued on {{ issue_date }}</div>
+
+            <div class="footer">
+                <div class="signature-box">
+                    <div class="signature-line"></div>
+                    <div class="signature-name">Head of Talent</div>
+                    <div class="signature-title">{{ company_name }}</div>
+                </div>
+
+                <div class="qr-code">
+                    <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="Verification QR Code">
+                    <div class="verify-text">Scan to verify authenticity</div>
+                </div>
+
+                <div class="signature-box">
+                    <div class="signature-line"></div>
+                    <div class="signature-name">Program Manager</div>
+                    <div class="signature-title">Career Progression Division</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

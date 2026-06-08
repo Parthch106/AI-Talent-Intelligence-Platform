@@ -1,0 +1,5 @@
+email,full_name,department,can_create_project,can_assign_tasks
+manager1@test.com,Alice Smith,AI/ML Department,true,true
+manager2@test.com,Bob Jones,,,
+manager3@test.com,Charlie Brown,Web Development,false,true
+manager4@test.com,Diana Prince,,,
