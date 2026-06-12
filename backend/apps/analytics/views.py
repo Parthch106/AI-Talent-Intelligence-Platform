@@ -535,9 +535,9 @@ class TaskTrackingView(APIView):
         if user.role == User.Role.INTERN:
             if not new_status:
                 return Response({'error': 'status is required'}, status=status.HTTP_400_BAD_REQUEST)
-            if new_status not in ['IN_PROGRESS', 'SUBMITTED', 'COMPLETED']:
+            if new_status not in ['IN_PROGRESS', 'SUBMITTED']:
                 return Response(
-                    {'error': 'Interns can only update task status to IN_PROGRESS, SUBMITTED, or COMPLETED'},
+                    {'error': 'Interns can only update task status to IN_PROGRESS or SUBMITTED'},
                     status=status.HTTP_403_FORBIDDEN
                 )
             if task.intern_id != user.id:
@@ -980,7 +980,38 @@ class AttendanceRecordView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+        check_in_time_str = request.data.get('check_in_time')
+        check_out_time_str = request.data.get('check_out_time')
+        working_hours = float(request.data.get('working_hours', 0.0))
         status_val = request.data.get('status', 'PRESENT')
+
+        # Rule 1: Check-in after 10:30 AM is LATE
+        if check_in_time_str:
+            from datetime import datetime
+            try:
+                fmt = '%H:%M:%S' if len(check_in_time_str) > 5 else '%H:%M'
+                check_in_dt = datetime.strptime(check_in_time_str, fmt).time()
+                if check_in_dt.hour > 10 or (check_in_dt.hour == 10 and check_in_dt.minute > 30):
+                    status_val = 'LATE'
+            except ValueError:
+                pass
+                
+        # Rule 2: If checked out early (less than 8 hours), status is HALF_DAY
+        if check_in_time_str and check_out_time_str:
+            from datetime import datetime
+            try:
+                fmt_in = '%H:%M:%S' if len(check_in_time_str) > 5 else '%H:%M'
+                ci = datetime.strptime(check_in_time_str, fmt_in)
+                fmt_out = '%H:%M:%S' if len(check_out_time_str) > 5 else '%H:%M'
+                co = datetime.strptime(check_out_time_str, fmt_out)
+                
+                calculated_hours = (co - ci).total_seconds() / 3600.0
+                working_hours = round(calculated_hours, 2)
+                
+                if working_hours < 8.0:
+                    status_val = 'HALF_DAY'  # Represents Not Completed
+            except Exception:
+                pass
 
         try:
             intern = User.objects.get(id=intern_id)
@@ -995,9 +1026,9 @@ class AttendanceRecordView(APIView):
             date=date,
             defaults={
                 'status': status_val,
-                'check_in_time': request.data.get('check_in_time'),
-                'check_out_time': request.data.get('check_out_time'),
-                'working_hours': request.data.get('working_hours', 0.0),
+                'check_in_time': check_in_time_str,
+                'check_out_time': check_out_time_str,
+                'working_hours': working_hours,
                 'notes': request.data.get('notes', ''),
             }
         )
@@ -1164,6 +1195,9 @@ class WeeklyReportView(APIView):
 
         # Get intern_id from form data or use current user
         intern_id = report_data.get('intern_id', user.id)
+        
+        # Check if saving as draft
+        is_draft = report_data.get('is_draft', 'false').lower() == 'true'
 
         try:
             intern = User.objects.get(id=intern_id, role=User.Role.INTERN)
@@ -1260,6 +1294,10 @@ class WeeklyReportView(APIView):
         final_in_progress = actual_counts['in_progress']
         final_blocked = actual_counts['blocked']
 
+        # Preserve submitted status if it's already submitted and not uploading as draft
+        # Actually, let update_or_create handle it cleanly based on the new is_draft flag
+        is_submitted_val = not is_draft
+
         report, created = WeeklyReport.objects.update_or_create(
             intern=intern,
             week_start_date=week_start_date,
@@ -1273,8 +1311,8 @@ class WeeklyReportView(APIView):
                 'challenges': challenges,
                 'learnings': learnings,
                 'next_week_goals': next_week_goals,
-                'is_submitted': True,
-                'submitted_at': timezone.now(),
+                'is_submitted': is_submitted_val,
+                'submitted_at': None if is_draft else timezone.now(),
             }
         )
 
@@ -1294,6 +1332,40 @@ class WeeklyReportView(APIView):
                 'next_week_goals': report.next_week_goals[:100] if report.next_week_goals else '',
             }
         }, status=status.HTTP_201_CREATED)
+
+    def patch(self, request):
+        """Update a weekly report (e.g. submit a draft)."""
+        user = request.user
+        report_id = request.data.get('report_id')
+
+        if not report_id:
+            return Response({'error': 'Report ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            report = WeeklyReport.objects.get(id=report_id)
+        except WeeklyReport.DoesNotExist:
+            return Response({'error': 'Weekly report not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if user.role == User.Role.INTERN and report.intern_id != user.id:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        is_submitted = request.data.get('is_submitted')
+        if is_submitted is not None:
+            if str(is_submitted).lower() == 'true':
+                report.is_submitted = True
+                if not report.submitted_at:
+                    report.submitted_at = timezone.now()
+            else:
+                report.is_submitted = False
+                report.submitted_at = None
+                
+        report.save()
+
+        return Response({
+            'message': 'Weekly report updated successfully',
+            'id': report.id,
+            'is_submitted': report.is_submitted
+        }, status=status.HTTP_200_OK)
 
     def delete(self, request):
         """Delete a weekly report."""

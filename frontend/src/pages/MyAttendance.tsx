@@ -291,19 +291,10 @@ const MyAttendance: React.FC = () => {
         return options;
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-[var(--bg-color)] p-8 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                    <p className="text-[var(--text-dim)] animate-pulse">Loading attendance...</p>
-                </div>
-            </div>
-        );
-    }
+
 
     return (
-        <div className="min-h-screen bg-[var(--bg-color)] p-8">
+        <div className="space-y-10 animate-fade-in pb-12">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -350,7 +341,9 @@ const MyAttendance: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-[var(--text-dim)] text-sm">Present</p>
-                                <p className="text-2xl font-bold text-[var(--text-main)]">{stats.present}</p>
+                                <div className="text-2xl font-bold text-[var(--text-main)] h-8 flex items-center">
+                                    {loading ? <div className="w-12 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : stats.present}
+                                </div>
                             </div>
                         </div>
                     </button>
@@ -371,7 +364,9 @@ const MyAttendance: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-[var(--text-dim)] text-sm">Absent</p>
-                                <p className="text-2xl font-bold text-[var(--text-main)]">{stats.absent}</p>
+                                <div className="text-2xl font-bold text-[var(--text-main)] h-8 flex items-center">
+                                    {loading ? <div className="w-12 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : stats.absent}
+                                </div>
                             </div>
                         </div>
                     </button>
@@ -392,7 +387,9 @@ const MyAttendance: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-[var(--text-dim)] text-sm">Late</p>
-                                <p className="text-2xl font-bold text-[var(--text-main)]">{stats.late}</p>
+                                <div className="text-2xl font-bold text-[var(--text-main)] h-8 flex items-center">
+                                    {loading ? <div className="w-12 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : stats.late}
+                                </div>
                             </div>
                         </div>
                     </button>
@@ -413,7 +410,9 @@ const MyAttendance: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-[var(--text-dim)] text-sm">WFH</p>
-                                <p className="text-2xl font-bold text-[var(--text-main)]">{stats.wfh}</p>
+                                <div className="text-2xl font-bold text-[var(--text-main)] h-8 flex items-center">
+                                    {loading ? <div className="w-12 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : stats.wfh}
+                                </div>
                             </div>
                         </div>
                     </button>
@@ -434,9 +433,9 @@ const MyAttendance: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-[var(--text-dim)] text-sm">Attendance Rate</p>
-                                <p className="text-2xl font-bold text-[var(--text-main)]">
-                                    {stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0}%
-                                </p>
+                                <div className="text-2xl font-bold text-[var(--text-main)] h-8 flex items-center">
+                                    {loading ? <div className="w-16 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : `${stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0}%`}
+                                </div>
                             </div>
                         </div>
                     </button>
@@ -444,20 +443,14 @@ const MyAttendance: React.FC = () => {
 
                 {/* Attendance Heatmap */}
                 <Card className="mb-6 p-4">
-                    {heatmapLoading ? (
-                        <div className="flex items-center justify-center h-32">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
-                        </div>
-                    ) : (
                         <AttendanceHeatmap
-                            data={heatmapData}
+                            data={heatmapLoading ? {} : heatmapData}
                             year={selectedYear}
                             title="Attendance Overview"
                             onCellClick={(date) => {
                                 handleAttendanceAction('check-in', date);
                             }}
                         />
-                    )}
                 </Card>
 
                 {/* Filter Section */}
@@ -534,7 +527,17 @@ const MyAttendance: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--border-color)] text-[var(--text-main)]">
-                                {Array.isArray(attendance) && attendance.length > 0 ? (
+                                {loading ? (
+                                    [...Array(5)].map((_, i) => (
+                                        <tr key={`skeleton-${i}`} className="border-b border-[var(--border-color)]">
+                                            <td className="px-6 py-4"><div className="w-24 h-5 bg-[var(--bg-muted)] animate-pulse rounded" /></td>
+                                            <td className="px-6 py-4"><div className="w-20 h-6 bg-[var(--bg-muted)] animate-pulse rounded-full" /></td>
+                                            <td className="px-6 py-4"><div className="w-16 h-5 bg-[var(--bg-muted)] animate-pulse rounded" /></td>
+                                            <td className="px-6 py-4"><div className="w-16 h-5 bg-[var(--bg-muted)] animate-pulse rounded" /></td>
+                                            <td className="px-6 py-4"><div className="w-32 h-5 bg-[var(--bg-muted)] animate-pulse rounded" /></td>
+                                        </tr>
+                                    ))
+                                ) : Array.isArray(attendance) && attendance.length > 0 ? (
                                     attendance.map((record) => (
                                         <tr key={record.id} className="hover:bg-[var(--bg-muted)] transition-colors">
                                             <td className="px-6 py-4">

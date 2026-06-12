@@ -61,6 +61,7 @@ interface TasksTabProps {
     initialView?: 'grid' | 'list' | 'board';
     externalStatusFilter?: string | null;
     userRole?: string;
+    loading?: boolean;
 }
 
 const TasksTab: React.FC<TasksTabProps> = ({ 
@@ -77,7 +78,8 @@ const TasksTab: React.FC<TasksTabProps> = ({
     dateFilter,
     initialView,
     externalStatusFilter,
-    userRole
+    userRole,
+    loading = false
 }) => {
     const tasksArray = Array.isArray(tasks) ? tasks : [];
 
@@ -525,7 +527,9 @@ const TasksTab: React.FC<TasksTabProps> = ({
                         <div className={`absolute top-0 right-0 w-24 h-24 ${stat.glowColor}/10 blur-3xl -mr-8 -mt-8 rounded-full`} />
                         <div className="relative flex flex-col items-center text-center">
                             <stat.icon className="mb-3 text-[var(--text-muted)] transition-colors" size={20} />
-                            <p className="text-3xl font-black text-[var(--text-main)] group-hover:scale-110 transition-transform">{stat.count}</p>
+                            <div className="text-3xl font-black text-[var(--text-main)] group-hover:scale-110 transition-transform h-9 flex items-center justify-center">
+                                {loading ? <div className="w-12 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : stat.count}
+                            </div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-dim)] mt-1 whitespace-nowrap">{stat.label}</p>
                         </div>
                     </div>
@@ -586,7 +590,13 @@ const TasksTab: React.FC<TasksTabProps> = ({
             </div>
 
             {/* Content Area */}
-            {finalFilteredTasks.length > 0 ? (
+            {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="h-64 bg-[var(--card-bg)] border border-[var(--border-color)] animate-pulse rounded-[32px]" />
+                    ))}
+                </div>
+            ) : finalFilteredTasks.length > 0 ? (
                 <>
                     {viewMode === 'grid' ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">

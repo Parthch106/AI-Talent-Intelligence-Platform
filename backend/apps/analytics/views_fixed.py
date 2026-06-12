@@ -518,11 +518,11 @@ class TaskTrackingView(APIView):
         
         # Permission check:
         # - Manager/Admin can update to any status including BLOCKED
-        # - Intern can only update to IN_PROGRESS, SUBMITTED, or COMPLETED
+        # - Intern can only update to IN_PROGRESS or SUBMITTED
         if user.role == User.Role.INTERN:
-            if new_status not in ['IN_PROGRESS', 'SUBMITTED', 'COMPLETED']:
+            if new_status not in ['IN_PROGRESS', 'SUBMITTED']:
                 return Response(
-                    {'error': 'Interns can only update task status to IN_PROGRESS, SUBMITTED, or COMPLETED'},
+                    {'error': 'Interns can only update task status to IN_PROGRESS or SUBMITTED'},
                     status=status.HTTP_403_FORBIDDEN
                 )
             # Intern can only update their own tasks
@@ -858,7 +858,38 @@ class AttendanceRecordView(APIView):
         # Interns can mark their own attendance
         intern_id = request.data.get('intern_id', user.id)
         date = request.data.get('date')
+        check_in_time_str = request.data.get('check_in_time')
+        check_out_time_str = request.data.get('check_out_time')
+        working_hours = float(request.data.get('working_hours', 0.0))
         status_val = request.data.get('status', 'PRESENT')
+
+        # Rule 1: Check-in after 10:30 AM is LATE
+        if check_in_time_str:
+            from datetime import datetime
+            try:
+                fmt = '%H:%M:%S' if len(check_in_time_str) > 5 else '%H:%M'
+                check_in_dt = datetime.strptime(check_in_time_str, fmt).time()
+                if check_in_dt.hour > 10 or (check_in_dt.hour == 10 and check_in_dt.minute > 30):
+                    status_val = 'LATE'
+            except ValueError:
+                pass
+                
+        # Rule 2: If checked out early (less than 8 hours), status is HALF_DAY
+        if check_in_time_str and check_out_time_str:
+            from datetime import datetime
+            try:
+                fmt_in = '%H:%M:%S' if len(check_in_time_str) > 5 else '%H:%M'
+                ci = datetime.strptime(check_in_time_str, fmt_in)
+                fmt_out = '%H:%M:%S' if len(check_out_time_str) > 5 else '%H:%M'
+                co = datetime.strptime(check_out_time_str, fmt_out)
+                
+                calculated_hours = (co - ci).total_seconds() / 3600.0
+                working_hours = round(calculated_hours, 2)
+                
+                if working_hours < 8.0:
+                    status_val = 'HALF_DAY'  # Represents Not Completed
+            except Exception:
+                pass
 
         try:
             intern = User.objects.get(id=intern_id)
@@ -873,9 +904,9 @@ class AttendanceRecordView(APIView):
             date=date,
             defaults={
                 'status': status_val,
-                'check_in_time': request.data.get('check_in_time'),
-                'check_out_time': request.data.get('check_out_time'),
-                'working_hours': request.data.get('working_hours', 0.0),
+                'check_in_time': check_in_time_str,
+                'check_out_time': check_out_time_str,
+                'working_hours': working_hours,
                 'notes': request.data.get('notes', ''),
             }
         )

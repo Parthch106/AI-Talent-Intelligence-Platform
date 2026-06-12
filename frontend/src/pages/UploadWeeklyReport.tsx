@@ -37,7 +37,7 @@ const UploadWeeklyReport: React.FC = () => {
     };
 
     const [reports, setReports] = useState<WeeklyReport[]>([]);
-    const [loading, setLoading] = useState<boolean>(false);
+    const [loading, setLoading] = useState<boolean>(true);
     const [showModal, setShowModal] = useState(false);
     const [success, setSuccess] = useState<string>('');
     const [error, setError] = useState<string>('');
@@ -74,7 +74,7 @@ const UploadWeeklyReport: React.FC = () => {
         }
     };
 
-    const handleSubmitReport = async (e: React.FormEvent) => {
+    const handleSubmitReport = async (e: React.FormEvent, isDraft: boolean = false) => {
         e.preventDefault();
 
         if (!pdfFile) {
@@ -84,19 +84,36 @@ const UploadWeeklyReport: React.FC = () => {
 
         const formData = new FormData();
         formData.append('pdf_report', pdfFile);
+        formData.append('is_draft', isDraft ? 'true' : 'false');
 
         toast.promise(axios.post('/analytics/weekly-reports/submit/', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         }), {
-            loading: 'Injecting performance metrics into the analytical engine...',
+            loading: isDraft ? 'Saving draft...' : 'Injecting performance metrics into the analytical engine...',
             success: () => {
                 setShowModal(false);
                 setPdfFile(null);
                 fetchReports();
-                return 'Weekly report successfully synchronized and archived';
+                return isDraft ? 'Draft saved successfully' : 'Weekly report successfully synchronized and archived';
             },
             error: (err) => {
                 return (err as any).response?.data?.error || 'Failed to synchronize performance report';
+            }
+        });
+    };
+
+    const handleFinalizeDraft = async (reportId: number) => {
+        toast.promise(axios.patch('/analytics/weekly-reports/submit/', {
+            report_id: reportId,
+            is_submitted: true
+        }), {
+            loading: 'Finalizing report submission...',
+            success: () => {
+                fetchReports();
+                return 'Draft successfully submitted';
+            },
+            error: (err) => {
+                return (err as any).response?.data?.error || 'Failed to submit draft';
             }
         });
     };
@@ -130,7 +147,7 @@ const UploadWeeklyReport: React.FC = () => {
     const stats = getStats();
 
     return (
-        <div className="min-h-screen animate-fade-in p-6">
+        <div className="space-y-10 animate-fade-in pb-12">
             {/* Header */}
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-[var(--text-main)]">
@@ -162,7 +179,9 @@ const UploadWeeklyReport: React.FC = () => {
                             <FileText size={20} className="text-purple-400" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-[var(--text-main)]">{stats.total}</p>
+                            <div className="text-2xl font-bold text-[var(--text-main)] h-8 flex items-center">
+                                {loading ? <div className="w-8 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : stats.total}
+                            </div>
                             <p className="text-sm text-[var(--text-dim)]">Total Reports</p>
                         </div>
                     </div>
@@ -173,7 +192,9 @@ const UploadWeeklyReport: React.FC = () => {
                             <CheckCircle size={20} className="text-emerald-400" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-[var(--text-main)]">{stats.submitted}</p>
+                            <div className="text-2xl font-bold text-[var(--text-main)] h-8 flex items-center">
+                                {loading ? <div className="w-8 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : stats.submitted}
+                            </div>
                             <p className="text-sm text-[var(--text-dim)]">Submitted</p>
                         </div>
                     </div>
@@ -184,7 +205,9 @@ const UploadWeeklyReport: React.FC = () => {
                             <Clock size={20} className="text-amber-400" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-[var(--text-main)]">{stats.pending}</p>
+                            <div className="text-2xl font-bold text-[var(--text-main)] h-8 flex items-center">
+                                {loading ? <div className="w-8 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : stats.pending}
+                            </div>
                             <p className="text-sm text-[var(--text-dim)]">Drafts</p>
                         </div>
                     </div>
@@ -195,7 +218,9 @@ const UploadWeeklyReport: React.FC = () => {
                             <Target size={20} className="text-blue-400" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-[var(--text-main)]">{stats.totalCompleted}</p>
+                            <div className="text-2xl font-bold text-[var(--text-main)] h-8 flex items-center">
+                                {loading ? <div className="w-8 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : stats.totalCompleted}
+                            </div>
                             <p className="text-sm text-[var(--text-dim)]">Tasks Completed</p>
                         </div>
                     </div>
@@ -219,12 +244,32 @@ const UploadWeeklyReport: React.FC = () => {
                 <h2 className="text-xl font-semibold text-[var(--text-main)] mb-4">Report History</h2>
 
                 {loading ? (
-                    <div className="flex justify-center items-center h-64">
-                        <div className="flex flex-col items-center gap-4">
-                            <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                            <p className="text-[var(--text-dim)]">Loading reports...</p>
-                        </div>
-                    </div>
+                    [...Array(2)].map((_, i) => (
+                        <Card key={`skeleton-${i}`} padding="lg" className="animate-pulse mb-4">
+                            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                                <div className="flex-1 w-full">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-8 h-8 bg-[var(--bg-muted)] rounded-lg" />
+                                        <div className="w-48 h-6 bg-[var(--bg-muted)] rounded" />
+                                        <div className="w-24 h-6 bg-[var(--bg-muted)] rounded-full" />
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-4 mb-4">
+                                        <div className="h-5 bg-[var(--bg-muted)] rounded w-24" />
+                                        <div className="h-5 bg-[var(--bg-muted)] rounded w-24" />
+                                        <div className="h-5 bg-[var(--bg-muted)] rounded w-24" />
+                                    </div>
+                                    <div className="pt-3 border-t border-[var(--border-color)]">
+                                        <div className="w-full h-4 bg-[var(--bg-muted)] rounded mb-2" />
+                                        <div className="w-2/3 h-4 bg-[var(--bg-muted)] rounded" />
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 bg-[var(--bg-muted)] rounded-lg" />
+                                    <div className="w-8 h-8 bg-[var(--bg-muted)] rounded-lg" />
+                                </div>
+                            </div>
+                        </Card>
+                    ))
                 ) : reports.length === 0 ? (
                     <Card padding="lg" className="text-center py-12">
                         <FileText size={48} className="mx-auto mb-4 opacity-20" />
@@ -233,7 +278,7 @@ const UploadWeeklyReport: React.FC = () => {
                     </Card>
                 ) : (
                     reports.map((report) => (
-                        <Card key={report.id} hover padding="lg" className="animate-slide-up">
+                        <Card key={report.id} hover padding="lg" className="animate-fade-in mb-4">
                             <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                                 <div className="flex-1">
                                     <div className="flex items-center gap-3 mb-3">
@@ -283,6 +328,19 @@ const UploadWeeklyReport: React.FC = () => {
                                     )}
                                 </div>
                                 <div className="flex items-center gap-2">
+                                    {!report.is_submitted && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 border-emerald-500/20"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleFinalizeDraft(report.id);
+                                            }}
+                                            icon={<CheckCircle size={16} />}
+                                            title="Submit Draft"
+                                        />
+                                    )}
                                     {report.pdf_url && (
                                         <a
                                             href={getFullPdfUrl(report.pdf_url)}
@@ -371,7 +429,18 @@ const UploadWeeklyReport: React.FC = () => {
                             Cancel
                         </Button>
                         <Button
-                            type="submit"
+                            type="button"
+                            onClick={(e) => handleSubmitReport(e, true)}
+                            variant="outline"
+                            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                            fullWidth
+                            disabled={loading || !pdfFile}
+                        >
+                            Save as Draft
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={(e) => handleSubmitReport(e, false)}
                             gradient="purple"
                             fullWidth
                             disabled={loading || !pdfFile}

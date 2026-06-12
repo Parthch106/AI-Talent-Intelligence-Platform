@@ -93,7 +93,7 @@ const InternTasks: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[var(--bg-color)] p-6 md:p-8">
+        <div className="space-y-10 animate-fade-in pb-12">
             <div className="max-w-7xl mx-auto">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-[var(--text-main)]">
@@ -104,19 +104,13 @@ const InternTasks: React.FC = () => {
 
                 {/* Heatmap Section */}
                 <Card className="mb-10 p-4">
-                    {heatmapLoading ? (
-                        <div className="flex items-center justify-center h-40">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500" />
-                        </div>
-                    ) : (
                         <ContributionHeatmap
-                            data={heatmapData}
+                            data={heatmapLoading ? {} : heatmapData}
                             title="My Task Activity"
                             colorScheme="green"
                             onCellClick={handleHeatmapClick}
                             year={yearFilter === 'all' ? new Date().getFullYear() : yearFilter}
                         />
-                    )}
                 </Card>
 
                 {filterDate && (
@@ -134,29 +128,21 @@ const InternTasks: React.FC = () => {
                     </div>
                 )}
 
-                {loading ? (
-                    <div className="flex justify-center items-center py-20">
-                        <div className="flex flex-col items-center gap-4">
-                            <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                            <p className="text-[var(--text-dim)] text-sm font-bold uppercase tracking-widest">Synchronizing Tasks...</p>
-                        </div>
-                    </div>
-                ) : (
-                    <TasksTab
-                        tasks={tasks}
-                        onAddTask={() => {}} // Interns cannot add tasks
-                        canCreate={false}
-                        onStatusChange={handleStatusChange}
-                        onRefresh={fetchTasks}
-                        monthFilter={monthFilter}
-                        setMonthFilter={setMonthFilter}
-                        yearFilter={yearFilter}
-                        setYearFilter={setYearFilter}
-                        dateFilter={filterDate}
-                        setDateFilter={setFilterDate}
-                        initialView={viewParam || undefined}
-                    />
-                )}
+                <TasksTab
+                    tasks={tasks}
+                    loading={loading}
+                    onAddTask={() => {}} // Interns cannot add tasks
+                    canCreate={false}
+                    onStatusChange={handleStatusChange}
+                    onRefresh={fetchTasks}
+                    monthFilter={monthFilter}
+                    setMonthFilter={setMonthFilter}
+                    yearFilter={yearFilter}
+                    setYearFilter={setYearFilter}
+                    dateFilter={filterDate}
+                    setDateFilter={setFilterDate}
+                    initialView={viewParam || undefined}
+                />
             </div>
         </div>
     );
