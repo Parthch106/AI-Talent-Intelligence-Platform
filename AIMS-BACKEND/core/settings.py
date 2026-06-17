@@ -184,6 +184,8 @@ RATELIMIT_USE_CACHE = 'default'
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 DEBUG = os.getenv("DJANGO_DEBUG") == "True"
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0,.vercel.app").split(",")
+if 'RENDER_EXTERNAL_HOSTNAME' in os.environ:
+    ALLOWED_HOSTS.append(os.environ['RENDER_EXTERNAL_HOSTNAME'])
 if DEBUG:
     ALLOWED_HOSTS.append("*")
 
@@ -310,6 +312,8 @@ CSRF_TRUSTED_ORIGINS = os.getenv(
     "CSRF_TRUSTED_ORIGINS",
     "https://iconnect.cybersecurityumbrella.com,http://localhost:5173,http://127.0.0.1:5173"
 ).split(",")
+if 'RENDER_EXTERNAL_HOSTNAME' in os.environ:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}")
 
 # Respect proxy headers under IIS Reverse Proxy
 USE_X_FORWARDED_HOST = True

@@ -1,0 +1,39 @@
+databases:
+  - name: aims-db
+    databaseName: aims
+    user: aims
+    plan: free
+
+services:
+  - type: redis
+    name: aims-redis
+    ipAllowList: []
+
+  - type: web
+    name: aims-backend
+    env: python
+    region: ohio
+    buildCommand: "cd AIMS-BACKEND && chmod +x build.sh && ./build.sh"
+    startCommand: "cd AIMS-BACKEND && gunicorn core.wsgi:application --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.2
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aims-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: aims-redis
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "http://localhost:5173" # Update with your Vercel URL
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "http://localhost:5173" # Update with your Vercel URL
