@@ -234,6 +234,8 @@ const TaskDetailPage: React.FC = () => {
 
     const handleUpdateStatus = async (newStatus: string) => {
         setUpdating(true);
+        // Optimistic update — immediately reflect the new status in the UI
+        setTask(prev => prev ? { ...prev, status: newStatus } : prev);
         toast.promise(axios.patch(`/analytics/tasks/${task!.id}/update-status/`, { status: newStatus }), {
             loading: `Transitioning task to ${newStatus.replace('_', ' ')}...`,
             success: () => {
@@ -242,6 +244,8 @@ const TaskDetailPage: React.FC = () => {
                 return `Status synchronized to ${newStatus.replace('_', ' ')}`;
             },
             error: (err) => {
+                // Revert on error
+                fetchTaskDetails();
                 setUpdating(false);
                 return (err as Error).message || 'Failed to update task lifecycle state';
             }
@@ -561,21 +565,27 @@ const TaskDetailPage: React.FC = () => {
                                     <History size={16} className="text-purple-400" /> Progression Timeline
                                 </h3>
                                 {task!.status !== 'COMPLETED' && !isManager && (
-                                    <div className="flex bg-[var(--bg-muted)] border border-[var(--border-color)] p-1.5 rounded-2xl glass-effect shadow-xl">
-                                        {['IN_PROGRESS', 'SUBMITTED'].map((s) => (
-                                            <button
-                                                key={s}
-                                                disabled={updating || task!.status === s}
-                                                onClick={() => handleUpdateStatus(s)}
-                                                className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                                    task!.status === s 
-                                                        ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]' 
-                                                        : 'text-[var(--text-muted)] hover:text-white hover:bg-white/5 disabled:opacity-50'
-                                                }`}
-                                            >
-                                                {s.replace('_', ' ')}
-                                            </button>
-                                        ))}
+                                    <div className="relative z-10 flex bg-[var(--bg-muted)] border border-[var(--border-color)] p-1.5 rounded-2xl shadow-xl gap-1">
+                                        {['IN_PROGRESS', 'SUBMITTED'].map((s) => {
+                                            const isCurrent = task!.status === s;
+                                            const isDisabled = updating || isCurrent;
+                                            return (
+                                                <button
+                                                    key={s}
+                                                    disabled={isDisabled}
+                                                    onClick={() => handleUpdateStatus(s)}
+                                                    className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                        isCurrent
+                                                            ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)] cursor-default'
+                                                            : updating
+                                                                ? 'text-[var(--text-muted)] opacity-50 cursor-not-allowed'
+                                                                : 'text-purple-300 border border-purple-500/40 hover:bg-purple-500/20 hover:text-white hover:border-purple-400 cursor-pointer'
+                                                    }`}
+                                                >
+                                                    {s.replace('_', ' ')}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>

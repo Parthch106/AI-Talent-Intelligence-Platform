@@ -93,8 +93,7 @@ const InternTasks: React.FC = () => {
     };
 
     return (
-        <div className="space-y-10 animate-fade-in pb-12">
-            <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto px-6 md:px-8 py-6 md:py-8">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-[var(--text-main)]">
                         My <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Tasks</span>
@@ -104,13 +103,13 @@ const InternTasks: React.FC = () => {
 
                 {/* Heatmap Section */}
                 <Card className="mb-10 p-4">
-                        <ContributionHeatmap
-                            data={heatmapLoading ? {} : heatmapData}
-                            title="My Task Activity"
-                            colorScheme="green"
-                            onCellClick={handleHeatmapClick}
-                            year={yearFilter === 'all' ? new Date().getFullYear() : yearFilter}
-                        />
+                    <ContributionHeatmap
+                        data={heatmapLoading ? {} : heatmapData}
+                        title="My Task Activity"
+                        colorScheme="green"
+                        onCellClick={handleHeatmapClick}
+                        year={yearFilter === 'all' ? new Date().getFullYear() : yearFilter as number}
+                    />
                 </Card>
 
                 {filterDate && (
@@ -130,7 +129,6 @@ const InternTasks: React.FC = () => {
 
                 <TasksTab
                     tasks={tasks}
-                    loading={loading}
                     onAddTask={() => {}} // Interns cannot add tasks
                     canCreate={false}
                     onStatusChange={handleStatusChange}
@@ -142,8 +140,9 @@ const InternTasks: React.FC = () => {
                     dateFilter={filterDate}
                     setDateFilter={setFilterDate}
                     initialView={viewParam || undefined}
+                    loading={loading}
+                    userRole={user?.role}
                 />
-            </div>
         </div>
     );
 };

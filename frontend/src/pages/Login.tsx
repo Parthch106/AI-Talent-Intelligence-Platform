@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 const Login: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
     const [otpRequired, setOtpRequired] = useState(false);
     const [otpCode, setOtpCode] = useState('');
     const [error, setError] = useState('');
@@ -39,7 +40,7 @@ const Login: React.FC = () => {
                         return 'Verification OTP code sent to your email!';
                     } else {
                         const { access, user } = data;
-                        login(access, user);
+                        login(access, user, rememberMe);
                         navigate('/');
                         return `Access granted. Welcome back, ${user.full_name}`;
                     }
@@ -61,7 +62,7 @@ const Login: React.FC = () => {
                     otp_code: otpCode
                 });
                 const { access, user } = response.data;
-                login(access, user);
+                login(access, user, rememberMe);
                 return user;
             };
 
@@ -200,7 +201,12 @@ const Login: React.FC = () => {
                                 {/* Remember Me & Forgot Password */}
                                 <div className="flex items-center justify-between text-sm">
                                     <label className="flex items-center gap-2 cursor-pointer group">
-                                        <input type="checkbox" className="w-4 h-4 rounded border-[var(--border-color)] bg-[var(--bg-color)] text-purple-500 focus:ring-purple-500/50 cursor-pointer" />
+                                        <input
+                                            type="checkbox"
+                                            checked={rememberMe}
+                                            onChange={(e) => setRememberMe(e.target.checked)}
+                                            className="w-4 h-4 rounded border-[var(--border-color)] bg-[var(--bg-color)] text-purple-500 focus:ring-purple-500/50 cursor-pointer accent-purple-500"
+                                        />
                                         <span className="text-[var(--text-dim)] group-hover:text-[var(--text-main)] transition-colors">Remember me</span>
                                     </label>
                                     <Link to="/auth/forgot-password" className="text-purple-400 hover:text-purple-300 transition-colors hover:underline">

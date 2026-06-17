@@ -161,6 +161,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
     };
 
     const getAvailableStatuses = (task: Task) => {
+        const isManager = userRole === 'ADMIN' || userRole === 'MANAGER';
         const options = [
             {
                 value: 'IN_PROGRESS',
@@ -175,22 +176,27 @@ const TasksTab: React.FC<TasksTabProps> = ({
                 icon: CheckCircle,
                 iconColor: 'text-yellow-600 dark:text-yellow-400',
                 disabled: task.status === 'SUBMITTED'
-            },
-            {
-                value: 'COMPLETED',
-                label: 'Completed',
-                icon: CheckCircle,
-                iconColor: 'text-emerald-400',
-                disabled: task.status === 'COMPLETED'
-            },
-            {
-                value: 'BLOCKED',
-                label: 'Blocked',
-                icon: AlertTriangle,
-                iconColor: 'text-red-500 dark:text-red-400',
-                disabled: task.status === 'BLOCKED'
-            },
+            }
         ];
+        
+        if (isManager) {
+            options.push(
+                {
+                    value: 'COMPLETED',
+                    label: 'Completed',
+                    icon: CheckCircle,
+                    iconColor: 'text-emerald-400',
+                    disabled: task.status === 'COMPLETED'
+                },
+                {
+                    value: 'BLOCKED',
+                    label: 'Blocked',
+                    icon: AlertTriangle,
+                    iconColor: 'text-red-500 dark:text-red-400',
+                    disabled: task.status === 'BLOCKED'
+                }
+            );
+        }
         return options;
     };
 

@@ -21,7 +21,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
     trend,
 }) => {
     return (
-        <div className={`group relative overflow-hidden rounded-[2rem] p-8 text-[var(--text-main)] transition-all duration-500 hover:-translate-y-2 bg-[var(--card-bg)] border border-[var(--border-color)] hover:border-purple-500/30 glass-card`}>
+        <div className={`group relative overflow-hidden rounded-[2rem] p-8 text-[var(--text-main)] transition duration-500 hover:-translate-y-2 bg-[var(--card-bg)] border border-[var(--border-color)] hover:border-purple-500/30 glass-card`}>
             {/* Animated background glow */}
             <div className={`absolute -top-24 -right-24 w-64 h-64 bg-gradient-to-br ${gradient} opacity-10 blur-[80px] group-hover:opacity-20 transition-opacity duration-700`}></div>
             

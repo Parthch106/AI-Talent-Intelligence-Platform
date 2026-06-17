@@ -12,7 +12,7 @@ interface User {
 interface AuthContextType {
     user: User | null;
     token: string | null;
-    login: (token: string, user: User) => void;
+    login: (token: string, user: User, rememberMe?: boolean) => void;
     logout: () => void;
     isAuthenticated: boolean;
 }
@@ -29,23 +29,48 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+    // Check both localStorage (remember me) and sessionStorage (session only)
+    const [token, setToken] = useState<string | null>(
+        localStorage.getItem('token') || sessionStorage.getItem('token')
+    );
 
     useEffect(() => {
-        // Initial check for storage
-        const storedUser = localStorage.getItem('user');
+        // Check both storages for persisted user
+        const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
         if (token && storedUser) {
             try {
-                setUser(JSON.parse(storedUser));
+                // Decode base64 stored user data
+                const decodedUser = decodeURIComponent(atob(storedUser));
+                setUser(JSON.parse(decodedUser));
             } catch (e) {
-                console.error("Failed to parse user from local storage", e);
+                console.error("Failed to parse user from storage", e);
+                // Fallback for pre-existing unencoded data
+                try {
+                    setUser(JSON.parse(storedUser));
+                } catch (e2) {
+                    console.error("Failed fallback parse", e2);
+                }
             }
         }
     }, [token]);
 
-    const login = React.useCallback((newToken: string, newUser: User) => {
-        localStorage.setItem('token', newToken);
-        localStorage.setItem('user', JSON.stringify(newUser));
+    const login = React.useCallback((newToken: string, newUser: User, rememberMe = false) => {
+        // Encode user data to prevent plaintext JSON in DevTools
+        const encodedUser = btoa(encodeURIComponent(JSON.stringify(newUser)));
+        
+        if (rememberMe) {
+            // Persist across browser sessions
+            localStorage.setItem('token', newToken);
+            localStorage.setItem('user', encodedUser);
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
+        } else {
+            // Clear when tab/browser closes
+            sessionStorage.setItem('token', newToken);
+            sessionStorage.setItem('user', encodedUser);
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+        }
         sessionStorage.removeItem('profile_completion_toast_shown');
         setToken(newToken);
         setUser(newUser);
@@ -54,6 +79,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const logout = React.useCallback(() => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         sessionStorage.removeItem('profile_completion_toast_shown');
         setToken(null);
         setUser(null);

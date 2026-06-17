@@ -37,7 +37,7 @@ const UploadWeeklyReport: React.FC = () => {
     };
 
     const [reports, setReports] = useState<WeeklyReport[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [loading, setLoading] = useState<boolean>(false);
     const [showModal, setShowModal] = useState(false);
     const [success, setSuccess] = useState<string>('');
     const [error, setError] = useState<string>('');
@@ -84,7 +84,7 @@ const UploadWeeklyReport: React.FC = () => {
 
         const formData = new FormData();
         formData.append('pdf_report', pdfFile);
-        formData.append('is_draft', isDraft ? 'true' : 'false');
+        formData.append('is_draft', String(isDraft));
 
         toast.promise(axios.post('/analytics/weekly-reports/submit/', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
@@ -103,17 +103,17 @@ const UploadWeeklyReport: React.FC = () => {
     };
 
     const handleFinalizeDraft = async (reportId: number) => {
-        toast.promise(axios.patch('/analytics/weekly-reports/submit/', {
+        toast.promise(axios.patch('/analytics/weekly-reports/', {
             report_id: reportId,
             is_submitted: true
         }), {
-            loading: 'Finalizing report submission...',
+            loading: 'Finalizing draft...',
             success: () => {
                 fetchReports();
                 return 'Draft successfully submitted';
             },
             error: (err) => {
-                return (err as any).response?.data?.error || 'Failed to submit draft';
+                return (err as any).response?.data?.error || 'Failed to finalize draft';
             }
         });
     };
@@ -147,7 +147,7 @@ const UploadWeeklyReport: React.FC = () => {
     const stats = getStats();
 
     return (
-        <div className="space-y-10 animate-fade-in pb-12">
+        <div className="min-h-screen animate-fade-in p-6">
             {/* Header */}
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-[var(--text-main)]">
@@ -179,9 +179,7 @@ const UploadWeeklyReport: React.FC = () => {
                             <FileText size={20} className="text-purple-400" />
                         </div>
                         <div>
-                            <div className="text-2xl font-bold text-[var(--text-main)] h-8 flex items-center">
-                                {loading ? <div className="w-8 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : stats.total}
-                            </div>
+                            <p className="text-2xl font-bold text-[var(--text-main)]">{stats.total}</p>
                             <p className="text-sm text-[var(--text-dim)]">Total Reports</p>
                         </div>
                     </div>
@@ -192,9 +190,7 @@ const UploadWeeklyReport: React.FC = () => {
                             <CheckCircle size={20} className="text-emerald-400" />
                         </div>
                         <div>
-                            <div className="text-2xl font-bold text-[var(--text-main)] h-8 flex items-center">
-                                {loading ? <div className="w-8 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : stats.submitted}
-                            </div>
+                            <p className="text-2xl font-bold text-[var(--text-main)]">{stats.submitted}</p>
                             <p className="text-sm text-[var(--text-dim)]">Submitted</p>
                         </div>
                     </div>
@@ -205,9 +201,7 @@ const UploadWeeklyReport: React.FC = () => {
                             <Clock size={20} className="text-amber-400" />
                         </div>
                         <div>
-                            <div className="text-2xl font-bold text-[var(--text-main)] h-8 flex items-center">
-                                {loading ? <div className="w-8 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : stats.pending}
-                            </div>
+                            <p className="text-2xl font-bold text-[var(--text-main)]">{stats.pending}</p>
                             <p className="text-sm text-[var(--text-dim)]">Drafts</p>
                         </div>
                     </div>
@@ -218,9 +212,7 @@ const UploadWeeklyReport: React.FC = () => {
                             <Target size={20} className="text-blue-400" />
                         </div>
                         <div>
-                            <div className="text-2xl font-bold text-[var(--text-main)] h-8 flex items-center">
-                                {loading ? <div className="w-8 h-6 bg-[var(--bg-muted)] animate-pulse rounded" /> : stats.totalCompleted}
-                            </div>
+                            <p className="text-2xl font-bold text-[var(--text-main)]">{stats.totalCompleted}</p>
                             <p className="text-sm text-[var(--text-dim)]">Tasks Completed</p>
                         </div>
                     </div>
@@ -244,28 +236,29 @@ const UploadWeeklyReport: React.FC = () => {
                 <h2 className="text-xl font-semibold text-[var(--text-main)] mb-4">Report History</h2>
 
                 {loading ? (
-                    [...Array(2)].map((_, i) => (
-                        <Card key={`skeleton-${i}`} padding="lg" className="animate-pulse mb-4">
+                    Array.from({ length: 2 }).map((_, idx) => (
+                        <Card key={`skeleton-${idx}`} padding="lg" className="animate-pulse">
                             <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                                 <div className="flex-1 w-full">
                                     <div className="flex items-center gap-3 mb-3">
-                                        <div className="w-8 h-8 bg-[var(--bg-muted)] rounded-lg" />
-                                        <div className="w-48 h-6 bg-[var(--bg-muted)] rounded" />
-                                        <div className="w-24 h-6 bg-[var(--bg-muted)] rounded-full" />
+                                        <div className="w-9 h-9 bg-[var(--border-color)] rounded-lg"></div>
+                                        <div className="h-6 bg-[var(--border-color)] rounded-md w-48"></div>
+                                        <div className="h-5 bg-[var(--border-color)] rounded-full w-20"></div>
                                     </div>
                                     <div className="grid grid-cols-3 gap-4 mb-4">
-                                        <div className="h-5 bg-[var(--bg-muted)] rounded w-24" />
-                                        <div className="h-5 bg-[var(--bg-muted)] rounded w-24" />
-                                        <div className="h-5 bg-[var(--bg-muted)] rounded w-24" />
+                                        <div className="h-4 bg-[var(--border-color)] rounded w-24"></div>
+                                        <div className="h-4 bg-[var(--border-color)] rounded w-24"></div>
+                                        <div className="h-4 bg-[var(--border-color)] rounded w-24"></div>
                                     </div>
                                     <div className="pt-3 border-t border-[var(--border-color)]">
-                                        <div className="w-full h-4 bg-[var(--bg-muted)] rounded mb-2" />
-                                        <div className="w-2/3 h-4 bg-[var(--bg-muted)] rounded" />
+                                        <div className="h-3 bg-[var(--border-color)] rounded w-full mb-2"></div>
+                                        <div className="h-3 bg-[var(--border-color)] rounded w-3/4"></div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 bg-[var(--bg-muted)] rounded-lg" />
-                                    <div className="w-8 h-8 bg-[var(--bg-muted)] rounded-lg" />
+                                    <div className="w-8 h-8 bg-[var(--border-color)] rounded-lg"></div>
+                                    <div className="w-8 h-8 bg-[var(--border-color)] rounded-lg"></div>
+                                    <div className="w-5 h-5 bg-[var(--border-color)] rounded-full"></div>
                                 </div>
                             </div>
                         </Card>
@@ -278,7 +271,7 @@ const UploadWeeklyReport: React.FC = () => {
                     </Card>
                 ) : (
                     reports.map((report) => (
-                        <Card key={report.id} hover padding="lg" className="animate-fade-in mb-4">
+                        <Card key={report.id} hover padding="lg" className="animate-fade-in">
                             <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                                 <div className="flex-1">
                                     <div className="flex items-center gap-3 mb-3">
@@ -337,9 +330,11 @@ const UploadWeeklyReport: React.FC = () => {
                                                 e.stopPropagation();
                                                 handleFinalizeDraft(report.id);
                                             }}
+                                            title="Finalize & Submit"
                                             icon={<CheckCircle size={16} />}
-                                            title="Submit Draft"
-                                        />
+                                        >
+                                            Submit
+                                        </Button>
                                     )}
                                     {report.pdf_url && (
                                         <a
@@ -383,7 +378,7 @@ const UploadWeeklyReport: React.FC = () => {
                 gradient="violet"
                 size="md"
             >
-                <form onSubmit={handleSubmitReport} className="space-y-5">
+                <form className="space-y-5">
                     <div className="bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl p-4 mb-4">
                         <p className="text-sm text-[var(--text-dim)]">
                             Upload your weekly report as a PDF document. The system will automatically
@@ -430,20 +425,20 @@ const UploadWeeklyReport: React.FC = () => {
                         </Button>
                         <Button
                             type="button"
-                            onClick={(e) => handleSubmitReport(e, true)}
                             variant="outline"
                             className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
                             fullWidth
                             disabled={loading || !pdfFile}
+                            onClick={(e) => handleSubmitReport(e, true)}
                         >
-                            Save as Draft
+                            {loading ? 'Saving...' : 'Save as Draft'}
                         </Button>
                         <Button
                             type="button"
-                            onClick={(e) => handleSubmitReport(e, false)}
                             gradient="purple"
                             fullWidth
                             disabled={loading || !pdfFile}
+                            onClick={(e) => handleSubmitReport(e, false)}
                         >
                             {loading ? 'Submitting...' : 'Submit Report'}
                         </Button>
