@@ -21,8 +21,8 @@ axiosRetry(api, {
 
 api.interceptors.request.use(
     async (config) => {
-        // Get token from localStorage
-        const token = localStorage.getItem('token');
+        // Get token from localStorage or sessionStorage
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
@@ -38,6 +38,7 @@ api.interceptors.response.use(
         if (error.response && error.response.status === 401) {
             // Handle token expiration or unauthorized access
             localStorage.removeItem('token');
+            sessionStorage.removeItem('token');
             window.location.href = '/login';
         }
         return Promise.reject(error);

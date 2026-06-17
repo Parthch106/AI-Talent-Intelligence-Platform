@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 interface AttendanceData {
@@ -113,9 +113,12 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
   }, [calendarData]);
 
   // Measure container width with ResizeObserver, debounced
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = gridContainerRef.current;
     if (!el) return;
+    
+    // Immediately set the width to prevent initial layout shift
+    setContainerWidth(el.clientWidth);
     
     let timeoutId: ReturnType<typeof setTimeout>;
     
@@ -295,7 +298,7 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
       {/* Tooltip with animation - Using Portal to avoid clipping */}
       {tooltip && createPortal(
         <div
-          className="fixed z-[9999] bg-[var(--card-bg)] text-[var(--text-main)] text-xs px-3 py-2 rounded-lg shadow-xl border border-[var(--border-color)] pointer-events-none animate-fadeIn backdrop-blur-md"
+          className="fixed z-[9999] bg-[var(--card-bg)] text-[var(--text-main)] text-xs px-3 py-2 rounded-lg shadow-xl border border-[var(--border-color)] pointer-events-none animate-tooltip-fade-in backdrop-blur-md"
           style={{
             left: tooltip.x + 15,
             top: tooltip.y - 15,
@@ -311,7 +314,7 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
       
       {/* Add fade-in animation */}
       <style>{`
-        @keyframes fadeIn {
+        @keyframes tooltipFadeIn {
           from {
             opacity: 0;
             transform: translateY(-95%);
@@ -321,8 +324,8 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({
             transform: translateY(-100%);
           }
         }
-        .animate-fadeIn {
-          animation: fadeIn 0.1s ease-out forwards;
+        .animate-tooltip-fade-in {
+          animation: tooltipFadeIn 0.1s ease-out forwards;
         }
       `}</style>
     </div>

@@ -499,7 +499,7 @@ const AdminManagement: React.FC = () => {
                                                             checked={adminFormData.can_create_project}
                                                             onChange={(e) => setAdminFormData(prev => ({ ...prev, can_create_project: e.target.checked }))}
                                                         />
-                                                        <div className="w-10 h-5 bg-[var(--bg-color)] border border-[var(--border-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500 peer-checked:border-indigo-500"></div>
+                                                        <div className="w-11 h-6 bg-[var(--bg-color)] border border-[var(--border-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500 peer-checked:border-indigo-500"></div>
                                                     </div>
                                                     <div className="flex flex-col">
                                                         <span className="text-sm font-medium text-[var(--text-main)]">Can Create Projects</span>
@@ -515,7 +515,7 @@ const AdminManagement: React.FC = () => {
                                                             checked={adminFormData.can_assign_tasks}
                                                             onChange={(e) => setAdminFormData(prev => ({ ...prev, can_assign_tasks: e.target.checked }))}
                                                         />
-                                                        <div className="w-10 h-5 bg-[var(--bg-color)] border border-[var(--border-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500 peer-checked:border-indigo-500"></div>
+                                                        <div className="w-11 h-6 bg-[var(--bg-color)] border border-[var(--border-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500 peer-checked:border-indigo-500"></div>
                                                     </div>
                                                     <div className="flex flex-col">
                                                         <span className="text-sm font-medium text-[var(--text-main)]">Can Assign Tasks</span>
@@ -689,7 +689,7 @@ const AdminManagement: React.FC = () => {
                                         checked={adminFormData.can_create_project}
                                         onChange={(e) => setAdminFormData(prev => ({ ...prev, can_create_project: e.target.checked }))}
                                     />
-                                    <div className="w-10 h-5 bg-[var(--bg-muted)] border border-[var(--border-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500 peer-checked:border-indigo-500"></div>
+                                    <div className="w-11 h-6 bg-[var(--bg-muted)] border border-[var(--border-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500 peer-checked:border-indigo-500"></div>
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="text-sm font-medium text-[var(--text-main)]">Can Create Projects</span>
@@ -705,7 +705,7 @@ const AdminManagement: React.FC = () => {
                                         checked={adminFormData.can_assign_tasks}
                                         onChange={(e) => setAdminFormData(prev => ({ ...prev, can_assign_tasks: e.target.checked }))}
                                     />
-                                    <div className="w-10 h-5 bg-[var(--bg-muted)] border border-[var(--border-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500 peer-checked:border-indigo-500"></div>
+                                    <div className="w-11 h-6 bg-[var(--bg-muted)] border border-[var(--border-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500 peer-checked:border-indigo-500"></div>
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="text-sm font-medium text-[var(--text-main)]">Can Assign Tasks</span>

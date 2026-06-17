@@ -280,7 +280,7 @@ const Dashboard: React.FC = () => {
                             activities.slice(0, 5).map((activity, i) => (
                                 <div 
                                     key={i} 
-                                    className="flex items-center gap-4 p-4 rounded-xl bg-[var(--card-bg)] hover:bg-purple-500/[0.05] transition-colors cursor-pointer group border border-[var(--border-color)]"
+                                    className="flex items-center gap-4 p-4 rounded-xl bg-[var(--card-bg)] hover:bg-purple-500/[0.05] transition cursor-pointer group border border-[var(--border-color)]"
                                     onClick={() => activity.link && navigate(activity.link)}
                                 >
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${
@@ -297,14 +297,14 @@ const Dashboard: React.FC = () => {
                                         )}
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-sm font-bold text-[var(--text-main)] group-hover:text-purple-600 dark:group-hover:text-purple-300 transition-colors uppercase tracking-tight">
+                                        <p className="text-sm font-bold text-[var(--text-main)] group-hover:text-purple-600 dark:group-hover:text-purple-300 transition uppercase tracking-tight">
                                             {activity.description}
                                         </p>
                                         <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mt-1">
                                             {new Date(activity.created_at).toLocaleDateString()}
                                         </p>
                                     </div>
-                                    <ArrowRight size={16} className="text-[var(--text-muted)] group-hover:text-purple-500 group-hover:translate-x-1 transition-all" />
+                                    <ArrowRight size={16} className="text-[var(--text-muted)] group-hover:text-purple-500 group-hover:translate-x-1 transition" />
                                 </div>
                             ))
                         ) : (
@@ -328,7 +328,7 @@ const Dashboard: React.FC = () => {
                             alerts.map((alert, i) => (
                                 <div 
                                     key={i} 
-                                    className={`p-4 rounded-xl border transition-all ${alert.link ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]' : ''} ${
+                                    className={`p-4 rounded-xl border transition ${alert.link ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]' : ''} ${
                                         alert.type === 'critical' ? 'bg-red-500/10 border-red-500/20 group hover:border-red-500/40' :
                                         alert.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20 group hover:border-amber-500/40' :
                                         alert.type === 'insight' ? 'bg-indigo-500/10 border-indigo-500/20 group hover:border-indigo-500/40' :

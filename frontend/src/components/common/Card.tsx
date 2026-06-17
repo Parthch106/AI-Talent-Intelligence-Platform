@@ -48,7 +48,7 @@ const Card: React.FC<CardProps> = ({
         <div
             onClick={onClick}
             className={`
-                relative ${overflowVisible ? 'overflow-visible' : 'overflow-hidden'} rounded-3xl border transition-all duration-500
+                relative ${overflowVisible ? 'overflow-visible' : 'overflow-hidden'} rounded-3xl border transition duration-500
                 ${variantStyles[variant]}
                 ${hover ? 'cursor-pointer hover:border-purple-500/30 hover:bg-[var(--card-bg)] hover:shadow-[0_0_30px_rgba(168,85,247,0.1)] hover:-translate-y-1' : ''}
                 ${paddingClasses[padding]}
@@ -67,7 +67,7 @@ const Card: React.FC<CardProps> = ({
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-4">
                             {icon && (
-                                <div className="p-3 bg-[var(--card-bg)] rounded-2xl border border-[var(--border-color)] shadow-xl group/card-icon transition-all duration-500 hover:border-purple-500/30">
+                                <div className="p-3 bg-[var(--card-bg)] rounded-2xl border border-[var(--border-color)] shadow-xl group/card-icon transition duration-500 hover:border-purple-500/30">
                                     <div className="text-purple-400 group-hover/card-icon:scale-110 transition-transform">
                                         {icon}
                                     </div>

@@ -294,8 +294,7 @@ const MyAttendance: React.FC = () => {
 
 
     return (
-        <div className="space-y-10 animate-fade-in pb-12">
-            <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto px-8 py-8">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -443,14 +442,14 @@ const MyAttendance: React.FC = () => {
 
                 {/* Attendance Heatmap */}
                 <Card className="mb-6 p-4">
-                        <AttendanceHeatmap
-                            data={heatmapLoading ? {} : heatmapData}
-                            year={selectedYear}
-                            title="Attendance Overview"
-                            onCellClick={(date) => {
-                                handleAttendanceAction('check-in', date);
-                            }}
-                        />
+                    <AttendanceHeatmap
+                        data={heatmapLoading ? {} : heatmapData}
+                        year={selectedYear}
+                        title="Attendance Overview"
+                        onCellClick={(date) => {
+                            if (!heatmapLoading) handleAttendanceAction('check-in', date);
+                        }}
+                    />
                 </Card>
 
                 {/* Filter Section */}
@@ -614,7 +613,6 @@ const MyAttendance: React.FC = () => {
                         </div>
                     )}
                 </div>
-            </div>
         </div>
     );
 };

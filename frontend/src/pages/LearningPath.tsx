@@ -632,8 +632,8 @@ const LearningPath: React.FC = () => {
                 {/* Skills Map Accordion */}
                 <div className="group relative rounded-3xl bg-[var(--bg-muted)] border border-[var(--border-color)] backdrop-blur-2xl overflow-hidden transition-all duration-500 hover:border-violet-500/30">
                     <button 
-                        onClick={() => setShowSkillsMap(!showSkillsMap)}
-                        className="w-full p-6 flex items-center justify-between hover:bg-[var(--bg-muted)]/80 transition-all duration-300"
+                        onClick={() => React.startTransition(() => setShowSkillsMap(!showSkillsMap))}
+                        className="w-full p-6 flex items-center justify-between hover:bg-[var(--bg-muted)]/80 transition-colors duration-300"
                     >
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 flex items-center justify-center border border-indigo-500/30 group-hover:scale-110 transition-transform shadow-lg shadow-indigo-500/5">

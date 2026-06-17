@@ -56,13 +56,22 @@ const WeeklyReportsInternPage: React.FC = () => {
   const autoReports = reports.filter(r => r.is_auto_generated);
   const selfReports = reports.filter(r => !r.is_auto_generated);
 
-
+  if (loading && reports.length === 0) {
+      return (
+          <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="flex flex-col items-center gap-4">
+                  <LoadingSpinner />
+                  <p className="text-[var(--text-dim)] animate-pulse uppercase text-xs font-black tracking-widest">Retrieving Weekly Logs...</p>
+              </div>
+          </div>
+      );
+  }
 
   const stats = [
-    { title: 'System Reports', value: loading ? <div className="w-12 h-10 bg-[var(--bg-muted)] animate-pulse rounded inline-block mt-2" /> : autoReports.length, icon: <Activity size={24} />, gradient: 'from-blue-500 to-indigo-500' },
-    { title: 'Self Reports', value: loading ? <div className="w-12 h-10 bg-[var(--bg-muted)] animate-pulse rounded inline-block mt-2" /> : selfReports.length, icon: <FileText size={24} />, gradient: 'from-emerald-500 to-teal-500' },
-    { title: 'Red Flags', value: loading ? <div className="w-12 h-10 bg-[var(--bg-muted)] animate-pulse rounded inline-block mt-2" /> : reports.filter(r => r.red_flag).length, icon: <AlertCircle size={24} />, gradient: 'from-red-500 to-rose-500' },
-    { title: 'Mismatches', value: loading ? <div className="w-12 h-10 bg-[var(--bg-muted)] animate-pulse rounded inline-block mt-2" /> : reports.filter(r => r.self_report_mismatch).length, icon: <RefreshCw size={24} />, gradient: 'from-amber-500 to-orange-500' },
+    { title: 'System Reports', value: autoReports.length, icon: <Activity size={24} />, gradient: 'from-blue-500 to-indigo-500' },
+    { title: 'Self Reports', value: selfReports.length, icon: <FileText size={24} />, gradient: 'from-emerald-500 to-teal-500' },
+    { title: 'Red Flags', value: reports.filter(r => r.red_flag).length, icon: <AlertCircle size={24} />, gradient: 'from-red-500 to-rose-500' },
+    { title: 'Mismatches', value: reports.filter(r => r.self_report_mismatch).length, icon: <RefreshCw size={24} />, gradient: 'from-amber-500 to-orange-500' },
   ];
 
   return (
