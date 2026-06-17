@@ -217,8 +217,15 @@ SITE_NAME = os.environ.get('SITE_NAME', COMPANY_NAME)
 
 
 # Celery configuration adjustments
-CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+REDIS_URL = os.environ.get('REDIS_URL')
+if REDIS_URL:
+    CELERY_BROKER_URL = REDIS_URL
+    CELERY_RESULT_BACKEND = REDIS_URL
+else:
+    # Fallback to run tasks synchronously if no Redis is configured (for free tier)
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_STORE_EAGER_RESULT = True
+
 CELERY_TIMEZONE = 'Asia/Kolkata'
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
@@ -348,14 +355,22 @@ EMAIL_SENDER.use_jinja = False
 # =============================================================================
 # Cache Settings (Redis)
 # =============================================================================
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0"),
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "KEY_PREFIX": "aims",
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "KEY_PREFIX": "aims",
+            }
         }
     }
-}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "aims-cache",
+        }
+    }
 
