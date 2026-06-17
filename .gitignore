@@ -27,10 +27,7 @@ Thumbs.db
 
 # Project Specific (Non-recommended files for version control)
 *.md
-<<<<<<< HEAD
 !README.md
-=======
->>>>>>> d8502aa2ed328b80d4f55df27d9b7410e51ff00e
 *.csv
 .fallow/
 Temp/
