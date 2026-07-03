@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { UserPlus, Search, Shield, Building, X, Trash2, ChevronDown, ChevronUp, Save, Upload, Download, FileText } from 'lucide-react';
+import { UserPlus, Search, Shield, Building, X, Trash2, ChevronDown, ChevronUp, Save } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
-import Modal from '../components/common/Modal';
 
 interface AdminUser {
     id: number;
@@ -20,21 +20,17 @@ interface AdminUser {
 
 const AdminManagement: React.FC = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [admins, setAdmins] = useState<AdminUser[]>([]);
     const [departments, setDepartments] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
+        const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     
     // Bulk Upload States
-    const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
-    const [uploadFile, setUploadFile] = useState<File | null>(null);
-    const [uploading, setUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
+    
+            
     const [adminFormData, setAdminFormData] = useState({
         email: '',
         full_name: '',
@@ -118,8 +114,7 @@ const AdminManagement: React.FC = () => {
                 await api.post('/accounts/managers/', adminFormData);
                 toast.success('Admin created successfully');
             }
-            setShowAddModal(false);
-            setAdminFormData({ email: '', full_name: '', password: '', department: '', can_create_project: true, can_assign_tasks: true });
+                        setAdminFormData({ email: '', full_name: '', password: '', department: '', can_create_project: true, can_assign_tasks: true });
             setEditingAdminId(null);
             fetchAdmins();
         } catch (err) {
@@ -170,75 +165,6 @@ const AdminManagement: React.FC = () => {
         return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'NA';
     };
 
-    const handleDownloadTemplate = () => {
-        const headers = ['email', 'full_name', 'department', 'can_create_project', 'can_assign_tasks'];
-        const csvContent = 'data:text/csv;charset=utf-8,' + headers.join(',') + '\n' +
-            'manager1@example.com,John Doe,Development (Web/Application),true,true\n' +
-            'manager2@example.com,Jane Smith,,,';
-            
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement('a');
-        link.setAttribute('href', encodedUri);
-        link.setAttribute('download', 'admin_bulk_upload_template.csv');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    const handleBulkUpload = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!uploadFile) {
-            toast.error('Please select a file to upload');
-            return;
-        }
-
-        setUploading(true);
-        setUploadProgress(0);
-        
-        // Simulate progress for UI engagement
-        const progressInterval = setInterval(() => {
-            setUploadProgress(prev => {
-                if (prev >= 90) return prev;
-                return prev + Math.floor(Math.random() * 10) + 5;
-            });
-        }, 300);
-
-        const formData = new FormData();
-        formData.append('file', uploadFile);
-
-        const uploadPromise = api.post('/accounts/managers/bulk-upload/', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        
-        toast.promise(uploadPromise, {
-            loading: 'Uploading and creating admins...',
-            success: (response) => {
-                clearInterval(progressInterval);
-                setUploadProgress(100);
-                setTimeout(() => {
-                    fetchAdmins();
-                    setShowBulkUploadModal(false);
-                    setUploadFile(null);
-                    setUploading(false);
-                    setUploadProgress(0);
-                }, 500);
-                
-                let msg = response.data.message || 'Admins uploaded successfully';
-                if (response.data.errors && response.data.errors.length > 0) {
-                    msg += ` (${response.data.errors.length} skipped)`;
-                    console.warn('Upload errors:', response.data.errors);
-                }
-                return msg;
-            },
-            error: (err) => {
-                clearInterval(progressInterval);
-                setUploading(false);
-                setUploadProgress(0);
-                return err.response?.data?.error || 'Failed to upload admins';
-            }
-        });
-    };
-
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -271,18 +197,7 @@ const AdminManagement: React.FC = () => {
                 </div>
                 <div className="flex gap-3">
                     <Button 
-                        onClick={() => setShowBulkUploadModal(true)}
-                        variant="outline"
-                        icon={<Upload size={18} />}
-                    >
-                        Bulk Upload
-                    </Button>
-                    <Button 
-                        onClick={() => {
-                            setEditingAdminId(null);
-                            setAdminFormData({ email: '', full_name: '', password: '', department: '', can_create_project: true, can_assign_tasks: true });
-                            setShowAddModal(true);
-                        }} 
+                        onClick={() => navigate('/management/admins/create')} 
                         gradient="blue" 
                         icon={<UserPlus size={18} />}
                     >
@@ -551,272 +466,7 @@ const AdminManagement: React.FC = () => {
                 )}
             </div>
 
-            {/* Create Admin Modal */}
-            <Modal
-                isOpen={showAddModal}
-                onClose={() => setShowAddModal(false)}
-                title="Create New Admin"
-                size="md"
-                gradient="blue"
-            >
-                <form onSubmit={handleSubmitAdmin} className="space-y-6">
-                    {error && (
-                        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
-                            <X size={16} />
-                            {error}
-                        </div>
-                    )}
-                    
-                    <div className="space-y-4">
-                        <div className="group">
-                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Full Name *</label>
-                            <input
-                                type="text"
-                                required
-                                value={adminFormData.full_name}
-                                onChange={e => setAdminFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-                                placeholder="Admin Name"
-                            />
-                        </div>
-
-                        <div className="group">
-                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Email *</label>
-                            <input
-                                type="email"
-                                required
-                                value={adminFormData.email}
-                                onChange={e => setAdminFormData(prev => ({ ...prev, email: e.target.value }))}
-                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-                                placeholder="admin@example.com"
-                            />
-                        </div>
-
-                        <div className="group">
-                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Password *</label>
-                            <input
-                                type="password"
-                                required
-                                minLength={8}
-                                value={adminFormData.password}
-                                onChange={e => setAdminFormData(prev => ({ ...prev, password: e.target.value }))}
-                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-                                placeholder="••••••••"
-                            />
-                            <p className="text-xs text-[var(--text-muted)] mt-1">Minimum 8 characters</p>
-                        </div>
-
-                        <div className="group">
-                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Department</label>
-                            
-                            {adminFormData.department && (
-                                <div className="flex flex-wrap gap-2 mb-3">
-                                    {adminFormData.department.split(',').map(d => d.trim()).filter(Boolean).map(dept => (
-                                        <Badge key={dept} variant="purple" className="flex items-center gap-1.5 px-2 py-1">
-                                            {dept}
-                                            <button 
-                                                type="button" 
-                                                onClick={() => {
-                                                    const newDepts = adminFormData.department.split(',').map(d => d.trim()).filter(d => d && d !== dept);
-                                                    setAdminFormData(prev => ({ ...prev, department: newDepts.join(', ') }));
-                                                }}
-                                                className="hover:text-red-400 transition-colors"
-                                            >
-                                                <X size={12} />
-                                            </button>
-                                        </Badge>
-                                    ))}
-                                </div>
-                            )}
-
-                            <div className="flex gap-2">
-                                <div className="relative flex-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => setOpenDeptDropdown(openDeptDropdown === 'modal' ? null : 'modal')}
-                                        className="w-full flex items-center gap-3 pl-12 pr-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-muted)] hover:border-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all"
-                                    >
-                                        <Building size={18} className="absolute left-4 text-[var(--text-muted)]" />
-                                        <span className="flex-1 text-left">Add a department...</span>
-                                        <ChevronDown size={16} className={`text-[var(--text-muted)] transition-transform duration-200 ${openDeptDropdown === 'modal' ? 'rotate-180' : ''}`} />
-                                    </button>
-
-                                    {openDeptDropdown === 'modal' && (
-                                        <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-[var(--bg-color)] border border-indigo-500/30 rounded-xl shadow-2xl shadow-black/40 overflow-hidden animate-scale-in">
-                                            <div className="py-1 max-h-[240px] overflow-y-auto custom-scrollbar">
-                                                {departments.map(dept => {
-                                                    const currentDepts = adminFormData.department.split(',').map(d => d.trim()).filter(Boolean);
-                                                    const isSelected = currentDepts.includes(dept);
-                                                    return (
-                                                        <button
-                                                            key={dept}
-                                                            type="button"
-                                                            onClick={() => {
-                                                                if (!isSelected) {
-                                                                    setAdminFormData(prev => ({ ...prev, department: [...currentDepts, dept].join(', ') }));
-                                                                }
-                                                                setOpenDeptDropdown(null);
-                                                            }}
-                                                            className={`w-full flex items-center justify-between px-4 py-3 text-sm transition-all ${
-                                                                isSelected
-                                                                    ? 'text-indigo-400 bg-indigo-500/10 cursor-default'
-                                                                    : 'text-[var(--text-main)] hover:bg-indigo-500/10 hover:text-indigo-300'
-                                                            }`}
-                                                        >
-                                                            <span>{dept}</span>
-                                                            {isSelected && (
-                                                                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                                            )}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            
-                        </div>
-
-                        <div className="pt-4 border-t border-[var(--border-color)] space-y-4">
-                            <h3 className="text-sm font-semibold text-[var(--text-main)]">Access Permissions</h3>
-                            
-                            <label className="flex items-center gap-3 cursor-pointer group">
-                                <div className="relative flex items-center">
-                                    <input 
-                                        type="checkbox"
-                                        className="sr-only peer"
-                                        checked={adminFormData.can_create_project}
-                                        onChange={(e) => setAdminFormData(prev => ({ ...prev, can_create_project: e.target.checked }))}
-                                    />
-                                    <div className="w-11 h-6 bg-[var(--bg-muted)] border border-[var(--border-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500 peer-checked:border-indigo-500"></div>
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-medium text-[var(--text-main)]">Can Create Projects</span>
-                                    <span className="text-xs text-[var(--text-dim)]">Allow this admin to create new projects and define modules.</span>
-                                </div>
-                            </label>
-
-                            <label className="flex items-center gap-3 cursor-pointer group">
-                                <div className="relative flex items-center">
-                                    <input 
-                                        type="checkbox"
-                                        className="sr-only peer"
-                                        checked={adminFormData.can_assign_tasks}
-                                        onChange={(e) => setAdminFormData(prev => ({ ...prev, can_assign_tasks: e.target.checked }))}
-                                    />
-                                    <div className="w-11 h-6 bg-[var(--bg-muted)] border border-[var(--border-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500 peer-checked:border-indigo-500"></div>
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-medium text-[var(--text-main)]">Can Assign Tasks</span>
-                                    <span className="text-xs text-[var(--text-dim)]">Allow this admin to assign interns to projects and tasks.</span>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                        <Button type="button" variant="ghost" onClick={() => setShowAddModal(false)} fullWidth>
-                            Cancel
-                        </Button>
-                        <Button type="submit" gradient="blue" loading={submitting} fullWidth>
-                            Create Admin
-                        </Button>
-                    </div>
-                </form>
-            </Modal>
-
-            {/* Bulk Upload Modal */}
-            <Modal
-                isOpen={showBulkUploadModal}
-                onClose={() => {
-                    setShowBulkUploadModal(false);
-                    setUploadFile(null);
-                }}
-                title="Bulk Upload Admins"
-                size="md"
-            >
-                <div className="space-y-6">
-                    <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4">
-                        <div className="flex gap-3">
-                            <FileText className="text-indigo-400 shrink-0" size={20} />
-                            <div>
-                                <h3 className="text-sm font-bold text-indigo-400 mb-1">CSV Format Required</h3>
-                                <p className="text-xs text-[var(--text-dim)] mb-3">
-                                    Required headers: <code className="text-indigo-300">email</code>, <code className="text-indigo-300">full_name</code>.<br/>
-                                    Optional headers: <code className="text-indigo-300">department</code>, <code className="text-indigo-300">can_create_project</code>, <code className="text-indigo-300">can_assign_tasks</code>.
-                                </p>
-                                <Button 
-                                    onClick={handleDownloadTemplate} 
-                                    variant="outline" 
-                                    size="sm" 
-                                    icon={<Download size={14} />}
-                                >
-                                    Download Template
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <form onSubmit={handleBulkUpload} className="space-y-4">
-                        <div className="group">
-                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">CSV File *</label>
-                            {uploading ? (
-                                <div className="relative border-2 border-dashed border-[var(--border-color)] rounded-xl p-8 text-center transition-all duration-300">
-                                    <div className="max-w-xs mx-auto">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-sm font-medium text-[var(--text-main)]">Uploading...</span>
-                                            <span className="text-sm font-bold text-blue-400">{uploadProgress}%</span>
-                                        </div>
-                                        <div className="w-full h-3 bg-[var(--bg-muted)] rounded-full overflow-hidden shadow-inner">
-                                            <div 
-                                                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300 ease-out relative"
-                                                style={{ width: `${uploadProgress}%` }}
-                                            >
-                                                <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
-                                            </div>
-                                        </div>
-                                        <p className="text-xs text-[var(--text-muted)] mt-4 animate-pulse">Processing bulk records and generating secure access tokens...</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div 
-                                    className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 cursor-pointer group ${uploadFile ? 'border-green-500 bg-green-500/5' : 'border-[var(--border-color)] hover:border-indigo-500/50'}`}
-                                    onClick={() => fileInputRef.current?.click()}
-                                >
-                                    <input 
-                                        type="file" 
-                                        accept=".csv" 
-                                        className="hidden" 
-                                        ref={fileInputRef}
-                                        onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                                    />
-                                    
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors ${uploadFile ? 'bg-green-500/20 text-green-500' : 'bg-[var(--bg-muted)] group-hover:bg-indigo-500/10 text-[var(--text-muted)] group-hover:text-indigo-400'}`}>
-                                        <Upload size={24} />
-                                    </div>
-                                    
-                                    <h4 className={`text-sm font-bold mb-1 ${uploadFile ? 'text-green-500' : 'text-[var(--text-main)]'}`}>
-                                        {uploadFile ? uploadFile.name : 'Click to select CSV file'}
-                                    </h4>
-                                    <p className={`text-xs ${uploadFile ? 'text-green-500/80 font-medium' : 'text-[var(--text-dim)]'}`}>
-                                        {uploadFile ? 'File uploaded and ready!' : 'Only .csv files are supported'}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex gap-3 pt-2">
-                            <Button type="button" variant="ghost" onClick={() => { setShowBulkUploadModal(false); setUploadFile(null); }} fullWidth>
-                                Cancel
-                            </Button>
-                            <Button type="submit" gradient="blue" loading={uploading} disabled={!uploadFile} fullWidth>
-                                Upload & Create
-                            </Button>
-                        </div>
-                    </form>
-                </div>
-            </Modal>
+            
         </div>
     );
 };

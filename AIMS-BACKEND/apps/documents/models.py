@@ -56,6 +56,10 @@ class Document(models.Model):
     BULK_USER_UPLOAD = 'BULK_USER_UPLOAD', 'Bulk User Upload CSV'
     ROLE_CONFIG = 'ROLE_CONFIG', 'Role Configuration'
     
+    # Contextual evidence types
+    FEEDBACK_EVIDENCE = 'FEEDBACK_EVIDENCE', 'Feedback Evidence'
+    TASK_COMMENT_EVIDENCE = 'TASK_COMMENT_EVIDENCE', 'Task Comment Evidence'
+    
     TYPE_CHOICES = [
         # Intern types
         ('RESUME', 'Resume'),
@@ -91,6 +95,10 @@ class Document(models.Model):
         ('AUDIT_LOG', 'Audit Log'),
         ('BULK_USER_UPLOAD', 'Bulk User Upload CSV'),
         ('ROLE_CONFIG', 'Role Configuration'),
+        
+        # Contextual evidence types
+        ('FEEDBACK_EVIDENCE', 'Feedback Evidence'),
+        ('TASK_COMMENT_EVIDENCE', 'Task Comment Evidence'),
         
         # Common types
         ('OFFER_LETTER', 'Offer Letter'),

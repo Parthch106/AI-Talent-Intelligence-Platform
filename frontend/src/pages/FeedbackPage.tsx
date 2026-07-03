@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { MessageSquare, Plus, Star, User, Calendar, ThumbsUp, TrendingUp, CheckCircle, Target, Clock, AlertTriangle } from 'lucide-react';
-import Modal from '../components/common/Modal';
+import { MessageSquare, Plus, Star, User, Calendar, ThumbsUp, TrendingUp, CheckCircle, Target, Clock } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import { CustomSelect } from '../components/common';
-import toast from 'react-hot-toast';
+import 'react-quill-new/dist/quill.snow.css';
 
 interface User {
     id: number;
@@ -69,17 +69,8 @@ interface Feedback {
     is_read: boolean;
     read_at: string | null;
     created_at: string;
-}
-
-interface NewFeedback {
-    recipient_id: number;
-    task_id?: number;
-    feedback_type: string;
-    task_status?: string;
-    rating: number;
-    comments: string;
-    strengths: string;
-    areas_for_improvement: string;
+    replies?: { id: number; reviewer: User; comments: string; created_at: string; evidences_details?: { id: number; title: string; document_type: string; url: string }[] }[];
+    evidences_details?: { id: number; title: string; document_type: string; url: string }[];
 }
 
 // Helper function to get task status badge
@@ -145,14 +136,15 @@ const getTaskTrackingBadge = (status: string | null) => {
 
 const FeedbackPage: React.FC = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [feedback, setFeedback] = useState<Feedback[]>([]);
-    const [interns, setInterns] = useState<User[]>([]);
-    const [managers, setManagers] = useState<User[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [showModal, setShowModal] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState('');
-    const [activeTab, setActiveTab] = useState<'given' | 'received'>('given');
+            const [loading, setLoading] = useState(true);
+                const [activeTab, setActiveTab] = useState<'given' | 'received'>('given');
+
+    // Reply state
+    const [replyingToId, setReplyingToId] = useState<number | null>(null);
+    const [replyText, setReplyText] = useState('');
+    const [sendingReply, setSendingReply] = useState(false);
 
     // Filtering and sorting state
     const [feedbackTypeFilter, setFeedbackTypeFilter] = useState<string>('all');
@@ -160,17 +152,9 @@ const FeedbackPage: React.FC = () => {
     const [ratingFilter, setRatingFilter] = useState<string>('all');
     const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'rating_high' | 'rating_low'>('newest');
     const [searchQuery, setSearchQuery] = useState('');
-
-    const [newFeedback, setNewFeedback] = useState<NewFeedback>({
-        recipient_id: 0,
-        feedback_type: 'WEEKLY',
-        task_status: '',
-        rating: 5,
-        comments: '',
-        strengths: '',
-        areas_for_improvement: '',
-    });
-
+        
+    
+    
     const fetchData = async () => {
         try {
             const feedbackRes = await api.get('/feedback/');
@@ -179,18 +163,15 @@ const FeedbackPage: React.FC = () => {
 // Fetch interns based on role
             if (user?.role === 'MANAGER') {
                 const internsRes = await api.get('/interns/department-interns/');
-                setInterns(internsRes.data);
-            } else {
+                            } else {
                 const internsRes = await api.get('/accounts/users/?role=INTERN');
-                setInterns(internsRes.data);
-            }
+                            }
 
             // For admin, also fetch managers
             if (user?.role === 'ADMIN') {
                 const managersRes = await api.get('/accounts/users/');
                 const allManagers = managersRes.data.filter((u: User) => u.role === 'MANAGER');
-                setManagers(allManagers);
-            }
+                            }
         } catch (error) {
             console.error('Failed to fetch data', error);
         } finally {
@@ -203,39 +184,31 @@ const FeedbackPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.role]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSubmitting(true);
-        setError('');
-
-        const feedbackData = {
-            ...newFeedback,
-            ...(newFeedback.feedback_type !== 'TASK' && { task_status: null }),
-        };
-
-        toast.promise(api.post('/feedback/', feedbackData), {
-            loading: 'Synthesizing and transmitting feedback review...',
-            success: () => {
-                setShowModal(false);
-                setNewFeedback({
-                    recipient_id: 0,
-                    feedback_type: 'WEEKLY',
-                    task_status: '',
-                    rating: 5,
-                    comments: '',
-                    strengths: '',
-                    areas_for_improvement: '',
-                });
-                fetchData();
-                setSubmitting(false);
-                return 'Performance feedback successfully archived';
-            },
-            error: (err) => {
-                setSubmitting(false);
-                return (err as Error).message || 'Failed to archive feedback';
-            }
-        });
+    const sendReply = async (parentFeedback: Feedback) => {
+        if (!replyText.trim()) return;
+        setSendingReply(true);
+        try {
+            const recipientId = parentFeedback.reviewer.id === user?.id
+                ? parentFeedback.recipient.id
+                : parentFeedback.reviewer.id;
+            await api.post('/feedback/', {
+                parent_feedback_id: parentFeedback.id,
+                recipient_id: recipientId,
+                feedback_type: parentFeedback.feedback_type,
+                comments: replyText.trim(),
+                task_id: parentFeedback.task?.id ?? null,
+                project_id: parentFeedback.project?.id ?? null,
+            });
+            setReplyingToId(null);
+            setReplyText('');
+            fetchData();
+        } catch (err) {
+            console.error('Failed to send reply', err);
+        } finally {
+            setSendingReply(false);
+        }
     };
+
 
     const getFeedbackBadge = (type: string) => {
         switch (type) {
@@ -330,14 +303,7 @@ const FeedbackPage: React.FC = () => {
     const givenCount = feedback.filter(f => f.reviewer.id === user?.id).length;
     const receivedCount = feedback.filter(f => f.recipient.id === user?.id).length;
 
-    const getRecipients = () => {
-        if (user?.role === 'ADMIN') {
-            return [...interns, ...managers];
-        }
-        return interns;
-    };
-
-    return (
+        return (
         <div className="space-y-6 animate-fade-in">
             {/* Page Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -349,7 +315,7 @@ const FeedbackPage: React.FC = () => {
                 </div>
                 {canGiveFeedback && (
                     <Button
-                        onClick={() => setShowModal(true)}
+                        onClick={() => navigate('/directory/feedback/create')}
                         gradient="purple"
                         icon={<Plus size={18} />}
                     >
@@ -474,7 +440,7 @@ const FeedbackPage: React.FC = () => {
                         </p>
                         {activeTab === 'given' && canGiveFeedback && (
                             <Button
-                                onClick={() => setShowModal(true)}
+                                onClick={() => navigate('/directory/feedback/create')}
                                 gradient="purple"
                                 icon={<Plus size={18} />}
                             >
@@ -630,8 +596,46 @@ const FeedbackPage: React.FC = () => {
 
                             {/* Comments */}
                             <div className="mt-4 p-4 bg-[var(--bg-muted)] rounded-xl border border-[var(--border-color)]">
-                                <p className="text-[var(--text-main)]">{item.comments}</p>
+                                <div className="text-[var(--text-main)] prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: item.comments }} />
                             </div>
+
+                            {/* Evidences */}
+                            {item.evidences_details && item.evidences_details.length > 0 && (
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                    {item.evidences_details.map(ev => (
+                                        <a key={ev.id} href={ev.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-lg text-sm hover:bg-purple-500/20 transition-colors">
+                                            <span className="font-medium truncate max-w-[200px]">{ev.title}</span>
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Replies */}
+                            {item.replies && item.replies.length > 0 && (
+                                <div className="mt-4 pl-4 border-l-2 border-purple-500/30 space-y-3">
+                                    <h4 className="text-xs font-semibold text-[var(--text-dim)] uppercase tracking-wider">Replies</h4>
+                                    {item.replies.map(reply => (
+                                        <div key={reply.id} className="p-3 bg-[var(--bg-muted)]/50 rounded-xl">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="font-medium text-[var(--text-main)] text-sm">{reply.reviewer.full_name}</span>
+                                                <span className="text-xs text-[var(--text-dim)]">
+                                                    {new Date(reply.created_at).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                            <div className="text-sm text-[var(--text-dim)] prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: reply.comments }} />
+                                            {reply.evidences_details && reply.evidences_details.length > 0 && (
+                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                    {reply.evidences_details.map(ev => (
+                                                        <a key={ev.id} href={ev.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2 py-1 bg-purple-500/5 text-purple-600 dark:text-purple-400 rounded-md text-xs hover:bg-purple-500/10 transition-colors">
+                                                            <span className="font-medium truncate max-w-[150px]">{ev.title}</span>
+                                                        </a>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
                             {/* Strengths & Improvements */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -655,164 +659,32 @@ const FeedbackPage: React.FC = () => {
                                 )}
                             </div>
 
-                            {/* Date */}
-                            <div className="flex items-center justify-end gap-2 mt-4 text-sm text-[var(--text-muted)]">
-                                <Calendar size={14} />
-                                {new Date(item.created_at).toLocaleDateString('en-US', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                })}
+                            {/* Date and Actions */}
+                            <div className="flex items-center justify-between mt-4">
+                                <div>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => navigate(`/directory/feedback/${item.id}/reply`)}
+                                    >
+                                        Reply
+                                    </Button>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+                                    <Calendar size={14} />
+                                    {new Date(item.created_at).toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                    })}
+                                </div>
                             </div>
                         </Card>
                     ))
                 )}
             </div>
 
-            {/* Give Feedback Modal */}
-            <Modal
-                isOpen={showModal}
-                onClose={() => setShowModal(false)}
-                title="Give Feedback"
-                size="md"
-                gradient="purple"
-            >
-                <form onSubmit={handleSubmit} className="space-y-5">
-                    {error && (
-                        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
-                            <AlertTriangle size={16} />
-                            {error}
-                        </div>
-                    )}
-
-                    <div className="group">
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">
-                            {user?.role === 'ADMIN' ? 'Recipient (Manager or Intern)' : 'Recipient (Intern)'} *
-                        </label>
-                        <CustomSelect
-                            options={[
-                                { value: '', label: 'Select recipient...', disabled: true },
-                                ...getRecipients().map(u => ({ value: String(u.id), label: `${u.full_name} (${u.role})` }))
-                            ]}
-                            value={String(newFeedback.recipient_id || '')}
-                            onChange={(v) => setNewFeedback(prev => ({ ...prev, recipient_id: parseInt(v) }))}
-                            placeholder="Select recipient..."
-                            accent="purple"
-                            icon={<User size={16} />}
-                        />
-                    </div>
-
-                    <div className="group">
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Feedback Type *</label>
-                        <CustomSelect
-                            options={[
-                                { value: 'WEEKLY', label: 'Weekly Check-in' },
-                                { value: 'PROJECT', label: 'Project Review' },
-                                { value: 'MID_TERM', label: 'Mid-term Evaluation' },
-                                { value: 'FINAL', label: 'Final Evaluation' },
-                                { value: 'MANAGER_REVIEW', label: 'Manager Review' },
-                                { value: 'TASK', label: 'Task Feedback' },
-                            ]}
-                            value={newFeedback.feedback_type}
-                            onChange={(v) => setNewFeedback(prev => ({ ...prev, feedback_type: v }))}
-                            accent="purple"
-                        />
-                    </div>
-
-                    {/* Task Status - Show when TASK feedback type is selected */}
-                    {newFeedback.feedback_type === 'TASK' && (
-                        <div className="group">
-                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Task Status *</label>
-                            <CustomSelect
-                                options={[
-                                    { value: 'IN_PROGRESS', label: 'In Progress' },
-                                    { value: 'COMPLETED_APPROVED', label: 'Complete - Approved' },
-                                    { value: 'COMPLETED_REWORK', label: 'Complete - Needs Rework' },
-                                ]}
-                                value={newFeedback.task_status || 'IN_PROGRESS'}
-                                onChange={(v) => setNewFeedback(prev => ({ ...prev, task_status: v }))}
-                                accent="purple"
-                            />
-                        </div>
-                    )}
-
-                    <div className="group">
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-3">Rating *</label>
-                        <div className="flex items-center gap-2 bg-[var(--bg-muted)] p-4 rounded-xl border border-[var(--border-color)] justify-center">
-                            {[1, 2, 3, 4, 5].map(star => (
-                                <button
-                                    key={star}
-                                    type="button"
-                                    onClick={() => setNewFeedback(prev => ({ ...prev, rating: star }))}
-                                    className="p-1 transition-all hover:scale-110 active:scale-95"
-                                >
-                                    <Star
-                                        size={32}
-                                        fill={star <= newFeedback.rating ? '#f59e0b' : 'transparent'}
-                                        color="#f59e0b"
-                                        className={star <= newFeedback.rating ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'opacity-40'}
-                                    />
-                                </button>
-                            ))}
-                            <span className="ml-4 text-xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent w-8 text-center">{newFeedback.rating}</span>
-                        </div>
-                    </div>
-
-                    <div className="group">
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Comments *</label>
-                        <textarea
-                            required
-                            value={newFeedback.comments}
-                            onChange={e => setNewFeedback(prev => ({ ...prev, comments: e.target.value }))}
-                            rows={4}
-                            placeholder="Provide detailed feedback..."
-                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none font-medium text-sm"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="group">
-                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Strengths</label>
-                            <textarea
-                                value={newFeedback.strengths}
-                                onChange={e => setNewFeedback(prev => ({ ...prev, strengths: e.target.value }))}
-                                rows={3}
-                                placeholder="What they do well..."
-                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none font-medium text-xs text-emerald-400"
-                            />
-                        </div>
-                        <div className="group">
-                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Areas for Improvement</label>
-                            <textarea
-                                value={newFeedback.areas_for_improvement}
-                                onChange={e => setNewFeedback(prev => ({ ...prev, areas_for_improvement: e.target.value }))}
-                                rows={3}
-                                placeholder="What they can improve..."
-                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none font-medium text-xs text-amber-400"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setShowModal(false)}
-                            fullWidth
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            gradient="purple"
-                            disabled={submitting}
-                            fullWidth
-                        >
-                            {submitting ? 'Submitting...' : 'Submit Feedback'}
-                        </Button>
-                    </div>
-                </form>
-            </Modal>
+            
         </div>
     );
 };

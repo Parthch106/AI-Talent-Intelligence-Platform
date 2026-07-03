@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
     MessageSquare, X, Send, Bot, User, 
     Maximize2, Minimize2, 
@@ -20,17 +20,58 @@ const FloatingAIChatbot: React.FC = () => {
     const { user } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            role: 'assistant',
-            content: `Hello ${user?.full_name?.split(' ')[0] || 'there'}! I'm your AI Project Assistant. How can I help you navigate the Talent Intelligence Platform today?`,
-            timestamp: new Date()
-        }
-    ]);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Initial welcome message based on role
+    useEffect(() => {
+        if (user) {
+            const role = String(user.role).toUpperCase();
+            let welcome = `Hello ${user.full_name?.split(' ')[0] || 'there'}! I'm your AI Project Assistant. How can I help you navigate the Talent Intelligence Platform today?`;
+            if (role === 'ADMIN') {
+                welcome = `Hello ${user.full_name?.split(' ')[0]} (Admin)! I'm your AI Platform Assistant. You can ask me about platform statistics, team performance rankings, or pending admin actions!`;
+            } else if (role === 'MANAGER') {
+                welcome = `Hello ${user.full_name?.split(' ')[0]} (Manager)! I'm your AI Team Assistant. You can ask me about your team's tasks, pending weekly report reviews, or stipend status!`;
+            } else if (role === 'INTERN') {
+                welcome = `Hello ${user.full_name?.split(' ')[0]}! I'm your AI Personal Assistant. You can ask me about your completed tasks, attendance records, quality score, or learning path progress!`;
+            }
+            setMessages([
+                {
+                    role: 'assistant',
+                    content: welcome,
+                    timestamp: new Date()
+                }
+            ]);
+        }
+    }, [user]);
+
+    const suggestedQuestions = useMemo(() => {
+        if (!user) return [];
+        const role = String(user.role).toUpperCase();
+        if (role === 'ADMIN') {
+            return [
+                "Show active intern career stages",
+                "List top 5 performers",
+                "What actions need my attention?"
+            ];
+        } else if (role === 'MANAGER') {
+            return [
+                "Summarize my team's tasks",
+                "List my team members",
+                "Are there weekly reports to review?"
+            ];
+        } else if (role === 'INTERN') {
+            return [
+                "Show my task status summary",
+                "How is my attendance this month?",
+                "What is my latest quality score?"
+            ];
+        }
+        return [];
+    }, [user]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,23 +83,20 @@ const FloatingAIChatbot: React.FC = () => {
         }
     }, [messages, isOpen, isMinimized]);
 
-    const handleSendMessage = async (e?: React.FormEvent) => {
-        if (e) e.preventDefault();
-        if (!input.trim() || isLoading) return;
+    const sendChatMessage = async (text: string) => {
+        if (!text.trim() || isLoading) return;
 
         const userMessage: Message = {
             role: 'user',
-            content: input.trim(),
+            content: text.trim(),
             timestamp: new Date()
         };
 
         setMessages(prev => [...prev, userMessage]);
-        setInput('');
         setIsLoading(true);
         setError(null);
 
         try {
-            // Prepare history for backend (excluding system messages or excessive length)
             const history = messages
                 .filter(m => m.role !== 'system')
                 .slice(-10)
@@ -94,6 +132,13 @@ const FloatingAIChatbot: React.FC = () => {
         }
     };
 
+    const handleSendMessage = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        const text = input;
+        setInput('');
+        await sendChatMessage(text);
+    };
+
     const clearChat = () => {
         setMessages([
             {
@@ -115,6 +160,7 @@ const FloatingAIChatbot: React.FC = () => {
                         pointer-events-auto mb-4 w-96 max-w-[calc(100vw-3rem)] 
                         bg-[var(--card-bg)] backdrop-blur-3xl border border-[var(--border-color)] 
                         rounded-[32px] overflow-hidden shadow-2xl transition-all duration-300 origin-bottom-right
+                        flex flex-col
                         ${isMinimized ? 'h-16' : 'h-[600px] max-h-[calc(100vh-8rem)]'}
                     `}
                 >
@@ -128,7 +174,9 @@ const FloatingAIChatbot: React.FC = () => {
                                 <h3 className="text-sm font-black text-[var(--text-main)] tracking-tight">PROJECT ASSISTANT</h3>
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/80">Online</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/80">
+                                        {user?.role === 'ADMIN' ? 'Admin Mode' : user?.role === 'MANAGER' ? 'Manager Mode' : 'Intern Mode'}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -158,7 +206,7 @@ const FloatingAIChatbot: React.FC = () => {
                     {!isMinimized && (
                         <>
                             {/* Messages Area */}
-                            <div className="flex-1 overflow-y-auto p-4 space-y-4 h-[calc(100%-8.5rem)] custom-scrollbar bg-white/[0.01]">
+                            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-white/[0.01]">
                                 {messages.map((msg, idx) => (
                                     <div 
                                         key={idx} 
@@ -219,6 +267,25 @@ const FloatingAIChatbot: React.FC = () => {
                                 )}
                                 <div ref={messagesEndRef} />
                             </div>
+
+                            {/* Suggested Questions */}
+                            {!isMinimized && suggestedQuestions.length > 0 && messages.length <= 2 && (
+                                <div className="px-4 py-2 bg-[var(--bg-muted)]/30 border-t border-[var(--border-color)] flex flex-col gap-1.5 pointer-events-auto">
+                                    <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-wider">Suggested Questions</span>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {suggestedQuestions.map((q, idx) => (
+                                            <button
+                                                key={idx}
+                                                type="button"
+                                                onClick={() => sendChatMessage(q)}
+                                                className="text-[10px] font-bold text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 px-2 py-1 rounded-xl transition-all text-left pointer-events-auto"
+                                            >
+                                                {q}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Input Area */}
                             <form 

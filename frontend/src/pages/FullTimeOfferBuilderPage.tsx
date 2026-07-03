@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 
 const FullTimeOfferBuilderPage: React.FC = () => {
   const [offers, setOffers] = useState<FullTimeOffer[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [eligibleInterns, setEligibleInterns] = useState<any[]>([]);
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -21,7 +22,9 @@ const FullTimeOfferBuilderPage: React.FC = () => {
     response_deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   });
   const [departments, setDepartments] = useState<string[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [availableRoles, setAvailableRoles] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [filteredRoles, setFilteredRoles] = useState<any[]>([]);
 
   const loadData = useCallback(async () => {

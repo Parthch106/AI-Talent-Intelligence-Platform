@@ -42,6 +42,7 @@ const AIGeneratorPanel: React.FC<AIGeneratorPanelProps> = ({
     const [modules, setModules] = useState<{id: number; name: string}[]>([]);
     const [selectedModule, setSelectedModule] = useState<number | null>(null);
     const [taskContext, setTaskContext] = useState<string>('');
+    const [customDueDate, setCustomDueDate] = useState<string>('');
     const { interns } = useMonitoring();
     
     const [generating, setGenerating] = useState(false);
@@ -161,9 +162,9 @@ const AIGeneratorPanel: React.FC<AIGeneratorPanelProps> = ({
         const assignId = `${pathwayIndex}-${taskIndex}`;
         setAssigning(assignId);
         try {
-            const defaultDueDate = new Date();
-            defaultDueDate.setDate(defaultDueDate.getDate() + 7);
-            const formattedDueDate = defaultDueDate.toISOString();
+            const formattedDueDate = customDueDate 
+                ? new Date(customDueDate).toISOString() 
+                : (task.due_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString());
 
             await Promise.all(selectedInterns.map(async (internId) => {
                 let projectAssignmentId = undefined;
@@ -179,7 +180,7 @@ const AIGeneratorPanel: React.FC<AIGeneratorPanelProps> = ({
                     title: task.title,
                     description: task.description,
                     priority: task.priority,
-                    due_date: task.due_date || formattedDueDate,
+                    due_date: formattedDueDate,
                     estimated_hours: task.estimated_hours,
                     project_assignment_id: projectAssignmentId,
                     project_module_id: selectedModule || undefined,
@@ -212,9 +213,9 @@ const AIGeneratorPanel: React.FC<AIGeneratorPanelProps> = ({
         setAssigningPathway(pIdx);
 
         try {
-            const defaultDueDate = new Date();
-            defaultDueDate.setDate(defaultDueDate.getDate() + 7);
-            const formattedDueDate = defaultDueDate.toISOString();
+            const formattedDueDate = customDueDate 
+                ? new Date(customDueDate).toISOString() 
+                : (new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString());
 
             await toast.promise(
                 Promise.all(selectedInterns.map(async (internId) => {
@@ -229,7 +230,7 @@ const AIGeneratorPanel: React.FC<AIGeneratorPanelProps> = ({
                     return Promise.all(pathway.tasks.map(task => 
                         axios.post('/analytics/tasks/create/', {
                             ...task,
-                            due_date: task.due_date || formattedDueDate,
+                            due_date: customDueDate ? new Date(customDueDate).toISOString() : (task.due_date || formattedDueDate),
                             status: 'ASSIGNED',
                             intern_id: internId,
                             project_assignment_id: projectAssignmentId,
@@ -252,6 +253,7 @@ const AIGeneratorPanel: React.FC<AIGeneratorPanelProps> = ({
                     }
                 }
             );
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (err) {
             setAssigningPathway(null);
             toast.error("Failed to prepare pathway assignment");
@@ -348,6 +350,16 @@ const AIGeneratorPanel: React.FC<AIGeneratorPanelProps> = ({
                             placeholder="Describe the type of tasks you want AI to suggest..."
                             rows={3}
                             className="w-full px-3 py-2 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-purple-500 resize-none"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-medium text-[var(--text-dim)] mb-2">Set Due Date for Assigned Tasks (Optional)</label>
+                        <input
+                            type="date"
+                            value={customDueDate}
+                            onChange={(e) => setCustomDueDate(e.target.value)}
+                            className="w-full px-3 py-2 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-main)] focus:outline-none focus:border-purple-500"
                         />
                     </div>
 

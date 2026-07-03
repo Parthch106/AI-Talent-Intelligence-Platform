@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     BookOpen, Brain, CheckCircle2, Circle,
     Clock, TrendingUp, Zap, Target, AlertCircle, RefreshCw,
     Star, Activity, Layers, Play, BarChart3, Cpu, X,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ChevronDown, ClipboardList, Sparkles, Rocket, Loader2, CornerDownRight
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -294,40 +296,14 @@ const LearningPath: React.FC = () => {
     const [recommendation, setRecommendation] = useState<RLRecommendation | null>(null);
     const [optimalDiff, setOptimalDiff] = useState<OptimalDifficulty | null>(null);
     const [loadingRec, setLoadingRec] = useState(false);
-    const [loadingGenerate, setLoadingGenerate] = useState(false);
-    const [generationProgress, setGenerationProgress] = useState(0);
+    const navigate = useNavigate();
 
-    // Simulated progress when generating learning paths (tasks take a while to generate)
-    useEffect(() => {
-        let interval: any;
-        if (loadingGenerate) {
-            setGenerationProgress(5);
-            interval = setInterval(() => {
-                setGenerationProgress(prev => {
-                    if (prev >= 95) return prev;
-                    return prev + (95 - prev) * 0.1; // asymptotic to 95%
-                });
-            }, 500);
-        } else {
-            setGenerationProgress(100);
-            const timeout = setTimeout(() => setGenerationProgress(0), 500);
-            return () => clearTimeout(timeout);
-        }
-        return () => clearInterval(interval);
-    }, [loadingGenerate]);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [loadingPath, setLoadingPath] = useState(false);
     const [activeStatModal, setActiveStatModal] = useState<string | null>(null);
     const [activeMilestoneModal, setActiveMilestoneModal] = useState<Milestone | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [activeMilestoneIndex, setActiveMilestoneIndex] = useState<number | null>(null);
-    
-    // Custom Path States
-    const [availableSkills, setAvailableSkills] = useState<string[]>([]);
-    const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
-    const [customPathTitle, setCustomPathTitle] = useState('');
-    const [aiGoal, setAiGoal] = useState('');
-    const [isSuggesting, setIsSuggesting] = useState(false);
-    const [aiRationale, setAiRationale] = useState('');
-    const [basicsOnly, setBasicsOnly] = useState(false);
 
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loadingTasks, setLoadingTasks] = useState(false);
@@ -335,10 +311,10 @@ const LearningPath: React.FC = () => {
     const [taskPage, setTaskPage] = useState(1);
     const TASKS_PER_PAGE = 10;
     const [showSkillsMap, setShowSkillsMap] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [showGraphModal, setShowGraphModal] = useState(false);
-    const [targetRole, setTargetRole] = useState('');
-    const [jobRoles, setJobRoles] = useState<{id: number; role_title: string; role_description: string}[]>([]);
     const [error, setError] = useState('');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [successMsg, setSuccessMsg] = useState('');
 
     // Filter states
@@ -346,26 +322,14 @@ const LearningPath: React.FC = () => {
     const [projectFilter, setProjectFilter] = useState<string>('ALL');
     const [searchQuery, setSearchQuery] = useState<string>('');
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [isGeneratingTask, setIsGeneratingTask] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [isReviewingTask, setIsReviewingTask] = useState(false);
 
     const isManagerOrAdmin = user?.role === 'MANAGER' || user?.role === 'ADMIN';
     const effectiveInternId = activeInternId || (user?.role === 'INTERN' ? user.id : null);
 
-    // Fetch Job Roles for dropdown
-    useEffect(() => {
-        const fetchJobRoles = async () => {
-            try {
-                const res = await api.get('/analytics/job-roles/');
-                if (res.data?.job_roles) {
-                    setJobRoles(res.data.job_roles);
-                }
-            } catch (err: any) {
-                console.error('Failed to fetch job roles', err);
-            }
-        };
-        fetchJobRoles();
-    }, []);
 
     // fetchInterns is now handled by MonitoringContext
 
@@ -379,6 +343,7 @@ const LearningPath: React.FC = () => {
             } else {
                 setPath(res.data);
             }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
             if (err.response && err.response.status === 404) {
                 setPath(null); // Fallback for older backend versions
@@ -421,72 +386,12 @@ const LearningPath: React.FC = () => {
     const fetchAvailableSkills = useCallback(async () => {
         try {
             const response = await api.get('/analytics/skills/');
-            setAvailableSkills(response.data.skills);
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
             console.error("Error fetching skills:", err);
         }
     }, []);
 
-    const generatePath = async (type: 'role' | 'skill' = 'role') => {
-        if (!effectiveInternId) { setError('Select an intern first'); return; }
-        
-        if (type === 'role' && !targetRole.trim()) { 
-            setError(jobRoles.length > 0 ? 'Select a target role from the dropdown' : 'Enter a target role (e.g., BACKEND_DEVELOPER)'); 
-            return; 
-        }
-
-        if (type === 'skill' && selectedSkills.length === 0) {
-            setError('Please select at least one skill.');
-            return;
-        }
-
-        const payload = type === 'role' 
-            ? { target_role: targetRole }
-            : { type: 'skill', skills: selectedSkills, title: customPathTitle || 'Custom Skill Path', basics_only: basicsOnly };
-
-        const internIdNum = Number(effectiveInternId);
-        setLoadingGenerate(true);
-        toast.promise(
-            api.post(`/analytics/learning-path/${internIdNum}/`, payload).then(res => {
-                loadPath(internIdNum);
-                if (isManagerOrAdmin) fetchRecommendation(internIdNum);
-                return res;
-            }).finally(() => {
-                setLoadingGenerate(false);
-            }),
-            {
-                loading: 'Synthesizing adaptive roadmap through neural graph...',
-                success: type === 'role' ? 'Learning path successfully anchored' : 'Custom skill path successfully anchored',
-                error: 'Failed to synthesize adaptive roadmap'
-            }
-        );
-    };
-
-    const handleSuggestSkills = async () => {
-        if (!aiGoal) {
-            setError("Please enter a goal for the AI to analyze.");
-            return;
-        }
-        if (!effectiveInternId) { setError('Select an intern first'); return; }
-
-        toast.promise(api.post('/analytics/llm/suggest-path/', {
-            intern_id: effectiveInternId,
-            goal: aiGoal,
-            basics_only: basicsOnly
-        }), {
-            loading: 'Querying neural matrix for optimal skill sequences...',
-            success: (response) => {
-                if (response.data.suggested_skills) {
-                    setSelectedSkills(response.data.suggested_skills);
-                    setAiRationale(response.data.rationale);
-                    setCustomPathTitle(`${aiGoal} Focus`);
-                    return 'AI suggestions successfully synthesized';
-                }
-                return 'Synthesis complete with zero findings';
-            },
-            error: 'Neural matrix query interrupted'
-        });
-    };
 
     const handleGenerateMilestoneTask = async (skill: string, index: number) => {
         if (!effectiveInternId) return;
@@ -497,8 +402,8 @@ const LearningPath: React.FC = () => {
                 intern_id: internIdNum,
                 milestone_index: index,
                 skill: skill,
-                goal: aiGoal || targetRole,
-                basics_only: basicsOnly
+                goal: path?.target_role || '',
+                basics_only: false
             }).then(res => {
                 if (res.data.task) {
                     api.get(`/analytics/learning-path/${internIdNum}/`).then(pathRes => {
@@ -609,8 +514,9 @@ const LearningPath: React.FC = () => {
                                     ...interns.map(i => ({ value: String(i.id), label: `${i.full_name || i.email} (Intern)` }))
                                 ]}
                                 value={String(activeInternId || '')}
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 onChange={(v) => handleInternSelect({ target: { value: v } } as any)}
-                                accent="violet"
+                                accent="purple"
                                 className="w-64"
                             />
                         </div>
@@ -652,203 +558,16 @@ const LearningPath: React.FC = () => {
                     {showSkillsMap && (
                         <div className="p-6 pt-0 border-t border-[var(--border-color)] animate-slideDown">
                             <div className="space-y-8 mt-6">
-                                {/* Generate Path Form */}
-                                <div className="bg-violet-600/10 border border-violet-500/20 rounded-2xl p-6 relative overflow-hidden group hover:border-violet-500/40 transition-all duration-500">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-3 mb-5">
-                                            <div className="w-8 h-8 rounded-lg bg-violet-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
-                                                <Target size={16} className="text-white" />
-                                            </div>
-                                            <h2 className="text-base font-bold text-[var(--text-main)]">AIMs Intelligence: Generate Custom Path</h2>
-                                        </div>
-                                        <div className="flex flex-col md:flex-row gap-4">
-                                            {jobRoles.length > 0 ? (
-                                                <CustomSelect
-                                                    options={[
-                                                        { value: '', label: 'Select a specific job role focus...', disabled: true },
-                                                        ...jobRoles.map(role => ({ value: role.role_title, label: role.role_title }))
-                                                    ]}
-                                                    value={targetRole}
-                                                    onChange={setTargetRole}
-                                                    accent="violet"
-                                                    className="flex-1"
-                                                />
-                                            ) : (
-                                                <input
-                                                    type="text"
-                                                    placeholder="Enter target role (e.g. Fullstack Engineer)"
-                                                    value={targetRole}
-                                                    onChange={e => setTargetRole(e.target.value)}
-                                                    className="flex-1 px-5 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-2xl text-[var(--text-main)] text-sm font-medium placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/50 transition-all"
-                                                />
-                                            )}
-                                            <button
-                                                onClick={() => generatePath('role')}
-                                                disabled={loadingGenerate}
-                                                className="flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-violet-600 to-indigo-700 hover:from-violet-500 hover:to-indigo-600 text-white text-sm font-black rounded-2xl transition-all duration-300 shadow-xl shadow-violet-500/20 disabled:opacity-50 active:scale-95"
-                                            >
-                                                {loadingGenerate
-                                                    ? <RefreshCw size={18} className="animate-spin" />
-                                                    : <Zap size={18} className="fill-current" />
-                                                }
-                                                {loadingGenerate ? 'Reconfiguring...' : 'Synthesize Path'}
-                                            </button>
-                                        </div>
-
-                                        {/* Progress Bar */}
-                                        <div className={`transition-all duration-500 overflow-hidden ${loadingGenerate ? 'opacity-100 h-14' : 'opacity-0 h-0'}`}>
-                                            <div className="pt-4">
-                                                <div className="flex justify-between text-xs font-bold text-violet-400 mb-2 uppercase tracking-widest">
-                                                    <span>Synthesizing Learning Path</span>
-                                                    <span>{Math.round(generationProgress)}%</span>
-                                                </div>
-                                                <div className="h-2 bg-[var(--bg-color)] rounded-full overflow-hidden border border-[var(--border-color)]">
-                                                    <div 
-                                                        className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500 ease-out relative"
-                                                        style={{ width: `${generationProgress}%` }}
-                                                    >
-                                                        <div className="absolute top-0 bottom-0 left-0 right-0 overflow-hidden rounded-full">
-                                                            <div className="w-full h-full bg-white/20 animate-pulse" />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="mt-4 flex items-center gap-2">
-                                            <div className="px-2 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-[10px] font-bold text-violet-400 uppercase tracking-widest">A* SEARCH ENABLED</div>
-                                            <p className="text-[11px] text-[var(--text-muted)] font-medium">Optimal skill sequence calculation based on global prerequisite graphs.</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Custom Skill Selection Section */}
-                                <div className="relative rounded-3xl bg-[var(--bg-muted)] border border-[var(--border-color)] p-6 backdrop-blur-md overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl" />
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-3 mb-6">
-                                            <div className="p-3 bg-purple-500/20 rounded-xl">
-                                                <Target className="w-6 h-6 text-purple-400" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-xl font-bold font-heading text-[var(--text-main)]">Focus on Specific Skills</h3>
-                                                <p className="text-[var(--text-dim)] text-sm">Select languages or frameworks for a custom path</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-6">
-                                            {/* AI Suggestion Input */}
-                                            <div className="space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <label className="text-sm font-medium text-[var(--text-dim)] block">AI-Powered Suggestions</label>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Focus on Basics</span>
-                                                        <button 
-                                                            onClick={() => setBasicsOnly(!basicsOnly)}
-                                                            className={`w-10 h-5 rounded-full relative transition-all duration-300 ${basicsOnly ? 'bg-violet-500' : 'bg-slate-700'}`}
-                                                        >
-                                                            <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${basicsOnly ? 'left-6' : 'left-1'}`} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <div className="relative flex-1">
-                                                        <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
-                                                        <input
-                                                            type="text"
-                                                            value={aiGoal}
-                                                            onChange={(e) => setAiGoal(e.target.value)}
-                                                            placeholder="e.g., Become a Backend Expert, Master React..."
-                                                            className="w-full bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl py-2 pl-10 pr-4 text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all placeholder:text-[var(--text-muted)]"
-                                                        />
-                                                    </div>
-                                                    <button
-                                                        onClick={handleSuggestSkills}
-                                                        disabled={isSuggesting || !aiGoal}
-                                                        className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-purple-500/20"
-                                                    >
-                                                        {isSuggesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
-                                                        {isSuggesting ? 'Thinking...' : 'Suggest'}
-                                                    </button>
-                                                </div>
-                                                {aiRationale && (
-                                                    <div className="p-3 bg-purple-900/20 border border-purple-500/30 rounded-lg text-xs text-purple-200 animate-in fade-in slide-in-from-top-1">
-                                                        <div className="flex gap-2">
-                                                            <Brain className="w-4 h-4 flex-shrink-0" />
-                                                            <p>{aiRationale}</p>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Manual Skill Selector */}
-                                            <div className="space-y-3">
-                                                <label className="text-sm font-medium text-[var(--text-dim)] block">Select Focus Skills</label>
-                                                <div className="flex flex-wrap gap-2 p-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl min-h-[100px]">
-                                                    {availableSkills.map((skill) => (
-                                                        <button
-                                                          key={skill}
-                                                          onClick={() => {
-                                                            if (selectedSkills.includes(skill)) {
-                                                              setSelectedSkills(selectedSkills.filter(s => s !== skill));
-                                                            } else {
-                                                              setSelectedSkills([...selectedSkills, skill]);
-                                                            }
-                                                          }}
-                                                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
-                                                            selectedSkills.includes(skill)
-                                                              ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-500/20'
-                                                              : 'bg-[var(--bg-color)] text-[var(--text-dim)] border border-[var(--border-color)] hover:bg-[var(--bg-muted)]/80'
-                                                          }`}
-                                                        >
-                                                            {skill}
-                                                            {selectedSkills.includes(skill) && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-3">
-                                                <label className="text-sm font-medium text-[var(--text-dim)] block">Path Title (Optional)</label>
-                                                <input
-                                                    type="text"
-                                                    value={customPathTitle}
-                                                    onChange={(e) => setCustomPathTitle(e.target.value)}
-                                                    placeholder="e.g., Python Backend Mastery"
-                                                    className="w-full bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl py-2 px-4 text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                                                />
-                                            </div>
-
-                                            <button
-                                                onClick={() => generatePath('skill')}
-                                                disabled={loadingGenerate || selectedSkills.length === 0}
-                                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-xl font-bold font-heading flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20"
-                                            >
-                                                {loadingGenerate ? <Loader2 className="w-5 h-5 animate-spin" /> : <Rocket className="w-5 h-5" />}
-                                                {loadingGenerate ? 'GENERATING TASKS...' : 'GENERATE CUSTOM PATH'}
-                                            </button>
-
-                                            {/* Progress Bar */}
-                                            <div className={`transition-all duration-500 overflow-hidden ${loadingGenerate ? 'opacity-100 h-14' : 'opacity-0 h-0'}`}>
-                                                <div className="pt-2">
-                                                    <div className="flex justify-between text-xs font-bold text-indigo-400 mb-2 uppercase tracking-widest">
-                                                        <span>Synthesizing Tasks</span>
-                                                        <span>{Math.round(generationProgress)}%</span>
-                                                    </div>
-                                                    <div className="h-2 bg-[var(--bg-color)] rounded-full overflow-hidden border border-[var(--border-color)]">
-                                                        <div 
-                                                            className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-500 ease-out relative"
-                                                            style={{ width: `${generationProgress}%` }}
-                                                        >
-                                                            <div className="absolute top-0 bottom-0 left-0 right-0 overflow-hidden rounded-full">
-                                                                <div className="w-full h-full bg-white/20 animate-pulse" />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                {/* Generate Path Form Button */}
+                                <div className="flex justify-end mb-6">
+                                    <Button 
+                                        onClick={() => navigate('/analytics/learning-paths/create')} 
+                                        gradient="purple"
+                                        className="shadow-xl shadow-violet-500/20"
+                                    >
+                                        <Target size={16} className="mr-2 inline" />
+                                        Create New Learning Path
+                                    </Button>
                                 </div>
 
                                 {/* Skills Stepper Inline View */}
@@ -991,7 +710,7 @@ const LearningPath: React.FC = () => {
                                 ]}
                                 value={statusFilter}
                                 onChange={(v) => { setStatusFilter(v); setTaskPage(1); }}
-                                accent="violet"
+                                accent="purple"
                                 className="min-w-[150px]"
                             />
 
@@ -1003,7 +722,7 @@ const LearningPath: React.FC = () => {
                                 ]}
                                 value={projectFilter}
                                 onChange={(v) => { setProjectFilter(v); setTaskPage(1); }}
-                                accent="violet"
+                                accent="purple"
                                 className="min-w-[150px]"
                             />
 

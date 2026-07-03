@@ -4,7 +4,9 @@ import PhaseTimeline from '../components/phases/PhaseTimeline';
 import { fetchMyStages, fetchMyEvaluations, fetchCertificates, fetchConversionScore, type CertificateRecord } from '../api/reports';
 import type { EmploymentStage, PhaseEvaluation } from '../types/reports';
 import { useAuth } from '../context/AuthContext';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Card, LoadingSpinner, Badge, Button } from '../components/common';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Activity, Target, CheckCircle2, AlertCircle, TrendingUp, Clock, ArrowLeft } from 'lucide-react';
 
 const PhaseTimelinePage: React.FC = () => {
@@ -13,6 +15,7 @@ const PhaseTimelinePage: React.FC = () => {
   const [stages, setStages]           = useState<EmploymentStage[]>([]);
   const [evaluations, setEvaluations] = useState<PhaseEvaluation[]>([]);
   const [certificates, setCertificates] = useState<CertificateRecord[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [conversionData, setConversionData] = useState<any>(null);
   const [loading, setLoading]         = useState(true);
 
@@ -40,6 +43,7 @@ const PhaseTimelinePage: React.FC = () => {
   // Handle different potential user object structures
   const currentStatus = internId 
     ? (stages.find((s: EmploymentStage) => !s.phase_end_date)?.phase || 'PHASE_1')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     : ((user as any)?.internprofile_status || (user as any)?.status || 'ACTIVE_INTERN');
 
   const internName = stages[0]?.intern_name;

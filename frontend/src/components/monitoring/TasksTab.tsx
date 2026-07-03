@@ -10,7 +10,7 @@ import {
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
-import { CustomSelect } from '../common';
+import { CustomSelect, ContributionHeatmap, Card } from '../common';
 import KanbanBoard from '../tasks/KanbanBoard';
 import AIGeneratorPanel from '../tasks/AIGeneratorPanel';
 import axios from '../../api/axios';
@@ -42,12 +42,22 @@ interface Task {
         id: number;
         name: string;
     } | null;
+    parent_task_id?: number | null;
+    comments_count?: number;
+    evidences_count?: number;
+    subtasks?: {
+        id: number;
+        task_id: string;
+        title: string;
+        status: string;
+    }[];
 }
 
 interface TasksTabProps {
     tasks: Task[];
     onAddTask: () => void;
     canCreate: boolean;
+    onEditTask?: (task: Task) => void;
     onStatusChange?: (taskId: number, newStatus: string) => void;
     onRefresh?: () => void;
     internId?: number;
@@ -68,6 +78,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
     tasks, 
     onAddTask, 
     canCreate, 
+    onEditTask,
     onStatusChange, 
     onRefresh, 
     internId, 
@@ -76,6 +87,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
     yearFilter,
     setYearFilter,
     dateFilter,
+    setDateFilter,
     initialView,
     externalStatusFilter,
     userRole,
@@ -92,6 +104,8 @@ const TasksTab: React.FC<TasksTabProps> = ({
     const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [showAIPanel, setShowAIPanel] = useState(false);
+    const [heatmapData, setHeatmapData] = useState<Record<string, number>>({});
+    const [heatmapLoading, setHeatmapLoading] = useState(true);
     const ITEMS_PER_PAGE = 12;
 
     const navigate = useNavigate();
@@ -111,6 +125,23 @@ const TasksTab: React.FC<TasksTabProps> = ({
 
     React.useEffect(() => {
         fetchProjects();
+        
+        const fetchHeatmapData = async () => {
+            try {
+                setHeatmapLoading(true);
+                const params: any = { months: 12 };
+                if (internId) {
+                    params.intern_id = internId;
+                }
+                const res = await axios.get('/analytics/heatmap/tasks/', { params });
+                setHeatmapData(res.data.heatmap || {});
+            } catch (err) {
+                console.error('Failed to load heatmap data:', err);
+            } finally {
+                setHeatmapLoading(false);
+            }
+        };
+        fetchHeatmapData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [internId]);
 
@@ -317,9 +348,18 @@ const TasksTab: React.FC<TasksTabProps> = ({
                                 {task.quality_rating ? 'Evaluated' : 'Not Evaluated'}
                             </Badge>
                         )}
+                        {canCreate && onEditTask && (
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
+                                className="p-2 text-blue-400 hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
+                                title="Edit Task"
+                            >
+                                <Square size={18} />
+                            </button>
+                        )}
                         {canCreate && (
                             <button 
-                                onClick={() => handleDeleteTask(task.id)}
+                                onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }}
                                 className="p-2 text-red-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
                                 title="Delete Task"
                             >
@@ -370,6 +410,25 @@ const TasksTab: React.FC<TasksTabProps> = ({
                     <span className="text-[10px] font-black tracking-widest text-[var(--text-muted)] uppercase">{task.module.name}</span>
                 </div>
             )}
+            
+            {task.subtasks && task.subtasks.length > 0 && (
+                <div className="mb-6 space-y-2">
+                    <h4 className="text-[10px] font-black tracking-widest text-[var(--text-muted)] uppercase flex items-center gap-2">
+                        <List size={12} /> Subtasks
+                    </h4>
+                    <div className="flex flex-col gap-2">
+                        {task.subtasks.map(sub => (
+                            <div key={sub.id} className="flex items-center justify-between bg-[var(--bg-muted)]/50 border border-[var(--border-color)] px-3 py-2 rounded-lg text-xs">
+                                <span className="font-medium text-[var(--text-main)] truncate max-w-[150px]" title={sub.title}>{sub.title}</span>
+                                <Badge variant={sub.status === 'COMPLETED' ? 'success' : (sub.status === 'IN_PROGRESS' ? 'info' : 'default')} size="sm">
+                                    {sub.status.replace('_', ' ')}
+                                </Badge>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div className="flex items-center justify-between pt-6 border-t border-[var(--border-color)]">
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--text-dim)]">
@@ -483,9 +542,18 @@ const TasksTab: React.FC<TasksTabProps> = ({
                         </Button>
                     )}
                 </div>
+                {canCreate && onEditTask && (
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
+                        className="p-2 text-blue-400 hover:text-blue-500 hover:bg-blue-500/10 rounded-xl transition-all shrink-0"
+                        title="Edit Task"
+                    >
+                        <Square size={20} />
+                    </button>
+                )}
                 {canCreate && (
                     <button 
-                        onClick={() => handleDeleteTask(task.id)}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }}
                         className="p-2 text-red-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all shrink-0"
                         title="Delete Task"
                     >
@@ -499,12 +567,8 @@ const TasksTab: React.FC<TasksTabProps> = ({
     return (
         <div className="space-y-10 animate-fade-in pb-20">
             {/* Header Area */}
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8">
-                <div>
-                    <h2 className="text-4xl font-black text-[var(--text-main)] tracking-tighter uppercase">Tasks</h2>
-                    <p className="text-[var(--text-dim)] mt-4 font-medium max-w-md leading-relaxed">Track and manage intern assignments and performance.</p>
-                </div>
-                {canCreate && (
+            {canCreate && (
+                <div className="flex justify-end w-full">
                     <div className="flex flex-wrap gap-4 w-full sm:w-auto">
                         <button onClick={() => setShowAIPanel(!showAIPanel)} className={`flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all ${showAIPanel ? 'bg-purple-600 text-white' : 'bg-transparent border border-purple-500/50 text-purple-400'}`}>
                             <Sparkles size={18} className={showAIPanel ? 'text-white' : 'text-purple-400'} /> AI Generator
@@ -513,8 +577,21 @@ const TasksTab: React.FC<TasksTabProps> = ({
                             <Plus size={18} /> New Task
                         </button>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
+
+            {/* Heatmap Section */}
+            <Card className="p-4 bg-[var(--card-bg)] border-[var(--border-color)]">
+                <ContributionHeatmap
+                    data={heatmapLoading ? {} : heatmapData}
+                    title="Task Activity Heatmap"
+                    colorScheme="purple"
+                    onCellClick={(date) => {
+                        if (setDateFilter) setDateFilter(dateFilter === date ? null : date);
+                    }}
+                    year={yearFilter === 'all' ? new Date().getFullYear() : yearFilter as number}
+                />
+            </Card>
 
             {/* Stat Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-6">
@@ -542,6 +619,8 @@ const TasksTab: React.FC<TasksTabProps> = ({
                     );
                 })}
             </div>
+
+
 
             {/* Filter Bar */}
             <div className="flex flex-col lg:flex-row items-center justify-between gap-6 p-2">
@@ -643,6 +722,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
                 </div>
             )}
 
+
             {/* Bulk Action Bar */}
             {selectedTasks.size > 0 && userRole !== 'ADMIN' && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 
@@ -720,13 +800,7 @@ const TasksTab: React.FC<TasksTabProps> = ({
                                 <Bug size={16} className="text-red-500" /> Issues Found
                             </label>
                             <div className="flex items-center gap-2">
-                                <button 
-                                    onClick={() => setEvaluation({...evaluation, bug_count: Math.max(0, evaluation.bug_count - 1)})}
-                                    className="w-10 h-10 flex items-center justify-center bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/30 transition-all font-bold text-lg"
-                                >
-                                    -
-                                </button>
-                                <input 
+                                <input
                                     type="number" 
                                     min="0" 
                                     value={evaluation.bug_count} 

@@ -285,21 +285,38 @@ class MyProfileView(views.APIView):
             
             # Update profile fields (only if provided)
             if 'university' in profile_data:
-                profile.university = profile_data['university']
+                profile.university = profile_data['university'] or ''
             if 'phone_number' in profile_data:
-                profile.phone_number = profile_data['phone_number']
+                profile.phone_number = profile_data['phone_number'] or ''
             if 'skills' in profile_data:
-                profile.skills = profile_data['skills']
+                profile.skills = profile_data['skills'] or []
             if 'status' in profile_data:
-                profile.status = profile_data['status']
+                profile.status = profile_data['status'] or 'ACTIVE'
             if 'github_profile' in profile_data:
-                profile.github_profile = profile_data['github_profile']
+                profile.github_profile = profile_data['github_profile'] or None
             if 'linkedin_profile' in profile_data:
-                profile.linkedin_profile = profile_data['linkedin_profile']
+                profile.linkedin_profile = profile_data['linkedin_profile'] or None
+                
             if 'gpa' in profile_data:
-                profile.gpa = profile_data['gpa']
+                gpa_val = profile_data['gpa']
+                if gpa_val in ['', None]:
+                    profile.gpa = None
+                else:
+                    try:
+                        from decimal import Decimal
+                        profile.gpa = Decimal(str(gpa_val))
+                    except Exception:
+                        profile.gpa = None
+                        
             if 'graduation_year' in profile_data:
-                profile.graduation_year = profile_data['graduation_year']
+                grad_val = profile_data['graduation_year']
+                if grad_val in ['', None]:
+                    profile.graduation_year = None
+                else:
+                    try:
+                        profile.graduation_year = int(grad_val)
+                    except Exception:
+                        profile.graduation_year = None
             
             profile.save()
             
@@ -341,11 +358,17 @@ class ProfileByUserIdView(views.APIView):
     def get(self, request, user_id):
         """Get profile for a specific user"""
         try:
-            profile = InternProfile.objects.get(user_id=user_id)
+            profile, created = InternProfile.objects.get_or_create(
+                user_id=user_id,
+                defaults={
+                    'status': 'ACTIVE',
+                    'skills': []
+                }
+            )
             return Response(InternProfileSerializer(profile).data)
-        except InternProfile.DoesNotExist:
+        except Exception as e:
             return Response(
-                {'error': 'Profile not found'},
+                {'error': f'Profile not found: {str(e)}'},
                 status=status.HTTP_404_NOT_FOUND
             )
 

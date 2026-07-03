@@ -14,26 +14,39 @@ const { lazy, Suspense } = React;
 // Lazy Pages
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const InternList = lazy(() => import('./pages/InternList'));
+const CreateInternPage = lazy(() => import('./pages/CreateInternPage'));
+const BulkUploadInternsPage = lazy(() => import('./pages/BulkUploadInternsPage'));
 const ProjectList = lazy(() => import('./pages/ProjectList'));
+const CreateProjectPage = lazy(() => import('./pages/CreateProjectPage'));
+const EditProjectPage = lazy(() => import('./pages/EditProjectPage'));
+const AIProjectSuggestionsPage = lazy(() => import('./pages/AIProjectSuggestionsPage'));
+const ProjectDetailPage = lazy(() => import('./pages/ProjectDetailPage'));
+const InternDetailPage = lazy(() => import('./pages/InternDetailPage'));
+const AssignInternPage = lazy(() => import('./pages/AssignInternPage'));
 const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
+const CreateFeedbackPage = lazy(() => import('./pages/CreateFeedbackPage'));
+const FeedbackReplyPage = lazy(() => import('./pages/FeedbackReplyPage'));
 const DocumentsPage = lazy(() => import('./pages/DocumentsPage'));
+const UploadDocumentPage = lazy(() => import('./pages/UploadDocumentPage'));
 const AnalysisPage = lazy(() => import('./pages/AnalysisPage'));
-const MonitoringOverviewPage = lazy(() => import('./pages/MonitoringOverview'));
-const MonitoringTasksPage = lazy(() => import('./pages/MonitoringTasks'));
-const MonitoringAttendancePage = lazy(() => import('./pages/MonitoringAttendance'));
-const MonitoringReportsPage = lazy(() => import('./pages/MonitoringReports'));
+const MonitoringDashboard = lazy(() => import('./pages/MonitoringDashboard'));
+const ReportDetailsPage = lazy(() => import('./pages/ReportDetailsPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const AdminManagement = lazy(() => import('./pages/AdminManagement'));
+const CreateAdminPage = lazy(() => import('./pages/CreateAdminPage'));
 const UploadWeeklyReport = lazy(() => import('./pages/UploadWeeklyReport'));
+const SubmitWeeklyReportPage = lazy(() => import('./pages/SubmitWeeklyReportPage'));
 const InternTasks = lazy(() => import('./pages/InternTasks'));
 const MyAttendance = lazy(() => import('./pages/MyAttendance'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const LearningPath = lazy(() => import('./pages/LearningPath'));
+const CreateLearningPathPage = lazy(() => import('./pages/CreateLearningPathPage'));
 const PerformanceAnalytics = lazy(() => import('./pages/PerformanceAnalytics'));
 const AITaskGenerator = lazy(() => import('./pages/AITaskGenerator'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const TaskDetailPage = lazy(() => import('./pages/TaskDetailPage'));
+const CreateTaskPage = lazy(() => import('./pages/CreateTaskPage'));
 const StaffPortal = lazy(() => import('./pages/StaffPortal'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const VerifyOTP = lazy(() => import('./pages/VerifyOTP'));
@@ -89,14 +102,30 @@ const App: React.FC = () => {
                   <Route path="/notifications" element={<Navigate to="/account/notifications" replace />} />
 
                   {/* Directory */}
-                  <Route path="/directory/interns" element={<InternList />} />
-                  <Route path="/directory/projects" element={<ProjectList />} />
+                   <Route path="/directory/interns" element={<InternList />} />
+                   <Route path="/directory/interns/create" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><CreateInternPage /></ProtectedRoute>} />
+                   <Route path="/directory/interns/bulk-upload" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><BulkUploadInternsPage /></ProtectedRoute>} />
+                   <Route path="/directory/interns/:internId" element={<InternDetailPage />} />
+                   <Route path="/directory/projects" element={<ProjectList />} />
+                   <Route path="/directory/projects/create" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><CreateProjectPage /></ProtectedRoute>} />
+                   <Route path="/directory/projects/:projectId/edit" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><EditProjectPage /></ProtectedRoute>} />
+                   <Route path="/directory/projects/ai-suggestions" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><AIProjectSuggestionsPage /></ProtectedRoute>} />
+                   <Route path="/directory/projects/:projectId" element={<ProjectDetailPage />} />
+                   <Route path="/directory/projects/:projectId/assign-intern" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><AssignInternPage /></ProtectedRoute>} />
                   <Route path="/directory/feedback" element={<FeedbackPage />} />
-                  <Route path="/directory/documents" element={<DocumentsPage />} />
+                  <Route path="/directory/feedback/create" element={<CreateFeedbackPage />} />
+                  <Route path="/directory/feedback/:feedbackId/reply" element={<FeedbackReplyPage />} />
+                   <Route path="/directory/documents" element={<DocumentsPage />} />
+                   <Route path="/directory/documents/upload" element={<UploadDocumentPage />} />
+                   <Route path="/interns/create" element={<Navigate to="/directory/interns/create" replace />} />
+                   <Route path="/interns/bulk-upload" element={<Navigate to="/directory/interns/bulk-upload" replace />} />
                   <Route path="/interns" element={<Navigate to="/directory/interns" replace />} />
-                  <Route path="/projects" element={<Navigate to="/directory/projects" replace />} />
+                   <Route path="/projects/create" element={<Navigate to="/directory/projects/create" replace />} />
+                   <Route path="/projects/ai-suggestions" element={<Navigate to="/directory/projects/ai-suggestions" replace />} />
+                   <Route path="/projects" element={<Navigate to="/directory/projects" replace />} />
                   <Route path="/feedback" element={<Navigate to="/directory/feedback" replace />} />
-                  <Route path="/documents" element={<Navigate to="/directory/documents" replace />} />
+                   <Route path="/documents/upload" element={<Navigate to="/directory/documents/upload" replace />} />
+                   <Route path="/documents" element={<Navigate to="/directory/documents" replace />} />
 
                   {/* Analytics */}
                   <Route path="/analytics/skill-intelligence" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><AnalysisPage /></ProtectedRoute>} />
@@ -104,20 +133,27 @@ const App: React.FC = () => {
                   
                 <Route element={<MonitoringProvider><Outlet /></MonitoringProvider>}>
                   {/* Management */}
-                  <Route path="/management/overview" element={<MonitoringOverviewPage />} />
-                  <Route path="/management/tasks" element={<MonitoringTasksPage />} />
-                  <Route path="/management/tasks/details" element={<TaskDetailPage />} />
-                  <Route path="/management/tasks/:taskId" element={<TaskDetailPage />} />
-                  <Route path="/management/attendance" element={<MonitoringAttendancePage />} />
-                  <Route path="/management/reports" element={<MonitoringReportsPage />} />
-                  <Route path="/monitoring" element={<Navigate to="/management/overview" replace />} />
-                  <Route path="/tasks" element={<Navigate to="/management/tasks" replace />} />
-                  <Route path="/attendance" element={<Navigate to="/management/attendance" replace />} />
-                  <Route path="/reports" element={<Navigate to="/management/reports" replace />} />
+                  <Route path="/monitoring/:tab?" element={<MonitoringDashboard />} />
+                  <Route path="/monitoring/report-details" element={<ReportDetailsPage />} />
+                   <Route path="/management/tasks/create/:internId?" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><CreateTaskPage /></ProtectedRoute>} />
+                   <Route path="/management/tasks/details" element={<TaskDetailPage />} />
+                   <Route path="/management/tasks/:taskId" element={<TaskDetailPage />} />
+                   <Route path="/management/overview" element={<Navigate to="/monitoring/overview" replace />} />
+                   <Route path="/management/tasks" element={<Navigate to="/monitoring/tasks" replace />} />
+                   <Route path="/tasks/create/:internId?" element={<Navigate to="/management/tasks/create/:internId?" replace />} />
+                  <Route path="/management/attendance" element={<Navigate to="/monitoring/attendance" replace />} />
+                  <Route path="/management/reports" element={<Navigate to="/monitoring/weekly-reports" replace />} />
+                  <Route path="/management/performance" element={<Navigate to="/monitoring/performance" replace />} />
+                  <Route path="/monitoring" element={<Navigate to="/monitoring/overview" replace />} />
+                  <Route path="/tasks" element={<Navigate to="/monitoring/tasks" replace />} />
+                  <Route path="/attendance" element={<Navigate to="/monitoring/attendance" replace />} />
+                  <Route path="/reports" element={<Navigate to="/monitoring/weekly-reports" replace />} />
                   <Route path="/management/admins" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminManagement /></ProtectedRoute>} />
+                  <Route path="/management/admins/create" element={<ProtectedRoute allowedRoles={['ADMIN']}><CreateAdminPage /></ProtectedRoute>} />
 
                   {/* Intern Workspace */}
                   <Route path="/workspace/submit-report" element={<UploadWeeklyReport />} />
+                  <Route path="/workspace/submit-report/new" element={<SubmitWeeklyReportPage />} />
                   <Route path="/workspace/my-tasks" element={<InternTasks />} />
                   <Route path="/workspace/tasks/details" element={<TaskDetailPage />} />
                   <Route path="/workspace/tasks/:taskId" element={<TaskDetailPage />} />
@@ -129,7 +165,9 @@ const App: React.FC = () => {
                   
                   {/* Performance & Analytics */}
                   <Route path="/analytics/learning-paths" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><LearningPath /></ProtectedRoute>} />
+                  <Route path="/analytics/learning-paths/create" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><CreateLearningPathPage /></ProtectedRoute>} />
                   <Route path="/analytics/performance" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}><PerformanceAnalytics /></ProtectedRoute>} />
+                  <Route path="/learning-path/create" element={<Navigate to="/analytics/learning-paths/create" replace />} />
                   <Route path="/learning-path" element={<Navigate to="/analytics/learning-paths" replace />} />
                   <Route path="/performance" element={<Navigate to="/analytics/performance" replace />} />
                   

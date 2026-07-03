@@ -107,7 +107,32 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        // Removed manualChunks as it can cause execution order issues and 'undefined' errors in production builds
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            // Group 1: UI & Charting libraries
+            if (id.includes('recharts') || id.includes('lucide-react')) {
+              return 'vendor-ui';
+            }
+            // Group 2: Data & Backend
+            if (id.includes('axios')) {
+              return 'vendor-data';
+            }
+            // Group 3: Core Framework
+            if (
+              id.includes('react') || 
+              id.includes('react-dom') || 
+              id.includes('react-router') || 
+              id.includes('scheduler') ||
+              id.includes('react-markdown') || 
+              id.includes('remark') ||
+              id.includes('date-fns') ||
+              id.includes('react-datepicker')
+            ) {
+              return 'vendor-core';
+            }
+            return 'vendor';
+          }
+        },
       },
     },
   },

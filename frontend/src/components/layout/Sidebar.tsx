@@ -62,12 +62,11 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({ isExpanded, setIsExpanded 
         { name: 'Performance', path: '/analytics/performance', icon: <Activity size={20} />, roles: ['ADMIN', 'MANAGER'], badge: 'AI' },
     ];
 
-    // Monitoring sub-pages (separate pages, not tabs)
     const monitoringNavItems: NavItem[] = [
-        { name: 'Overview', path: '/management/overview', icon: <Home size={18} />, roles: ['ADMIN', 'MANAGER'] },
-        { name: 'Tasks', path: '/management/tasks', icon: <CheckSquare size={18} />, roles: ['ADMIN', 'MANAGER'] },
-        { name: 'Attendance', path: '/management/attendance', icon: <Calendar size={18} />, roles: ['ADMIN', 'MANAGER'] },
-        { name: 'Reports (V1)', path: '/management/reports', icon: <ReportIcon size={18} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Overview', path: '/monitoring/overview', icon: <Home size={18} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Tasks', path: '/monitoring/tasks', icon: <CheckSquare size={18} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Attendance', path: '/monitoring/attendance', icon: <Calendar size={18} />, roles: ['ADMIN', 'MANAGER'] },
+        { name: 'Reports (V1)', path: '/monitoring/weekly-reports', icon: <ReportIcon size={18} />, roles: ['ADMIN', 'MANAGER'] },
     ];
 
     const careerNavItems: NavItem[] = [
@@ -199,7 +198,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({ isExpanded, setIsExpanded 
                         className="min-h-0 mx-3 p-2 bg-white/[0.03] backdrop-blur-3xl border border-white/5 rounded-2xl space-y-0.5"
                     >
                         <Link 
-                            to={item.path === '/workspace/my-tasks' ? '/workspace/tasks/details' : `${item.path}/details`} 
+                            to={item.path === '/workspace/my-tasks' ? '/workspace/tasks/details' : item.path === '/monitoring/tasks' ? '/management/tasks/details' : `${item.path}/details`} 
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setFlyoutVisible(false);

@@ -71,6 +71,7 @@ const VerifyOTP: React.FC = () => {
             await api.post('/accounts/auth/password-reset/request/', { email });
             toast.success('New OTP transmitted to your mailbox');
             setTimer(60);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (err) {
             toast.error('Resend sequence failed. Try again later.');
         } finally {

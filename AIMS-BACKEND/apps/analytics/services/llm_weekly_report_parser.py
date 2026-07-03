@@ -63,7 +63,7 @@ class LangChainWeeklyReportParser:
         self._llm = None
     
     @property
-    def llm(self):
+    def llm(self) -> Any:
         """Lazy-load the LLM using LangChain."""
         if self._llm is None:
             self._initialize_llm()
@@ -76,7 +76,7 @@ class LangChainWeeklyReportParser:
             base_url = "https://models.inference.ai.azure.com"
             
             # Ensure environment variables are set for the provider
-            os.environ["OPENAI_API_KEY"] = api_key
+            os.environ["OPENAI_API_KEY"] = api_key or ""
             os.environ["OPENAI_BASE_URL"] = base_url
             
             from langchain_openai import ChatOpenAI
@@ -86,7 +86,8 @@ class LangChainWeeklyReportParser:
                 temperature=0.1,
                 max_tokens=2048,
                 api_key=api_key,
-                base_url=base_url
+                base_url=base_url,
+                timeout=15
             )
             
             logger.info(f"LangChainWeeklyReportParser: LLM initialized successfully with {self.MODEL_NAME}")

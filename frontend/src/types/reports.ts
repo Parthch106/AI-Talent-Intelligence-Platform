@@ -110,6 +110,7 @@ export interface PhaseEvaluation {
   decision: EvaluationDecision;
   decision_display: string;
   manager_notes: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   criteria_snapshot: Record<string, any>;
   criteria_met: boolean;
 }

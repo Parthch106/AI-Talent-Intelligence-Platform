@@ -3,6 +3,8 @@ import { Plus, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import CustomSelect from '../common/CustomSelect';
+import { AttendanceHeatmap, Card } from '../common';
+import axios from '../../api/axios';
 
 interface Attendance {
     id: number;
@@ -21,6 +23,7 @@ interface AttendanceTabProps {
     yearFilter: number | 'all';
     setYearFilter: (value: number | 'all') => void;
     canEdit?: boolean;
+    internId?: number;
 }
 
 // Sub-component for individual Stat Cards
@@ -58,11 +61,14 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
     setMonthFilter,
     yearFilter,
     setYearFilter,
-    canEdit
+    canEdit,
+    internId
 }) => {
     const attendanceArray = useMemo(() => Array.isArray(attendance) ? attendance : [], [attendance]);
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState<number>(1);
+    const [heatmapData, setHeatmapData] = useState<Record<string, { status: string; value: number; hours: number }>>({});
+    const [heatmapLoading, setHeatmapLoading] = useState(true);
     const ITEMS_PER_PAGE = 10;
 
     // Auto-select latest month/year if current selection has no data
@@ -81,6 +87,25 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
             }
         }
     }, [attendanceArray, monthFilter, yearFilter, setMonthFilter, setYearFilter]);
+
+    useEffect(() => {
+        const fetchHeatmapData = async () => {
+            try {
+                setHeatmapLoading(true);
+                const params: any = { months: 12 };
+                if (internId) {
+                    params.intern_id = internId;
+                }
+                const res = await axios.get('/analytics/heatmap/attendance/', { params });
+                setHeatmapData(res.data.heatmap || {});
+            } catch (err) {
+                console.error('Error fetching heatmap data:', err);
+            } finally {
+                setHeatmapLoading(false);
+            }
+        };
+        fetchHeatmapData();
+    }, [internId]);
 
     // Optimized filtering using useMemo
     const monthYearFiltered = useMemo(() => {
@@ -126,13 +151,11 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-[var(--text-main)]">Attendance Tracking</h2>
-                    <p className="text-[var(--text-dim)] mt-1">Monitor daily attendance records</p>
+            {canEdit && (
+                <div className="flex justify-end w-full">
+                    <Button onClick={onMarkAttendance} icon={<Plus size={18} />} gradient="emerald">Mark Attendance</Button>
                 </div>
-                {canEdit && <Button onClick={onMarkAttendance} icon={<Plus size={18} />} gradient="emerald">Mark Attendance</Button>}
-            </div>
+            )}
 
             <div className="flex flex-wrap items-center gap-6 p-1">
                 <div className="flex items-center gap-3">
@@ -167,6 +190,15 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
                 </div>
             </div>
 
+            {/* Heatmap Section */}
+            <Card className="p-4 bg-[var(--card-bg)] border-[var(--border-color)]">
+                <AttendanceHeatmap
+                    data={heatmapLoading ? {} : heatmapData}
+                    title="Attendance Activity"
+                    year={yearFilter === 'all' ? new Date().getFullYear() : yearFilter as number}
+                />
+            </Card>
+
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <StatCard label="Total Logs" count={stats.total} status={null} currentStatus={statusFilter} setStatus={setStatusFilter} colorClass="from-purple-500/10 to-pink-500/10 border-purple-500/20" activeClass="border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.2)] bg-purple-500/10" />
                 <StatCard label="Present" count={stats.present} status="PRESENT" currentStatus={statusFilter} setStatus={setStatusFilter} colorClass="from-emerald-500/10 to-teal-500/10 border-emerald-500/20" activeClass="border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.2)] bg-emerald-500/10" iconColor="text-emerald-500" />
@@ -174,6 +206,8 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
                 <StatCard label="Late" count={stats.late} status="LATE" currentStatus={statusFilter} setStatus={setStatusFilter} colorClass="from-amber-500/10 to-orange-500/10 border-amber-500/20" activeClass="border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)] bg-amber-500/10" iconColor="text-amber-500" />
                 <StatCard label="Remote" count={stats.remote} status="WORK_FROM_HOME" currentStatus={statusFilter} setStatus={setStatusFilter} colorClass="from-indigo-500/10 to-violet-500/10 border-indigo-500/20" activeClass="border-indigo-500 shadow-[0_0_20_rgba(99,102,241,0.2)] bg-indigo-500/10" iconColor="text-indigo-500" />
             </div>
+
+
 
             <div className="space-y-4">
                 <div className="flex items-center justify-between px-6 mb-2">
@@ -245,6 +279,7 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
                     </div>
                 )}
             </div>
+
         </div>
     );
 };

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { fetchCriteria, updateCriteria, createCriteria, previewCriteria } from '../api/criteria';
+import { fetchCriteria, createCriteria, previewCriteria } from '../api/criteria';
 import type { CertificationCriteria, CriteriaPreview } from '../api/criteria';
-import { Card, Button, Badge, LoadingSpinner } from '../components/common';
+import { Card, Button, LoadingSpinner } from '../components/common';
 import { useAuth } from '../context/AuthContext';
 import { Settings2, Target, Zap, Gem, Users, Calendar, BarChart3, AlertCircle, Save, Eye, Activity, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';

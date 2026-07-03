@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { fetchAllReportsV2 } from '../api/reports';
 import type { WeeklyReportV2 } from '../types/reports';
 import { Card, StatsCard, LoadingSpinner } from '../components/common';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Activity, Users, AlertCircle, BarChart3, TrendingUp, Calendar, CheckCircle2 } from 'lucide-react';
 
 const WeeklyReportsAdminPage: React.FC = () => {

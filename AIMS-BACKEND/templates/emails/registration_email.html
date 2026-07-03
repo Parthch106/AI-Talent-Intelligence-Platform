@@ -62,14 +62,28 @@
         <div class="content">
             <h2>Welcome to AIMs!</h2>
             <p>Hello {{ full_name }},</p>
-            <p>Your account has been successfully created on the AIMs Talent Intelligence Platform. To complete your registration and secure your account, please set your password by clicking the secure link below.</p>
-            <div class="credentials-box">
-                <div class="cred-item"><strong>Username (Email):</strong> {{ email }}</div>
-            </div>
-            <p>This link is uniquely generated for your account. Please set your credentials within 24 hours.</p>
-            <div style="text-align: center;">
-                <a href="{{ site_url }}/auth/reset-password?token={{ reset_token }}" class="btn">Set Your Password</a>
-            </div>
+            {% if reset_token %}
+                <p>Your account has been successfully created on the AIMs Talent Intelligence Platform. To complete your registration and secure your account, please set your password by clicking the secure link below.</p>
+                <div class="credentials-box">
+                    <div class="cred-item"><strong>Username (Email):</strong> {{ email }}</div>
+                </div>
+                <p>This link is uniquely generated for your account. Please set your credentials within 24 hours.</p>
+                <div style="text-align: center;">
+                    <a href="{{ site_url }}/auth/reset-password?token={{ reset_token }}" class="btn">Set Your Password</a>
+                </div>
+            {% else %}
+                <p>Your account has been successfully created on the AIMs Talent Intelligence Platform.</p>
+                <div class="credentials-box">
+                    <div class="cred-item"><strong>Username (Email):</strong> {{ email }}</div>
+                    {% if password %}
+                        <div class="cred-item"><strong>Password:</strong> {{ password }}</div>
+                    {% endif %}
+                </div>
+                <p>You can now log in using your credentials at the link below.</p>
+                <div style="text-align: center;">
+                    <a href="{{ site_url }}/auth/login" class="btn">Log In to Your Account</a>
+                </div>
+            {% endif %}
         </div>
         <div class="footer">
             &copy; 2026 AIMs Talent Intelligence Platform. Secure Neural Core Access.

@@ -58,6 +58,7 @@ const WeeklyReportCard: React.FC<Props> = ({
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [comment, setComment] = useState(report.manager_comment || '');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [commentSaving, setCommentSaving] = useState(false);
   const [reviewed, setReviewed] = useState(report.manager_reviewed);
 

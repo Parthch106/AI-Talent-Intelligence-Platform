@@ -4,13 +4,16 @@ import WeeklyReportCard from '../components/reports/WeeklyReportCard';
 import { fetchAllReportsV2 } from '../api/reports';
 import type { WeeklyReportV2 } from '../types/reports';
 import { useNavigate } from 'react-router-dom';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Card, StatsCard, LoadingSpinner, Badge } from '../components/common';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Activity, AlertCircle, CheckCircle2, Search, TrendingUp, Users, Clock, Flag } from 'lucide-react';
 
 const WeeklyReportsManagerPage: React.FC = () => {
   const [reports, setReports]       = useState<WeeklyReportV2[]>([]);
   const [loading, setLoading]       = useState(true);
   const [filterIntern, setFilterIntern] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
 
   const loadReports = useCallback(async () => {

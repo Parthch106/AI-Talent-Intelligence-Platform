@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Upload, FileText, Download, Trash2, X, FolderOpen, File, FilePlus, Calendar, User, ExternalLink, Search, ChevronDown } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../api/axios';
@@ -33,10 +34,18 @@ interface Document {
     } | null;
     description: string;
     created_at: string;
+    associated_context?: {
+        context_type: 'FEEDBACK' | 'TASK_COMMENT';
+        linked_title: string;
+        comment_snippet: string;
+        rating?: number;
+        task_id?: string;
+    } | null;
 }
 
 const DocumentsPage: React.FC = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [documents, setDocuments] = useState<Document[]>([]);
     const [filteredDocuments, setFilteredDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
@@ -333,7 +342,7 @@ const DocumentsPage: React.FC = () => {
                     <p className="text-[var(--text-dim)]">Manage and organize your documents</p>
                 </div>
                 <Button
-                    onClick={() => setShowUploadModal(true)}
+                    onClick={() => navigate('/directory/documents/upload')}
                     gradient="purple"
                     icon={<Upload size={18} />}
                 >
@@ -432,7 +441,7 @@ const DocumentsPage: React.FC = () => {
                     </p>
                     {!searchQuery && (
                         <Button
-                            onClick={() => setShowUploadModal(true)}
+                            onClick={() => navigate('/directory/documents/upload')}
                             gradient="purple"
                             icon={<Upload size={18} />}
                         >
@@ -489,6 +498,29 @@ const DocumentsPage: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Associated Zoho Context Quote Card */}
+                            {doc.associated_context && (
+                                <div className="mt-4 p-3 bg-purple-500/5 border border-purple-500/10 rounded-xl space-y-1 text-left">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-black text-purple-400 uppercase tracking-widest">
+                                            🏷️ {doc.associated_context.context_type === 'FEEDBACK' ? 'Feedback Review' : 'Task Comment'}
+                                        </span>
+                                        {doc.associated_context.rating && (
+                                            <span className="text-[9px] font-black text-amber-500">★ {doc.associated_context.rating}/5</span>
+                                        )}
+                                    </div>
+                                    <p className="text-[10px] font-bold text-[var(--text-main)] truncate">
+                                        {doc.associated_context.linked_title}
+                                    </p>
+                                    {doc.associated_context.comment_snippet && (
+                                        <div 
+                                            className="text-[10px] text-[var(--text-dim)] border-l-2 border-purple-500/30 pl-2 py-0.5 line-clamp-1 prose prose-sm dark:prose-invert max-w-none"
+                                            dangerouslySetInnerHTML={{ __html: doc.associated_context.comment_snippet }}
+                                        />
+                                    )}
+                                </div>
+                            )}
+
                             {/* Actions */}
                             <div className="flex items-center justify-between mt-4 pt-4 border-t border-[var(--border-color)]">
                                 <a
@@ -521,116 +553,7 @@ const DocumentsPage: React.FC = () => {
                 </div>
             )}
 
-            <Modal
-                isOpen={showUploadModal}
-                onClose={() => setShowUploadModal(false)}
-                title="Upload Document"
-                size="md"
-            >
-                <form onSubmit={handleUpload} className="space-y-5">
-                    {error && (
-                        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-shake">
-                            <X size={16} />
-                            {error}
-                        </div>
-                    )}
-                    {success && (
-                        <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-xl text-sm">
-                            {success}
-                        </div>
-                    )}
 
-                    <div className="group">
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Title *</label>
-                        <input
-                            type="text"
-                            required
-                            value={newDocument.title}
-                            onChange={e => setNewDocument(prev => ({ ...prev, title: e.target.value }))}
-                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-                            placeholder="Document title"
-                        />
-                    </div>
-
-                    <div className="group">
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Document Type *</label>
-                        <select
-                            required
-                            value={newDocument.document_type}
-                            onChange={e => setNewDocument(prev => ({ ...prev, document_type: e.target.value }))}
-                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all appearance-none cursor-pointer"
-                        >
-                            <option value="">Select type...</option>
-                            {getDocumentTypes().map(type => (
-                                <option key={type.value} value={type.value}>{type.label}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="group">
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">File *</label>
-                        <div className="relative">
-                            <input
-                                type="file"
-                                required
-                                onChange={handleFileChange}
-                                accept=".pdf,.doc,.docx,.ppt,.pptx,.csv"
-                                className="hidden"
-                                id="file-upload"
-                            />
-                            <label
-                                htmlFor="file-upload"
-                                className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-[var(--border-color)] rounded-xl cursor-pointer hover:border-purple-500/50 hover:bg-[var(--bg-muted)] transition-all"
-                            >
-                                {newDocument.file ? (
-                                    <div className="flex items-center gap-3">
-                                        <FileText size={24} className="text-purple-500" />
-                                        <span className="text-[var(--text-main)] whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px]">
-                                            {newDocument.file.name}
-                                        </span>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <FilePlus size={24} className="text-[var(--text-muted)] mb-2" />
-                                        <span className="text-sm text-[var(--text-dim)] text-center">Click to upload or drag and drop</span>
-                                        <span className="text-xs text-[var(--text-muted)] mt-1">PDF, DOC, DOCX, PPT, PPTX, CSV</span>
-                                    </>
-                                )}
-                            </label>
-                        </div>
-                    </div>
-
-                    <div className="group">
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description</label>
-                        <textarea
-                            value={newDocument.description}
-                            onChange={e => setNewDocument(prev => ({ ...prev, description: e.target.value }))}
-                            rows={3}
-                            placeholder="Optional description..."
-                            className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all resize-none"
-                        />
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setShowUploadModal(false)}
-                            fullWidth
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            gradient="purple"
-                            loading={submitting}
-                            fullWidth
-                        >
-                            Upload
-                        </Button>
-                    </div>
-                </form>
-            </Modal>
         </div>
     );
 };

@@ -13,3 +13,7 @@ export { default as Skeleton } from './Skeleton';
 export { default as CustomSelect } from './CustomSelect';
 export type { SelectOption } from './CustomSelect';
 export { default as ErrorBoundary } from './ErrorBoundary';
+export { default as EvidenceUploader } from './EvidenceUploader';
+export { ImageEditorModal } from './ImageEditorModal';
+export { ImageToolbar } from './ImageToolbar';
+

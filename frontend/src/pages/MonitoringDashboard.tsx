@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { useMonitoring } from '../context/MonitoringContext';
 import { Modal, Button } from '../components/common';
 import {
     OverviewTab, TasksTab, AttendanceTab,
@@ -92,11 +93,12 @@ const MonitoringDashboard: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    
+    // Global Monitoring Context
+    const { selectedInternId: selectedIntern, setSelectedInternId: setSelectedIntern, interns } = useMonitoring();
 
     // State
     const [activeTab, setActiveTab] = useState<string>('overview');
-    const [selectedIntern, setSelectedIntern] = useState<number | null>(null);
-    const [interns, setInterns] = useState<Intern[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [attendance, setAttendance] = useState<Attendance[]>([]);
     const [performance, setPerformance] = useState<PerformanceMetric | null>(null);
@@ -105,74 +107,23 @@ const MonitoringDashboard: React.FC = () => {
     const [activeModal, setActiveModal] = useState<ModalType>(null);
     const [success, setSuccess] = useState<string>('');
     const [showInternDropdown, setShowInternDropdown] = useState(false);
-    const [projects, setProjects] = useState<{id: number; project: {id: number, name: string}; intern: {id: number, full_name: string}}[]>([]);
-    const [modules, setModules] = useState<{id: number; name: string}[]>([]);
-    const [availableSkills, setAvailableSkills] = useState<string[]>([]);
-    const [skillSearch, setSkillSearch] = useState('');
-    const [showSkillDropdown, setShowSkillDropdown] = useState(false);
+    
+    // Super Admin Filters
+    const [departmentFilter, setDepartmentFilter] = useState<string>('');
+    const [departmentsList, setDepartmentsList] = useState<string[]>([]);
     
     // Filtering states shared between tabs
     const [monthFilter, setMonthFilter] = useState<number | 'all'>(new Date().getMonth() + 1);
     const [yearFilter, setYearFilter] = useState<number | 'all'>(new Date().getFullYear());
 
     // API Functions
-    const fetchInterns = useCallback(async (): Promise<void> => {
-        if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
-            try {
-                const response = await axios.get('/accounts/users/', {
-                    params: { role: 'INTERN', department: user.role === 'MANAGER' ? user.department : undefined }
-                });
-                const data = response.data.results || response.data;
-                setInterns(data);
-                if (data.length > 0 && !selectedIntern) {
-                    setSelectedIntern(data[0].id);
-                }
-            } catch (err) {
-                console.error('Error fetching interns:', err);
-            }
+    useEffect(() => {
+        if (user?.role === 'ADMIN') {
+            axios.get('/accounts/departments/')
+                .then(res => setDepartmentsList(res.data.departments || []))
+                .catch(err => console.error('Error fetching departments:', err));
         }
-    }, [user?.role, user?.department, selectedIntern]);
-
-    const fetchAvailableSkills = useCallback(async (internId?: number): Promise<void> => {
-        try {
-            const params = internId ? { intern_id: internId } : {};
-            const response = await axios.get('/analytics/skills/', { params });
-            setAvailableSkills(response.data.skills || []);
-        } catch (err) {
-            console.error('Error fetching skills:', err);
-        }
-    }, []);
-
-    const fetchProjects = async (): Promise<void> => {
-        try {
-            const response = await axios.get('/projects/assignments/');
-            const data = response.data.results || response.data;
-            const activeProjects = data.filter((p: { status: string }) => p.status === 'ACTIVE');
-            setProjects(activeProjects);
-        } catch (err) {
-            console.error('Error fetching projects:', err);
-        }
-    };
-
-    const fetchModules = async (projectAssignmentId: string): Promise<void> => {
-        if (!projectAssignmentId) {
-            setModules([]);
-            return;
-        }
-        try {
-            const assignment = projects.find(p => p.id === parseInt(projectAssignmentId));
-            if (assignment && assignment.project) {
-                const response = await axios.get('/projects/modules/', {
-                    params: { project_id: assignment.project.id }
-                });
-                const data = response.data.results || response.data;
-                setModules(data);
-            }
-        } catch (err) {
-            console.error('Error fetching modules:', err);
-            setModules([]);
-        }
-    };
+    }, [user?.role]);
 
     const fetchData = useCallback(async (): Promise<void> => {
         setLoading(true);
@@ -220,9 +171,6 @@ const MonitoringDashboard: React.FC = () => {
     }, [user?.role, user?.id, selectedIntern]);
 
     // Form states
-    const [taskForm, setTaskForm] = useState({
-        title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] as string[],
-    });
     const [attendanceForm, setAttendanceForm] = useState({
         date: new Date().toISOString().split('T')[0], status: 'PRESENT', check_in_time: '', check_out_time: '', notes: '',
     });
@@ -238,33 +186,28 @@ const MonitoringDashboard: React.FC = () => {
         }
     }, [location.pathname, tabs]);
 
-    // Fetch interns when page loads (for managers/admins)
+    // Fetch data when page loads (for interns/managers)
     useEffect(() => {
-        if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
-            fetchInterns();
-        } else if (user?.role === 'INTERN') {
+        if (user?.role === 'INTERN') {
             // For interns, fetch data directly
             fetchData();
-            if (user.id) fetchAvailableSkills(user.id as number);
         }
-    }, [user?.role, user?.id, fetchData, fetchInterns, fetchAvailableSkills]);
+    }, [user?.role, user?.id, fetchData]);
 
     // Fetch data when tab changes or selectedIntern is set - with proper chaining
     useEffect(() => {
-        const targetId = (user?.role === 'INTERN' ? user.id : selectedIntern) as number;
         // For managers, ensure an intern is selected
         if ((user?.role === 'ADMIN' || user?.role === 'MANAGER')) {
             if (interns.length > 0 && !selectedIntern) {
                 setSelectedIntern(interns[0].id);
             } else if (selectedIntern) {
                 fetchData();
-                fetchAvailableSkills(targetId);
             }
         } else if (user?.role === 'INTERN') {
             // For interns, always fetch data
             fetchData();
         }
-    }, [selectedIntern, activeTab, user?.role, interns, fetchData, fetchAvailableSkills]);
+    }, [selectedIntern, activeTab, user?.role, interns, fetchData]);
 
 
     // Handlers
@@ -288,42 +231,9 @@ const MonitoringDashboard: React.FC = () => {
     };
 
     const openModal = (modalType: ModalType): void => {
-        if (modalType === 'task') {
-            fetchProjects();
-        }
         setActiveModal(modalType);
     };
     const closeModal = (): void => setActiveModal(null);
-
-    const handleCreateTask = async (e: React.FormEvent): Promise<void> => {
-        e.preventDefault();
-        try {
-            const taskPayload: Record<string, unknown> = {
-                title: taskForm.title,
-                description: taskForm.description,
-                priority: taskForm.priority,
-                due_date: taskForm.due_date,
-                estimated_hours: taskForm.estimated_hours,
-                intern_id: selectedIntern,
-                skills_required: taskForm.skills_required
-            };
-            // Only include project_assignment_id if it's not empty
-            if (taskForm.project_assignment_id) {
-                taskPayload.project_assignment_id = parseInt(taskForm.project_assignment_id);
-            }
-            if (taskForm.project_module_id) {
-                taskPayload.project_module_id = parseInt(taskForm.project_module_id);
-            }
-            await axios.post('/analytics/tasks/create/', taskPayload);
-            setSuccess('Task created successfully!');
-            closeModal();
-            setTaskForm({ title: '', description: '', priority: 'MEDIUM', due_date: '', estimated_hours: 0, project_assignment_id: '', project_module_id: '', skills_required: [] });
-            fetchData();
-            setTimeout(() => setSuccess(''), 3000);
-        } catch (err) {
-            console.error('Error creating task:', err);
-        }
-    };
 
     const handleMarkAttendance = async (e: React.FormEvent): Promise<void> => {
         e.preventDefault();
@@ -406,22 +316,7 @@ const MonitoringDashboard: React.FC = () => {
         return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     };
 
-    const toggleSkill = (skill: string) => {
-        setTaskForm(prev => {
-            const exists = prev.skills_required.includes(skill);
-            if (exists) {
-                return { ...prev, skills_required: prev.skills_required.filter(s => s !== skill) };
-            } else {
-                return { ...prev, skills_required: [...prev.skills_required, skill] };
-            }
-        });
-        setSkillSearch('');
-    };
 
-    const filteredSkills = availableSkills.filter(skill => 
-        skill.toLowerCase().includes(skillSearch.toLowerCase()) &&
-        !taskForm.skills_required.includes(skill)
-    );
 
     return (
         <div className="min-h-screen animate-fade-in overflow-visible">
@@ -430,26 +325,54 @@ const MonitoringDashboard: React.FC = () => {
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 overflow-visible">
                     <div>
                         <h1 className="text-4xl font-heading font-black tracking-tighter text-[var(--text-main)] uppercase leading-none mb-3">
-                            Internship <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monitoring</span>
+                            {activeTab === 'overview' ? (
+                                <>Internship <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monitoring</span></>
+                            ) : activeTab === 'tasks' ? (
+                                <>Task <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Management</span></>
+                            ) : activeTab === 'attendance' ? (
+                                <>Attendance <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Tracker</span></>
+                            ) : activeTab === 'reports' || activeTab === 'weekly-reports' ? (
+                                <>Weekly <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Reports</span></>
+                            ) : (
+                                <><span className="capitalize">{activeTab}</span> <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Dashboard</span></>
+                            )}
                         </h1>
-                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--text-dim)]">Operation: Talent Intelligence • Status: Active</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--text-dim)]">
+                            {activeTab === 'overview' ? 'Operation: Talent Intelligence • Status: Active' : `Module: ${activeTab.replace('-', ' ')} • Status: Active`}
+                        </p>
                     </div>
                     {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
-                        <div className="relative z-30">
-                            <button
-                                onClick={() => setShowInternDropdown(!showInternDropdown)}
-                                className="flex items-center gap-3 px-4 py-2.5 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl hover:border-purple-500/50 transition-all"
-                            >
-                                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(getSelectedInternName())} flex items-center justify-center text-white font-bold text-xs`}>
-                                    {getInitials(interns.find(i => i.id === selectedIntern)?.full_name || null)}
-                                </div>
-                                <span className="text-[var(--text-main)]">{getSelectedInternName()}</span>
-                                <ChevronDown size={16} className={`text-[var(--text-dim)] transition-transform ${showInternDropdown ? 'rotate-180' : ''}`} />
-                            </button>
-                            {showInternDropdown && (
-                                <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--bg-muted)] backdrop-blur-xl border border-[var(--border-color)] rounded-xl shadow-xl z-[9999] isolate animate-scale-in">
-                                    <div className="p-2">
-                                        {interns.map((intern) => (
+                        <div className="flex items-center gap-3 relative z-30">
+                            {user?.role === 'ADMIN' && (
+                                <select
+                                    value={departmentFilter}
+                                    onChange={(e) => {
+                                        setDepartmentFilter(e.target.value);
+                                        setSelectedIntern(null);
+                                    }}
+                                    className="bg-[var(--card-bg)] border border-[var(--border-color)] text-[var(--text-main)] px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:border-purple-500"
+                                >
+                                    <option value="">All Departments</option>
+                                    {departmentsList.map(d => <option key={d} value={d}>{d}</option>)}
+                                </select>
+                            )}
+                            <div className="relative z-30">
+                                <button
+                                    onClick={() => setShowInternDropdown(!showInternDropdown)}
+                                    className="flex items-center gap-3 px-4 py-2.5 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl hover:border-purple-500/50 transition-all"
+                                >
+                                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradient(getSelectedInternName())} flex items-center justify-center text-white font-bold text-xs`}>
+                                        {getInitials(interns.find(i => i.id === selectedIntern)?.full_name || null)}
+                                    </div>
+                                    <span className="text-[var(--text-main)]">{getSelectedInternName()}</span>
+                                    <ChevronDown size={16} className={`text-[var(--text-dim)] transition-transform ${showInternDropdown ? 'rotate-180' : ''}`} />
+                                </button>
+                                {showInternDropdown && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--bg-muted)] backdrop-blur-xl border border-[var(--border-color)] rounded-xl shadow-xl z-[9999] isolate animate-scale-in max-h-64 overflow-y-auto">
+                                        <div className="p-2">
+                                            {interns
+                                                .filter(intern => departmentFilter ? intern.department === departmentFilter : true)
+                                                .map((intern) => (
                                             <button
                                                 key={intern.id}
                                                 onClick={() => {
@@ -468,9 +391,10 @@ const MonitoringDashboard: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
+        </div>
 
             {/* Success Message */}
             {success && (
@@ -480,24 +404,7 @@ const MonitoringDashboard: React.FC = () => {
                 </div>
             )}
 
-            {/* Tabs */}
-            <div className="px-8 py-2 sticky top-[80px] z-20 overflow-visible mb-6">
-                <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => handleTabChange(tab.id)}
-                            className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all duration-500 whitespace-nowrap ${activeTab === tab.id
-                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)] border border-purple-500/30'
-                                : 'bg-[var(--card-bg)] text-[var(--text-dim)] hover:text-[var(--text-main)] hover:bg-purple-500/[0.05] border border-[var(--border-color)]'
-                                }`}
-                        >
-                            <tab.icon size={16} className={activeTab === tab.id ? 'animate-pulse' : ''} />
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
+
 
             {/* Content */}
             <div className="p-6">
@@ -514,9 +421,9 @@ const MonitoringDashboard: React.FC = () => {
                             <OverviewTab tasks={tasks} attendance={attendance} performance={performance} />
                         )}
                         {activeTab === 'tasks' && (
-                            <TasksTab
+                             <TasksTab
                                 tasks={tasks}
-                                onAddTask={() => openModal('task')}
+                                onAddTask={() => navigate(selectedIntern ? `/management/tasks/create/${selectedIntern}` : '/management/tasks/create')}
                                 canCreate={user?.role === 'ADMIN' || user?.role === 'MANAGER'}
                                 onStatusChange={handleTaskStatusChange}
                                 onRefresh={fetchData}
@@ -536,6 +443,7 @@ const MonitoringDashboard: React.FC = () => {
                                 setMonthFilter={setMonthFilter}
                                 yearFilter={yearFilter}
                                 setYearFilter={setYearFilter}
+                                internId={selectedIntern || undefined}
                             />
                         )}
                         {activeTab === 'performance' && (
@@ -556,168 +464,7 @@ const MonitoringDashboard: React.FC = () => {
                 )}
             </div>
 
-            {/* Task Modal */}
-            <Modal
-                isOpen={activeModal === 'task'}
-                onClose={closeModal}
-                title="Assign New Task"
-                gradient="violet"
-            >
-                <form onSubmit={handleCreateTask} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Title</label>
-                        <input
-                            type="text"
-                            required
-                            placeholder="Enter task title"
-                            value={taskForm.title}
-                            onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Description</label>
-                        <textarea
-                            placeholder="Enter task description"
-                            value={taskForm.description}
-                            onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
-                            rows={3}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Priority</label>
-                            <select
-                                value={taskForm.priority}
-                                onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}
-                                className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                            >
-                                <option value="LOW">Low</option>
-                                <option value="MEDIUM">Medium</option>
-                                <option value="HIGH">High</option>
-                                <option value="CRITICAL">Critical</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Project (Optional)</label>
-                        <select
-                            value={taskForm.project_assignment_id}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setTaskForm({ ...taskForm, project_assignment_id: val, project_module_id: '' });
-                                fetchModules(val);
-                            }}
-                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                        >
-                            <option value="">No Project</option>
-                            {projects
-                                .filter((p: { intern: { id: number } }) => selectedIntern ? p.intern.id === selectedIntern : true)
-                                .map((p: { id: number; project: { name: string } }) => (
-                                <option key={p.id} value={p.id}>
-                                    {p.project.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    {modules.length > 0 && (
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Module {taskForm.project_assignment_id ? '' : '(Select a project first)'}</label>
-                            <select
-                                value={taskForm.project_module_id}
-                                onChange={(e) => setTaskForm({ ...taskForm, project_module_id: e.target.value })}
-                                disabled={!taskForm.project_assignment_id}
-                                className={`w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all ${!taskForm.project_assignment_id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                                <option value="">{taskForm.project_assignment_id ? 'Select Module' : 'No project selected'}</option>
-                                {modules.map((m) => (
-                                    <option key={m.id} value={m.id}>
-                                        {m.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Skills Developed (Select from list)</label>
-                        <div className="min-h-[44px] p-1.5 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl flex flex-wrap gap-2 focus-within:border-purple-500 transition-all">
-                            {taskForm.skills_required.map(skill => (
-                                <span key={skill} className="flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg text-sm group animate-scale-in">
-                                    {skill}
-                                    <button 
-                                        type="button"
-                                        onClick={() => toggleSkill(skill)}
-                                        className="hover:text-white transition-colors"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                </span>
-                            ))}
-                            <div className="flex-1 min-w-[120px] relative">
-                                <input
-                                    type="text"
-                                    placeholder={taskForm.skills_required.length === 0 ? "Search skills..." : ""}
-                                    value={skillSearch}
-                                    onChange={(e) => {
-                                        setSkillSearch(e.target.value);
-                                        setShowSkillDropdown(true);
-                                    }}
-                                    onFocus={() => setShowSkillDropdown(true)}
-                                    className="w-full bg-transparent border-none outline-none text-[var(--text-main)] placeholder-[var(--text-dim)] py-1"
-                                />
-                                {showSkillDropdown && (skillSearch || filteredSkills.length > 0) && (
-                                    <>
-                                        <div 
-                                            className="fixed inset-0 z-[100]" 
-                                            onClick={() => setShowSkillDropdown(false)}
-                                        />
-                                        <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--bg-muted)] backdrop-blur-xl border border-[var(--border-color)] rounded-xl shadow-2xl z-[101] max-h-[200px] overflow-y-auto custom-scrollbar animate-scale-in">
-                                            {filteredSkills.length > 0 ? (
-                                                <div className="p-1">
-                                                    {filteredSkills.map(skill => (
-                                                        <button
-                                                            key={skill}
-                                                            type="button"
-                                                            onClick={() => toggleSkill(skill)}
-                                                            className="w-full flex items-center justify-between p-2 hover:bg-purple-500/10 rounded-lg text-sm text-left text-[var(--text-dim)] hover:text-[var(--text-main)] transition-colors"
-                                                        >
-                                                            {skill}
-                                                            <Plus size={14} className="opacity-50" />
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            ) : skillSearch && (
-                                                <div className="p-4 text-center text-[var(--text-muted)] text-sm">
-                                                    No matching skills found
-                                                </div>
-                                            )}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">Due Date</label>
-                        <input
-                            type="date"
-                            required
-                            value={taskForm.due_date}
-                            onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
-                            className="w-full px-4 py-3 bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
-                        />
-                    </div>
-                    <div className="flex gap-3 pt-4">
-                        <Button type="button" onClick={closeModal} variant="outline" fullWidth>
-                            Cancel
-                        </Button>
-                        <Button type="submit" gradient="purple" fullWidth>
-                            Create Task
-                        </Button>
-                    </div>
-                </form>
-            </Modal>
+
 
             {/* Attendance Modal */}
             <Modal

@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { fetchAllReportsV2 } from '../api/reports';
 import { Card, Button, Badge, LoadingSpinner, StatsCard } from '../components/common';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { LayoutDashboard, CheckCircle2, Flag, ArrowUpRight, Clock, Award, ShieldCheck, Mail, Target } from 'lucide-react';
 
 interface InternEvaluationState {

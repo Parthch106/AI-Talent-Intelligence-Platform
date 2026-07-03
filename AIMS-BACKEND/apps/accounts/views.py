@@ -395,7 +395,8 @@ class InternOffboardView(APIView):
 
     def post(self, request, intern_id):
         from django.utils import timezone
-        from apps.accounts.models import InternProfile, EmploymentStage, FullTimeOffer, StipendRecord
+        from apps.accounts.models import InternProfile, FullTimeOffer, StipendRecord
+        from apps.analytics.models import EmploymentStage
 
         reason = request.data.get('reason', 'Contract ended')
 

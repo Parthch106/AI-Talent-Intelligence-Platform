@@ -114,6 +114,36 @@ class TaskTracking(models.Model):
         help_text="List of skill names developed by this task"
     )
     
+    # Phase 2 - Part 3: Subtasks and Evidences
+    parent_task = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='subtasks',
+        help_text="The parent task if this is a subtask"
+    )
+    
+    evidences = models.ManyToManyField(
+        'documents.Document',
+        blank=True,
+        related_name='task_evidences',
+        help_text="Documents uploaded as evidence for this task"
+    )
+
+    def save(self, *args, **kwargs):
+        # Handle automatic status transition for parent task
+        if self.pk:
+            try:
+                old_instance = TaskTracking.objects.get(pk=self.pk)
+                if old_instance.status != 'COMPLETED' and self.status == 'COMPLETED':
+                    if self.parent_task and self.parent_task.status == 'ASSIGNED':
+                        self.parent_task.status = 'IN_PROGRESS'
+                        self.parent_task.save(update_fields=['status'])
+            except TaskTracking.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+    
     class Meta:
         ordering = ['-assigned_at']
     

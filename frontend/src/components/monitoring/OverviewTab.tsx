@@ -48,9 +48,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ tasks, attendance, performanc
 
     const handleTaskClick = (taskId: number) => {
         if (selectedInternId) {
-            navigate(`/management/tasks?internId=${selectedInternId}&taskId=${taskId}`);
+            navigate(`/management/tasks/${taskId}?internId=${selectedInternId}`);
         } else {
-            navigate('/management/tasks');
+            navigate(`/management/tasks/${taskId}`);
         }
     };
 

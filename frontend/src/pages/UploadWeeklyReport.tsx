@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import { Card, Button, Badge, Modal } from '../components/common';
+import { Card, Button, Badge } from '../components/common';
 import {
     FileText, Upload, CheckCircle, Clock, AlertTriangle,
     ChevronRight, FileUp, Calendar, Target, TrendingUp, Trash2, Eye
@@ -26,22 +27,12 @@ interface WeeklyReport {
 
 const UploadWeeklyReport: React.FC = () => {
     const { user } = useAuth();
-    
-    // Helper to get full PDF URL
-    const getFullPdfUrl = (url: string | null | undefined) => {
-        if (!url) return '#';
-        if (url.startsWith('http')) return url;
-        const base = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8000`;
-        const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
-        return `${cleanBase}${url}`;
-    };
-
+    const navigate = useNavigate();
     const [reports, setReports] = useState<WeeklyReport[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
-    const [showModal, setShowModal] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [success, setSuccess] = useState<string>('');
     const [error, setError] = useState<string>('');
-    const [pdfFile, setPdfFile] = useState<File | null>(null);
 
     const fetchReports = React.useCallback(async () => {
         setLoading(true);
@@ -61,45 +52,12 @@ const UploadWeeklyReport: React.FC = () => {
         fetchReports();
     }, [fetchReports]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (file.type !== 'application/pdf') {
-                setError('Please select a PDF file only');
-                setPdfFile(null);
-                return;
-            }
-            setPdfFile(file);
-            setError('');
-        }
-    };
-
-    const handleSubmitReport = async (e: React.FormEvent, isDraft: boolean = false) => {
-        e.preventDefault();
-
-        if (!pdfFile) {
-            toast.error('Strategic documentation required: Please select a PDF file');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('pdf_report', pdfFile);
-        formData.append('is_draft', String(isDraft));
-
-        toast.promise(axios.post('/analytics/weekly-reports/submit/', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        }), {
-            loading: isDraft ? 'Saving draft...' : 'Injecting performance metrics into the analytical engine...',
-            success: () => {
-                setShowModal(false);
-                setPdfFile(null);
-                fetchReports();
-                return isDraft ? 'Draft saved successfully' : 'Weekly report successfully synchronized and archived';
-            },
-            error: (err) => {
-                return (err as any).response?.data?.error || 'Failed to synchronize performance report';
-            }
-        });
+    const getFullPdfUrl = (url: string | null | undefined) => {
+        if (!url) return '#';
+        if (url.startsWith('http')) return url;
+        const base = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8000`;
+        const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
+        return `${cleanBase}${url}`;
     };
 
     const handleFinalizeDraft = async (reportId: number) => {
@@ -113,6 +71,7 @@ const UploadWeeklyReport: React.FC = () => {
                 return 'Draft successfully submitted';
             },
             error: (err) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 return (err as any).response?.data?.error || 'Failed to finalize draft';
             }
         });
@@ -132,6 +91,7 @@ const UploadWeeklyReport: React.FC = () => {
                 return 'Report successfully decommissioned';
             },
             error: (err) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 return (err as any).response?.data?.error || 'Failed to decommission report';
             }
         });
@@ -222,7 +182,7 @@ const UploadWeeklyReport: React.FC = () => {
             {/* Submit Button */}
             <div className="mb-8">
                 <Button
-                    onClick={() => setShowModal(true)}
+                    onClick={() => navigate('/workspace/submit-report/new')}
                     icon={<Upload size={18} />}
                     gradient="purple"
                     className="shadow-lg shadow-purple-500/25"
@@ -367,84 +327,6 @@ const UploadWeeklyReport: React.FC = () => {
             </div>
 
             {/* Submit Report Modal - PDF Only */}
-            <Modal
-                isOpen={showModal}
-                onClose={() => {
-                    setShowModal(false);
-                    setPdfFile(null);
-                    setError('');
-                }}
-                title="Submit Weekly Report"
-                gradient="violet"
-                size="md"
-            >
-                <form className="space-y-5">
-                    <div className="bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl p-4 mb-4">
-                        <p className="text-sm text-[var(--text-dim)]">
-                            Upload your weekly report as a PDF document. The system will automatically
-                            parse and extract the relevant information from your report.
-                        </p>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-dim)] mb-2">
-                            <FileUp size={14} className="inline mr-1" />
-                            Upload PDF Report (Required)
-                        </label>
-                        <div className="relative">
-                            <input
-                                type="file"
-                                accept=".pdf"
-                                onChange={handleFileChange}
-                                className="w-full px-4 py-3 bg-[var(--bg-muted)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-500/20 file:text-purple-400 hover:file:bg-purple-500/30 cursor-pointer"
-                            />
-                            {pdfFile && (
-                                <div className="mt-2 flex items-center gap-2 text-emerald-400">
-                                    <CheckCircle size={16} />
-                                    <span className="text-sm">{pdfFile.name}</span>
-                                    <span className="text-xs text-[var(--text-muted)]">
-                                        ({(pdfFile.size / 1024).toFixed(1)} KB)
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                        <Button
-                            type="button"
-                            onClick={() => {
-                                setShowModal(false);
-                                setPdfFile(null);
-                                setError('');
-                            }}
-                            variant="outline"
-                            fullWidth
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-                            fullWidth
-                            disabled={loading || !pdfFile}
-                            onClick={(e) => handleSubmitReport(e, true)}
-                        >
-                            {loading ? 'Saving...' : 'Save as Draft'}
-                        </Button>
-                        <Button
-                            type="button"
-                            gradient="purple"
-                            fullWidth
-                            disabled={loading || !pdfFile}
-                            onClick={(e) => handleSubmitReport(e, false)}
-                        >
-                            {loading ? 'Submitting...' : 'Submit Report'}
-                        </Button>
-                    </div>
-                </form>
-            </Modal>
         </div>
     );
 };

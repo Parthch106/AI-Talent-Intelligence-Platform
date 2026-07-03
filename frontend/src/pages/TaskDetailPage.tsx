@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
     ChevronLeft, Calendar, Clock, Award, Star, 
     CheckCircle, AlertTriangle, 
     PlayCircle, FileText, User, Layers, History,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ArrowRight, Search, Filter, Check, X, ChevronDown,
     ChevronRight, ArrowLeft, Sparkles, Bug, MessageSquare
 } from 'lucide-react';
@@ -11,6 +13,7 @@ import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useMonitoring } from '../context/MonitoringContext';
 import { Card, Button, Badge, CustomSelect } from '../components/common';
+import TaskComments from '../components/tasks/TaskComments';
 import toast from 'react-hot-toast';
 
 interface Task {
@@ -39,11 +42,13 @@ interface Task {
     project?: {
         id: number;
         name: string;
+        tech_stack?: string[];
     };
     module?: {
         id: number;
         name: string;
     };
+    skills_required?: string[];
 }
 
 const STATUS_STEPS = [
@@ -94,6 +99,7 @@ const TaskDetailPage: React.FC = () => {
     const fetchAllTasks = async (navigateAfter = false) => {
         try {
             setTasksLoading(true);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const params: any = { limit: 1000 };
             if (isManager && selectedInternId) {
                 params.intern_id = selectedInternId;
@@ -551,6 +557,20 @@ const TaskDetailPage: React.FC = () => {
                         <h1 className="text-4xl lg:text-6xl font-black text-[var(--text-main)] tracking-tight leading-none capitalize">
                             {task!.title}
                         </h1>
+                        {((task!.skills_required && task!.skills_required.length > 0) || (task!.project?.tech_stack && task!.project.tech_stack.length > 0)) && (
+                            <div className="flex flex-wrap gap-2 pt-2">
+                                {task!.skills_required?.map((skill, idx) => (
+                                    <Badge key={`skill-${idx}`} variant="purple" size="sm" className="font-black uppercase tracking-widest text-[9px]">
+                                        {skill}
+                                    </Badge>
+                                ))}
+                                {task!.project?.tech_stack?.map((tech, idx) => (
+                                    <Badge key={`tech-${idx}`} variant="info" size="sm" className="font-black uppercase tracking-widest text-[9px]">
+                                        {tech}
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -775,6 +795,23 @@ const TaskDetailPage: React.FC = () => {
                                                 >+</button>
                                             </div>
                                         </div>
+                                        {((task!.skills_required && task!.skills_required.length > 0) || (task!.project?.tech_stack && task!.project.tech_stack.length > 0)) && (
+                                            <div className="space-y-4 pt-4">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-dim)]">Skills / Tech Stack</label>
+                                                <div className="flex flex-wrap gap-2 p-4 bg-[var(--bg-muted)]/50 border border-[var(--border-color)] rounded-[24px]">
+                                                    {task!.skills_required?.map((skill, idx) => (
+                                                        <Badge key={`eval-skill-${idx}`} variant="purple" size="sm" className="font-black uppercase tracking-widest text-[8px]">
+                                                            {skill}
+                                                        </Badge>
+                                                    ))}
+                                                    {task!.project?.tech_stack?.map((tech, idx) => (
+                                                        <Badge key={`eval-tech-${idx}`} variant="info" size="sm" className="font-black uppercase tracking-widest text-[8px]">
+                                                            {tech}
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -850,6 +887,9 @@ const TaskDetailPage: React.FC = () => {
                                 </div>
                             </Card>
                         )}
+
+                        {/* Task Discussions & Evidence */}
+                        <TaskComments taskId={task.id} />
                     </div>
 
                     {/* Meta Sidebar */}
@@ -875,19 +915,19 @@ const TaskDetailPage: React.FC = () => {
                                     <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)] px-1">Lead Developer</p>
                                     <div className="flex items-center gap-4 p-4 bg-[var(--bg-muted)]/50 rounded-2xl border border-[var(--border-color)] hover:bg-[var(--bg-muted)] transition-all cursor-pointer group">
                                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-xl font-black shadow-xl shadow-purple-500/20 group-hover:rotate-6 transition-all duration-500">
-                                            {task!.intern.name.charAt(0)}
+                                            {(task!.intern.name || task!.intern.email || '?').charAt(0).toUpperCase()}
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-sm font-black text-[var(--text-main)] truncate">{task!.intern.name}</p>
+                                            <p className="text-sm font-black text-[var(--text-main)] truncate">{task!.intern.name || task!.intern.email}</p>
                                             <p className="text-[10px] font-medium text-[var(--text-muted)] truncate">{task!.intern.email}</p>
                                         </div>
                                     </div>
                                 </div>
                             )}
 
-                             {(task!.project || task!.module) && (
+                             {(task!.project || task!.module || (task!.skills_required && task!.skills_required.length > 0)) && (
                                 <div className="space-y-5 pt-4">
-                                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)] px-1">Contextual Domains</p>
+                                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)] px-1">Contextual Domains & Skills</p>
                                     <div className="space-y-3">
                                         {task!.project && (
                                             <div className="flex items-center gap-4 p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl">
@@ -899,6 +939,30 @@ const TaskDetailPage: React.FC = () => {
                                             <div className="flex items-center gap-4 p-3 bg-purple-500/5 border border-purple-500/10 rounded-xl">
                                                 <ArrowRight size={16} className="text-purple-500" />
                                                 <span className="text-[10px] font-black uppercase tracking-wider text-purple-400">Layer: {task!.module.name}</span>
+                                            </div>
+                                        )}
+                                        {task!.skills_required && task!.skills_required.length > 0 && (
+                                            <div className="pt-2">
+                                                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--text-dim)] mb-2 px-1">Skills Developed</p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {task!.skills_required.map((skill, idx) => (
+                                                        <Badge key={idx} variant="purple" size="sm" className="font-black uppercase tracking-widest text-[8px]">
+                                                            {skill}
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {task!.project?.tech_stack && task!.project.tech_stack.length > 0 && (
+                                            <div className="pt-2">
+                                                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--text-dim)] mb-2 px-1">Project Tech Stack</p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {task!.project.tech_stack.map((tech, idx) => (
+                                                        <Badge key={idx} variant="info" size="sm" className="font-black uppercase tracking-widest text-[8px]">
+                                                            {tech}
+                                                        </Badge>
+                                                    ))}
+                                                </div>
                                             </div>
                                         )}
                                     </div>

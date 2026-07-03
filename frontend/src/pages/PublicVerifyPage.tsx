@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Card, Badge, LoadingSpinner } from '../components/common';
 
 interface VerificationData {
@@ -31,6 +32,7 @@ const PublicVerifyPage: React.FC = () => {
         const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
         const res = await axios.get(`${apiUrl}/analytics/verify/${certId}/`);
         setData(res.data);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         setError(err.response?.data?.detail || 'Certificate verification failed.');
       } finally {

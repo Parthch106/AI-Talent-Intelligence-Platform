@@ -4,9 +4,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from django.utils import timezone
-from .models import Feedback
-from .serializers import FeedbackSerializer
+from .models import Feedback, TaskComment
+from .serializers import FeedbackSerializer, TaskCommentSerializer
+# pyrefly: ignore [missing-import]
 from apps.accounts.models import User
+# pyrefly: ignore [missing-import]
 from apps.notifications.models import Notification
 
 
@@ -66,24 +68,27 @@ class FeedbackViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         user = request.user
         recipient_id = request.data.get('recipient_id')
-        task_id = request.data.get('task_id')
-        
-        # Role-based validation
-        if user.role == 'MANAGER':
-            # Manager can only give feedback to interns
-            try:
-                recipient = User.objects.get(id=recipient_id)
-                if recipient.role != User.Role.INTERN:
+        # task_id available if needed for future validation
+        parent_feedback_id = request.data.get('parent_feedback_id')
+
+        # Skip role-based validation for replies — anyone can reply to a feedback thread
+        if not parent_feedback_id:
+            # Role-based validation
+            if user.role == 'MANAGER':
+                # Manager can only give feedback to interns
+                try:
+                    recipient = User.objects.get(id=recipient_id)
+                    if recipient.role != User.Role.INTERN:
+                        return Response(
+                            {'error': 'Managers can only give feedback to interns'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                except User.DoesNotExist:
                     return Response(
-                        {'error': 'Managers can only give feedback to interns'},
+                        {'error': 'Recipient not found'},
                         status=status.HTTP_400_BAD_REQUEST
                     )
-            except User.DoesNotExist:
-                return Response(
-                    {'error': 'Recipient not found'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        
+
         # Admin can give feedback to anyone (managers and interns)
         return super().create(request, *args, **kwargs)
 
@@ -135,3 +140,27 @@ class FeedbackViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(feedbacks, many=True)
         return Response(serializer.data)
+
+
+class TaskCommentViewSet(viewsets.ModelViewSet):
+    queryset = TaskComment.objects.all()
+    serializer_class = TaskCommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        task_id = self.request.query_params.get('task')
+        
+        queryset = TaskComment.objects.all()
+        if task_id:
+            queryset = queryset.filter(task_id=task_id)
+            
+        if user.role == 'INTERN':
+            # Interns can only see comments on tasks assigned to them
+            return queryset.filter(task__intern=user).order_by('created_at')
+            
+        # Admins and Managers see all matching comments
+        return queryset.order_by('created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)

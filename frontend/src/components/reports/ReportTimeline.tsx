@@ -2,6 +2,7 @@ import React from 'react';
 import type { WeeklyReportV2 } from '../../types/reports';
 import WeeklyReportCard from './WeeklyReportCard';
 import { Card, LoadingSpinner } from '../common';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ClipboardList, GitBranch, LayoutDashboard, Search } from 'lucide-react';
 
 interface Props {

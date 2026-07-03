@@ -3,7 +3,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, useDro
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { DragEndEvent, DragOverEvent } from '@dnd-kit/core';
-import { Calendar } from 'lucide-react';
+import { Calendar, MessageSquare, Paperclip } from 'lucide-react';
 
 interface Task {
     id: number;
@@ -13,6 +13,8 @@ interface Task {
     priority: string;
     due_date: string;
     quality_rating: number | null;
+    comments_count?: number;
+    evidences_count?: number;
     project?: {
         id: number;
         name: string;
@@ -85,11 +87,25 @@ const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
                         <span className={`w-2 h-2 rounded-full ${PRIORITY_COLORS[task.priority] || 'bg-gray-400'}`} />
                     </div>
                     <h4 className="text-sm font-medium text-[var(--text-main)] truncate">{task.title}</h4>
-                    <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--text-muted)]">
-                        <Calendar size={10} />
-                        <span>{formatDate(task.due_date)}</span>
+                    <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--text-muted)] flex-wrap">
+                        <span className="flex items-center gap-1">
+                            <Calendar size={10} />
+                            <span>{formatDate(task.due_date)}</span>
+                        </span>
                         {task.quality_rating && (
                             <span className="text-amber-400">★ {task.quality_rating.toFixed(1)}</span>
+                        )}
+                        {task.comments_count !== undefined && task.comments_count > 0 && (
+                            <span className="flex items-center gap-0.5 text-purple-500 font-medium">
+                                <MessageSquare size={10} />
+                                {task.comments_count}
+                            </span>
+                        )}
+                        {task.evidences_count !== undefined && task.evidences_count > 0 && (
+                            <span className="flex items-center gap-0.5 text-indigo-500 font-medium">
+                                <Paperclip size={10} />
+                                {task.evidences_count}
+                            </span>
                         )}
                     </div>
                 </div>

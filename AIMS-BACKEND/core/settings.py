@@ -21,26 +21,26 @@ from redmail import EmailSender
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load .env from multiple possible locations (settings dir, project root)
-# Determine environment file to load
-local_env_paths = [
-    os.path.join(os.path.dirname(__file__), 'local.env'),
-    os.path.join(BASE_DIR, 'local.env'),
-    os.path.join(BASE_DIR.parent, 'local.env'),
-]
-prod_env_paths = [
+default_env_paths = [
     os.path.join(os.path.dirname(__file__), '.env'),
     os.path.join(BASE_DIR, '.env'),
     os.path.join(BASE_DIR.parent, '.env'),
 ]
 
-env_loaded = False
-for env_path in local_env_paths:
+# Load default environment configuration
+for env_path in default_env_paths:
     if os.path.exists(env_path):
         load_dotenv(env_path, override=True)
-        env_loaded = True
         break
 
-if not env_loaded:
+# If DJANGO_ENV is set to production, load production overrides on top
+django_env = os.environ.get('DJANGO_ENV', 'development').lower()
+if django_env == 'production':
+    prod_env_paths = [
+        os.path.join(os.path.dirname(__file__), '.env.production'),
+        os.path.join(BASE_DIR, '.env.production'),
+        os.path.join(BASE_DIR.parent, '.env.production'),
+    ]
     for env_path in prod_env_paths:
         if os.path.exists(env_path):
             load_dotenv(env_path, override=True)
@@ -53,6 +53,7 @@ if 'GITHUB_TOKEN' in os.environ:
 # GitHub Models Token for LLM Parsing
 AI_TALENT_GITHUB_TOKEN = os.getenv('AI_TALENT_GITHUB_TOKEN')
 HF_TOKEN = os.getenv('HF_TOKEN')
+REQUIRE_TASK_SKILLS = os.getenv('REQUIRE_TASK_SKILLS', 'True').lower() in ('true', '1', 't')
 
 
 # Quick-start development settings - unsuitable for production
@@ -138,6 +139,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     "corsheaders.middleware.CorsMiddleware",
+    'core.middleware.payload_encryption_middleware.PayloadEncryptionMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -184,8 +186,6 @@ RATELIMIT_USE_CACHE = 'default'
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 DEBUG = os.getenv("DJANGO_DEBUG") == "True"
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0,.vercel.app").split(",")
-if 'RENDER_EXTERNAL_HOSTNAME' in os.environ:
-    ALLOWED_HOSTS.append(os.environ['RENDER_EXTERNAL_HOSTNAME'])
 if DEBUG:
     ALLOWED_HOSTS.append("*")
 
@@ -217,15 +217,8 @@ SITE_NAME = os.environ.get('SITE_NAME', COMPANY_NAME)
 
 
 # Celery configuration adjustments
-REDIS_URL = os.environ.get('REDIS_URL')
-if REDIS_URL:
-    CELERY_BROKER_URL = REDIS_URL
-    CELERY_RESULT_BACKEND = REDIS_URL
-else:
-    # Fallback to run tasks synchronously if no Redis is configured (for free tier)
-    CELERY_TASK_ALWAYS_EAGER = True
-    CELERY_TASK_STORE_EAGER_RESULT = True
-
+CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_TIMEZONE = 'Asia/Kolkata'
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
@@ -319,8 +312,22 @@ CSRF_TRUSTED_ORIGINS = os.getenv(
     "CSRF_TRUSTED_ORIGINS",
     "https://iconnect.cybersecurityumbrella.com,http://localhost:5173,http://127.0.0.1:5173"
 ).split(",")
-if 'RENDER_EXTERNAL_HOSTNAME' in os.environ:
-    CSRF_TRUSTED_ORIGINS.append(f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}")
+
+CORS_EXPOSE_HEADERS = ['X-Encrypted', 'Content-Disposition', 'X-Session-Status']
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'x-encrypted',
+    'x-accept-encrypted'
+]
 
 # Respect proxy headers under IIS Reverse Proxy
 USE_X_FORWARDED_HOST = True
@@ -345,8 +352,8 @@ from jinja2 import Environment, FileSystemLoader
 EMAIL_SENDER = EmailSender(
     host=os.getenv('EMAIL_HOST', 'smtp.gmail.com'),
     port=int(os.getenv('EMAIL_PORT', 587)),
-    username=os.getenv('EMAIL_HOST_USER'),
-    password=os.getenv('EMAIL_HOST_PASSWORD'),
+    username=os.getenv('EMAIL_HOST_USER') or '',
+    password=os.getenv('EMAIL_HOST_PASSWORD') or '',
     use_starttls=os.getenv('EMAIL_USE_TLS', 'True') == 'True'
 )
 EMAIL_SENDER.sender = f"AIMs Talent Platform <{os.getenv('EMAIL_HOST_USER')}>"
@@ -355,22 +362,18 @@ EMAIL_SENDER.use_jinja = False
 # =============================================================================
 # Cache Settings (Redis)
 # =============================================================================
-if REDIS_URL:
-    CACHES = {
-        "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": REDIS_URL,
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-                "KEY_PREFIX": "aims",
-            }
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "KEY_PREFIX": "aims",
         }
     }
-else:
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": "aims-cache",
-        }
-    }
+}
 
+
+# Trigger reload
+
+# Reload after local.env change

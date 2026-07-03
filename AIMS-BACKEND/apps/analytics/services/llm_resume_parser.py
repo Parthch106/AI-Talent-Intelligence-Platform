@@ -159,7 +159,8 @@ class LangChainResumeParser:
                 temperature=0.1,
                 max_tokens=4096,
                 api_key=api_key,
-                base_url=base_url
+                base_url=base_url,
+                timeout=15
             )
             
             logger.info("LangChainResumeParser: LLM initialized successfully with GitHub Models gpt-4o-mini")

@@ -1,3 +1,15 @@
+# Ignore everything in the root directory by default
+/*
+
+# Allow root configuration & documentation
+!/.gitignore
+!/README.md
+
+# Allow only frontend and backend folders
+!/frontend/
+!/AIMS-BACKEND/
+!/backend/
+
 # Python / Django
 __pycache__/
 *.py[cod]
@@ -5,6 +17,7 @@ __pycache__/
 *.sqlite3
 venv/
 env/
+.venv/
 .env
 local.env
 *.bak
@@ -31,4 +44,6 @@ Thumbs.db
 *.csv
 .fallow/
 Temp/
+temp/
 AIMS-BACKEND/documents/
+backend/documents/

@@ -383,17 +383,62 @@ class SkillGapAnalysisView(APIView):
 # ============================================================================
 
 
+def _infer_task_skills(task):
+    skills = task.skills_required or []
+    if not skills:
+        try:
+            import re
+            from apps.analytics.services.learning_path_optimizer import PREREQUISITE_GRAPH
+            text = f"{task.title} {task.description}".lower()
+            inferred = set()
+            known_skills = list(PREREQUISITE_GRAPH.keys())
+            
+            # Expand to include all possible prerequisite skills
+            all_skills = set(known_skills)
+            for pk, p_list in PREREQUISITE_GRAPH.items():
+                all_skills.update(p_list)
+                
+            for ks in all_skills:
+                ks_lower = ks.lower()
+                if re.search(r'\b' + re.escape(ks_lower) + r'\b', text) or \
+                   (ks_lower in ["c++", "c#", ".net", "node.js", "vue.js", "next.js", "react.js"] and ks_lower in text):
+                    inferred.add(ks)
+            skills = list(inferred)
+        except Exception:
+            pass
+    return skills
+
+
 class TaskTrackingView(APIView):
     """
     API endpoint for task tracking during internship.
     """
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        """Get task tracking data for an intern."""
+    def get(self, request, task_id=None):
+        """Get task tracking data for an intern or a specific task."""
         user = request.user
+        
+        if task_id:
+            try:
+                task = TaskTracking.objects.get(id=task_id)
+                # Ensure the user has permission to view this task
+                if user.role not in [User.Role.ADMIN, User.Role.MANAGER] and task.intern_id != user.id:
+                    return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+                
+                if user.role == User.Role.MANAGER:
+                    managed_depts = [d.strip() for d in user.department.split(',') if d.strip()]
+                    if task.intern.department not in managed_depts:
+                        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+                        
+                return Response(self._serialize_task(task, request))
+            except TaskTracking.DoesNotExist:
+                return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
+
         intern_id = request.query_params.get('intern_id')
         status_filter = request.query_params.get('status')
+        department_filter = request.query_params.get('department')
+        admin_id_filter = request.query_params.get('admin_id')
 
         # Determine target intern
         if intern_id:
@@ -419,8 +464,18 @@ class TaskTrackingView(APIView):
 
         if status_filter:
             tasks = tasks.filter(status=status_filter)
+        if department_filter:
+            tasks = tasks.filter(intern__department=department_filter)
+        if admin_id_filter and user.role == User.Role.ADMIN:
+            tasks = tasks.filter(intern__internprofile__assigned_manager_id=admin_id_filter)
 
-        data = [{
+        data = [self._serialize_task(task, request) for task in tasks]
+
+        return Response({'tasks': data})
+
+
+    def _serialize_task(self, task, request):
+        return {
             'id': task.id,
             'task_id': task.task_id,
             'title': task.title,
@@ -435,18 +490,35 @@ class TaskTrackingView(APIView):
             'actual_hours': task.actual_hours,
             'quality_rating': task.quality_rating,
             'code_review_score': task.code_review_score,
+            'parent_task_id': task.parent_task_id,
+            'subtasks': [
+                {
+                    'id': sub.id,
+                    'task_id': sub.task_id,
+                    'title': sub.title,
+                    'status': sub.status,
+                } for sub in task.subtasks.all()
+            ],
+            'evidences': [
+                {
+                    'id': ev.id,
+                    'title': ev.title,
+                    'document_type': ev.document_type,
+                    'url': request.build_absolute_uri(ev.file.url) if ev.file else None
+                } for ev in task.evidences.all()
+            ],
             'project': {
                 'id': task.project_assignment.id,
                 'name': task.project_assignment.project.name,
                 'status': task.project_assignment.status,
+                'tech_stack': task.project_assignment.project.tech_stack,
             } if task.project_assignment else None,
             'module': {
                 'id': task.project_module.id,
                 'name': task.project_module.name,
             } if task.project_module else None,
-        } for task in tasks]
-
-        return Response({'tasks': data})
+            'skills_required': _infer_task_skills(task),
+        }
 
     def post(self, request):
         """Create a new task tracking entry."""
@@ -466,6 +538,32 @@ class TaskTrackingView(APIView):
                 {'error': 'intern_id required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        from django.conf import settings
+        skills_required = task_data.get('skills_required', [])
+        
+        if getattr(settings, 'REQUIRE_TASK_SKILLS', True):
+            if not skills_required or not isinstance(skills_required, list) or len(skills_required) == 0:
+                return Response(
+                    {'error': 'skills_required is mandatory. Tasks must have at least one skill attached to build skill proficiency.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            from .models import LearningPath
+            lp = LearningPath.objects.filter(intern_id=intern_id).last()
+            lp_skills = set()
+            if lp and lp.milestones:
+                for m in lp.milestones:
+                    if isinstance(m, dict) and m.get('skill'):
+                        lp_skills.add(m.get('skill'))
+                        
+            if lp_skills:
+                invalid_skills = [s for s in skills_required if s not in lp_skills]
+                if invalid_skills:
+                    return Response(
+                        {'error': f'The following skills are not in the intern\'s learning path: {", ".join(invalid_skills)}'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
         try:
             intern = User.objects.get(id=intern_id, role=User.Role.INTERN)
@@ -492,7 +590,12 @@ class TaskTrackingView(APIView):
             project_assignment_id=task_data.get('project_assignment_id'),
             project_module_id=task_data.get('project_module_id'),
             skills_required=task_data.get('skills_required', []),
+            parent_task_id=task_data.get('parent_task_id'),
         )
+
+        evidence_ids = task_data.get('evidence_ids', [])
+        if evidence_ids:
+            task.evidences.set(evidence_ids)
 
         # Notify Intern
         notify_task_assigned(intern, task, user)
@@ -527,9 +630,16 @@ class TaskTrackingView(APIView):
 
         # ── ADMIN: full access to task details (no dept restrictions) ──
         if user.role == User.Role.ADMIN:
-            for field in ['title', 'description', 'priority', 'due_date', 'estimated_hours']:
+            for field in ['title', 'description', 'priority', 'due_date', 'estimated_hours', 'parent_task_id', 'project_assignment_id', 'project_module_id']:
                 if field in request.data:
-                    setattr(task, field, request.data[field])
+                    # special handling for empty string or None for foreign keys
+                    val = request.data[field]
+                    if val == '':
+                        val = None
+                    setattr(task, field, val)
+            
+            if 'evidence_ids' in request.data:
+                task.evidences.set(request.data['evidence_ids'])
 
         # ── INTERN: status only, own tasks only ──
         if user.role == User.Role.INTERN:
@@ -553,9 +663,15 @@ class TaskTrackingView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             # Also allow updating task details
-            for field in ['title', 'description', 'priority', 'due_date', 'estimated_hours']:
+            for field in ['title', 'description', 'priority', 'due_date', 'estimated_hours', 'parent_task_id', 'project_assignment_id', 'project_module_id']:
                 if field in request.data:
-                    setattr(task, field, request.data[field])
+                    val = request.data[field]
+                    if val == '':
+                        val = None
+                    setattr(task, field, val)
+            
+            if 'evidence_ids' in request.data:
+                task.evidences.set(request.data['evidence_ids'])
 
         # ── Status update (INTERN + MANAGER) ──
         if new_status:
@@ -671,7 +787,9 @@ class TaskEvaluationView(APIView):
             )
         
         try:
-            task = TaskTracking.objects.select_related('intern').get(id=task_id)
+            task = TaskTracking.objects.select_related(
+                'intern', 'project_assignment__project', 'project_module'
+            ).get(id=task_id)
         except TaskTracking.DoesNotExist:
             return Response(
                 {'error': 'Task not found'},
@@ -721,7 +839,18 @@ class TaskEvaluationView(APIView):
                 'bug_count': task.bug_count,
                 'mentor_feedback': task.mentor_feedback,
                 'rework_required': task.rework_required
-            }
+            },
+            'project': {
+                'id': task.project_assignment.id,
+                'name': task.project_assignment.project.name,
+                'status': task.project_assignment.status,
+                'tech_stack': task.project_assignment.project.tech_stack,
+            } if task.project_assignment else None,
+            'module': {
+                'id': task.project_module.id,
+                'name': task.project_module.name,
+            } if task.project_module else None,
+            'skills_required': _infer_task_skills(task),
         })
 
     def patch(self, request, task_id=None):
@@ -1715,23 +1844,26 @@ class TaskHeatmapView(APIView):
         """Get task completion data for heatmap visualization."""
         user = request.user
         intern_id = request.query_params.get('intern_id')
+        department_filter = request.query_params.get('department')
+        admin_id_filter = request.query_params.get('admin_id')
         months = int(request.query_params.get('months', 12))  # Default last 12 months
 
-        # Determine target intern
+        # Build base queryset with permissions
+        tasks_qs = TaskTracking.objects.all()
+        
+        if user.role == User.Role.MANAGER:
+            managed_depts = [d.strip() for d in user.department.split(',') if d.strip()]
+            tasks_qs = tasks_qs.filter(intern__department__in=managed_depts)
+        elif user.role == User.Role.INTERN:
+            tasks_qs = tasks_qs.filter(intern_id=user.id)
+
+        # Apply filters
         if intern_id:
-            if user.role not in [User.Role.ADMIN, User.Role.MANAGER]:
-                return Response(
-                    {'error': 'Permission denied'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-            target_id = int(intern_id)
-            # Validate manager access
-            if user.role == User.Role.MANAGER:
-                is_valid, error_response = validate_manager_access(user, target_id)
-                if not is_valid:
-                    return error_response
-        else:
-            target_id = user.id
+            tasks_qs = tasks_qs.filter(intern_id=intern_id)
+        if department_filter:
+            tasks_qs = tasks_qs.filter(intern__department=department_filter)
+        if admin_id_filter and user.role == User.Role.ADMIN:
+            tasks_qs = tasks_qs.filter(intern__internprofile__assigned_manager_id=admin_id_filter)
 
         # Calculate date range
         start_date_param = request.query_params.get('start_date')
@@ -1751,8 +1883,7 @@ class TaskHeatmapView(APIView):
             start_date = end_date - relativedelta(months=months)
 
         # Get completed tasks in date range
-        completed_tasks = TaskTracking.objects.filter(
-            intern_id=target_id,
+        completed_tasks = tasks_qs.filter(
             status='COMPLETED',
             completed_at__date__gte=start_date,
             completed_at__date__lte=end_date
@@ -1761,8 +1892,7 @@ class TaskHeatmapView(APIView):
         )
 
         # Get in-progress tasks in date range (based on assigned_at)
-        in_progress_tasks = TaskTracking.objects.filter(
-            intern_id=target_id,
+        in_progress_tasks = tasks_qs.filter(
             status__in=['ASSIGNED', 'IN_PROGRESS', 'SUBMITTED', 'REWORK'],
             assigned_at__date__gte=start_date,
             assigned_at__date__lte=end_date
@@ -1781,8 +1911,7 @@ class TaskHeatmapView(APIView):
             heatmap_data[date_str] = heatmap_data.get(date_str, 0) + task['count']
 
         # Get quality ratings for each day
-        tasks_with_quality = TaskTracking.objects.filter(
-            intern_id=target_id,
+        tasks_with_quality = tasks_qs.filter(
             status='COMPLETED',
             completed_at__date__gte=start_date,
             completed_at__date__lte=end_date,
@@ -2671,8 +2800,13 @@ class SkillListView(APIView):
         try:
             intern_id = request.query_params.get('intern_id')
             if intern_id:
-                from .models import SkillProfile
-                skills = SkillProfile.objects.filter(intern_id=intern_id).values_list('skill_name', flat=True).distinct()
+                from .models import LearningPath
+                lp = LearningPath.objects.filter(intern_id=intern_id).last()
+                skills = set()
+                if lp and lp.milestones:
+                    for m in lp.milestones:
+                        if isinstance(m, dict) and m.get('skill'):
+                            skills.add(m.get('skill'))
                 skills = sorted(list(skills))
             else:
                 from apps.analytics.services.learning_path_optimizer import PREREQUISITE_GRAPH
@@ -2802,25 +2936,10 @@ class AIChatBotView(APIView):
             from apps.analytics.services.chatbot_service import get_chatbot_service
             service = get_chatbot_service()
             
-            # Add user context for personalization
-            user_context = f"User Name: {request.user.full_name or request.user.email}, Role: {request.user.role}"
+            from apps.analytics.services.context_builder import build_user_context
+            user_context = build_user_context(request.user)
             
-            # Add V2 specific context if available for Interns
-            if str(request.user.role) == 'INTERN':
-                try:
-                    profile = InternProfileV2.objects.get(user=request.user)
-                    user_context += f", Current Stage: {profile.get_status_display()}"
-                    
-                    # Try to fetch latest prediction
-                    app = Application.objects.filter(intern=request.user).first()
-                    if app:
-                        pred = ModelPrediction.objects.filter(application=app).first()
-                        if pred:
-                            user_context += f", AI Suitability Score: {round(pred.suitability_score * 100, 1)}%"
-                except Exception:
-                    pass
-            
-            history_with_context = chat_history + [{"role": "system", "content": f"Personalized context: {user_context}"}]
+            history_with_context = chat_history + [{"role": "system", "content": f"Personalized context of the logged-in user:\n{user_context}"}]
             
             result = service.get_response(user_message, chat_history=history_with_context)
             
@@ -2852,7 +2971,7 @@ from apps.analytics.models import (
 
 class IsAdminOnly(permissions.BasePermission):
     """Only ADMIN role can access."""
-    def has_permission(self, request, view):
+    def has_permission(self, request, view):  # type: ignore
         return bool(
             request.user and
             request.user.is_authenticated and
@@ -2862,7 +2981,7 @@ class IsAdminOnly(permissions.BasePermission):
 
 class IsAdminOrManager(permissions.BasePermission):
     """ADMIN or MANAGER roles can access."""
-    def has_permission(self, request, view):
+    def has_permission(self, request, view):  # type: ignore
         return bool(
             request.user and
             request.user.is_authenticated and
@@ -3469,7 +3588,7 @@ class FullTimeOfferViewSet(viewsets.ModelViewSet):
         """Admin creates the offer. Triggers LLM onboarding plan generation."""
         from apps.analytics.tasks import generate_onboarding_plan
         offer = serializer.save()
-        generate_onboarding_plan.delay(offer.id)
+        generate_onboarding_plan.delay(offer.id)  # type: ignore
 
     @action(detail=True, methods=['patch'], url_path='issue')
     def issue_offer(self, request, pk=None):
@@ -3551,7 +3670,6 @@ class ConversionScoreView(APIView):
             # Manager department check
             if str(user.role) == 'MANAGER' and user.department:
                 try:
-                    from apps.accounts.models import InternProfile
                     profile = InternProfile.objects.get(user_id=intern_id)
                     managed_depts = [d.strip() for d in user.department.split(',') if d.strip()]
                     if profile.user.department not in managed_depts:
@@ -3631,7 +3749,7 @@ class WeeklyReportBulkPDFExportView(APIView):
 
         if phase_param:
             # Filter by phase date range using EmploymentStage
-            from apps.accounts.models import EmploymentStage
+            from apps.analytics.models import EmploymentStage
             try:
                 stage = EmploymentStage.objects.get(intern=intern, phase=phase_param)
                 reports_qs = reports_qs.filter(

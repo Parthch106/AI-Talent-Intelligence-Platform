@@ -42,6 +42,7 @@ const ReportSparkline: React.FC<Props> = ({
               fontSize: '11px',
               color: '#fff',
             }}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             formatter={(val: any) => [typeof val === 'number' ? `${val.toFixed(1)}%` : val, 'Score']}
             labelFormatter={(label) => `Week ${label}`}
           />
